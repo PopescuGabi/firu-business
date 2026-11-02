@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session";
 
-const PUBLIC = ["/login", "/privacy", "/terms", "/api/auth/google", "/api/auth/callback", "/api/auth/dev"];
+const PUBLIC = ["/login", "/welcome", "/privacy", "/terms", "/api/auth/google", "/api/auth/callback", "/api/auth/dev"];
 
 // Simple per-IP limiter for API calls (each instance keeps its own window).
 const hits = new Map<string, { count: number; reset: number }>();
@@ -48,6 +48,11 @@ export async function proxy(req: NextRequest) {
 
   if (isApi) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   const url = req.nextUrl.clone();
+  // Logged-out visitors to the site address see the public homepage (same URL, for Google's review).
+  if (pathname === "/") {
+    url.pathname = "/welcome";
+    return NextResponse.rewrite(url);
+  }
   url.pathname = "/login";
   url.search = "";
   return NextResponse.redirect(url);

@@ -118,6 +118,22 @@ export default async function SettingsPage() {
         </Section>
       )}
 
+      <Section
+        title="Your Google data"
+        footer={
+          <>
+            Calendar: read to plan around your events; events are only added or removed when you accept or delete them here. Drive: only
+            the files this app creates. Nothing is sold or used to train AI.{" "}
+            <a href="/privacy" className="font-semibold text-blue">Privacy policy</a> ·{" "}
+            <a href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer" className="font-semibold text-blue">
+              Revoke access
+            </a>
+          </>
+        }
+      >
+        <></>
+      </Section>
+
       <Section title="Claude usage" footer="Estimated from Opus 5.5 list prices; your Anthropic console has the exact bill.">
         <div className="grid grid-cols-2 gap-3">
           {[

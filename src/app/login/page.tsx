@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { LogoMark } from "@/components/logo";
+import { GoogleButton } from "@/components/google-button";
 import { buttonClass } from "@/components/ui";
 
 export const metadata = { title: "Sign in" };
@@ -31,15 +32,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         )}
 
         <div className="mt-8 flex flex-col gap-3">
-          <a href="/api/auth/google" className={buttonClass("filled", "lg")}>
-            <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
-              <path fill="#fff" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3Z" />
-              <path fill="#fff" opacity=".85" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22Z" />
-              <path fill="#fff" opacity=".7" d="M6.4 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.1A10 10 0 0 0 2 12c0 1.6.4 3.1 1.1 4.6L6.4 14Z" />
-              <path fill="#fff" opacity=".55" d="M12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.4L6.4 10C7.2 7.7 9.4 6 12 6Z" />
-            </svg>
-            Continue with Google
-          </a>
+          <GoogleButton label="Continue with Google" />
           {env.devLoginEnabled() && (
             <form action="/api/auth/dev" method="post">
               <button className={buttonClass("gray", "lg") + " w-full"}>Developer sign-in (local only)</button>
@@ -47,7 +40,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           )}
         </div>
         <p className="mt-6 text-[12px] text-label-2">
-          Signing in also connects Google Calendar and Drive, so your organiser and files work on every device.
+          Signing in also connects Google Calendar (to plan around your events and add the blocks you accept) and Google Drive
+          (only the files this app creates). <a href="/welcome" className="text-blue">What is Personal Hub?</a>
         </p>
         <p className="mt-3 text-[12px] text-label-2">
           <a href="/privacy" className="hover:text-label">Privacy</a> · <a href="/terms" className="hover:text-label">Terms</a>

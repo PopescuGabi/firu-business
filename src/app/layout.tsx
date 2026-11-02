@@ -4,6 +4,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Personal Hub", template: "%s · Personal Hub" },
   robots: { index: false, follow: false },
+  // Google Search Console ownership check (needed for Google's OAuth app verification).
+  verification: process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : undefined,
   appleWebApp: { capable: true, title: "Hub", statusBarStyle: "default" },
 };
 
