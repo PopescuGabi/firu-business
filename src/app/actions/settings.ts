@@ -49,6 +49,9 @@ export async function saveLocalKey(_prev: KeyFormState, fd: FormData): Promise<K
   if (!value.startsWith(prefix) || value.length < prefix.length + 10 || value.length > 300) {
     return { ok: false, message: `That doesn't look like a ${label}: it should start with ${prefix}. Nothing was saved.` };
   }
+  if (key === "SUPABASE_DATABASE_URL" && /YOUR-PASSWORD|\[|\]/i.test(value)) {
+    return { ok: false, message: "Replace [YOUR-PASSWORD] in the connection string with your database password first." };
+  }
   writeLocalEnv(key, value);
   revalidatePath("/settings");
   return { ok: true, message: `${label} saved.` };

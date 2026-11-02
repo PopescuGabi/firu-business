@@ -5,6 +5,7 @@ import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import { migrate as migratePg } from "drizzle-orm/postgres-js/migrator";
 import { drizzle as drizzleLite } from "drizzle-orm/pglite";
 import { migrate as migrateLite } from "drizzle-orm/pglite/migrator";
+import { connection } from "next/server";
 import postgres from "postgres";
 import * as schema from "./schema";
 import { seed } from "./seed";
@@ -38,7 +39,9 @@ async function connect(): Promise<Db> {
 
 const g = globalThis as unknown as { __db?: Promise<Db> };
 
-export function getDb(): Promise<Db> {
+export async function getDb(): Promise<Db> {
+  // Your data is personal: never touch the database while pre-rendering at build time.
+  await connection();
   g.__db ??= connect().catch((err) => {
     g.__db = undefined;
     throw err;
