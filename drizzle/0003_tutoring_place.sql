@@ -1,0 +1,1 @@
+ALTER TABLE "tutoring" ADD COLUMN "place" text DEFAULT 'online' NOT NULL;

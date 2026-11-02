@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/* Apple system colours (iOS / macOS HIG), light + dark. */
+:root {
+  --bg: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --card: #ffffff;
+  --card-2: #f2f2f7;
+  --label: #000000;
+  --label-2: rgba(60, 60, 67, 0.6);
+  --label-3: rgba(60, 60, 67, 0.3);
+  --separator: rgba(60, 60, 67, 0.18);
+  --fill: rgba(120, 120, 128, 0.12);
+  --fill-2: rgba(120, 120, 128, 0.2);
+  --segment: #ffffff;
+  --material: rgba(249, 249, 249, 0.78);
+  --blue: #007aff;
+  --green: #34c759;
+  --orange: #ff9500;
+  --red: #ff3b30;
+  --purple: #af52de;
+  --pink: #ff2d55;
+  --teal: #30b0c7;
+  --indigo: #5856d6;
+  --yellow: #ffcc00;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --bg-elevated: #1c1c1e;
+    --card: #1c1c1e;
+    --card-2: #2c2c2e;
+    --label: #ffffff;
+    --label-2: rgba(235, 235, 245, 0.6);
+    --label-3: rgba(235, 235, 245, 0.3);
+    --separator: rgba(84, 84, 88, 0.6);
+    --fill: rgba(118, 118, 128, 0.24);
+    --fill-2: rgba(118, 118, 128, 0.36);
+    --segment: #636366;
+    --material: rgba(30, 30, 30, 0.72);
+    --blue: #0a84ff;
+    --green: #30d158;
+    --orange: #ff9f0a;
+    --red: #ff453a;
+    --purple: #bf5af2;
+    --pink: #ff375f;
+    --teal: #40c8e0;
+    --indigo: #5e5ce6;
+    --yellow: #ffd60a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-elevated: var(--bg-elevated);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-label: var(--label);
+  --color-label-2: var(--label-2);
+  --color-label-3: var(--label-3);
+  --color-separator: var(--separator);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
+  --color-segment: var(--segment);
+  --color-material: var(--material);
+  --color-blue: var(--blue);
+  --color-green: var(--green);
+  --color-orange: var(--orange);
+  --color-red: var(--red);
+  --color-purple: var(--purple);
+  --color-pink: var(--pink);
+  --color-teal: var(--teal);
+  --color-indigo: var(--indigo);
+  --color-yellow: var(--yellow);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  --font-serif: "New York", ui-serif, Georgia, serif;
+  --shadow-apple: var(--shadow);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--label);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--blue) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--blue) 30%, transparent);
+}
+
+.material {
+  background: var(--material);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Inputs styled like iOS grouped fields. */
+.field {
+  width: 100%;
+  border-radius: 10px;
+  background: var(--fill);
+  padding: 9px 12px;
+  font-size: 15px;
+  color: var(--label);
+  border: 1px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.field::placeholder {
+  color: var(--label-3);
+}
+.field:focus {
+  outline: none;
+  background: var(--card);
+  border-color: var(--blue);
+}
+textarea.field {
+  resize: vertical;
+  line-height: 1.45;
+}
+select.field {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%238E8E93' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+dialog.sheet {
+  margin: auto;
+  border: none;
+  padding: 0;
+  background: var(--bg-elevated);
+  color: var(--label);
+  border-radius: 14px;
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100dvh - 48px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+dialog.sheet::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+}
+dialog.sheet[open] {
+  animation: sheet-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (max-width: 640px) {
+  dialog.sheet {
+    margin: auto 0 0;
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 14px 14px 0 0;
+    max-height: 92dvh;
+  }
+  dialog.sheet[open] {
+    animation: sheet-up 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}

@@ -1,0 +1,9 @@
+node_modules
+.next
+.data
+# Any env file holds secrets; only the blank example is committed.
+.env*
+!.env.example
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store

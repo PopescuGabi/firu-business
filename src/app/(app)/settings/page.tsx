@@ -1,0 +1,252 @@
+import { gte, sql } from "drizzle-orm";
+import { CalendarDays, FolderOpen, LogOut, Sparkles } from "lucide-react";
+import { KeyForm } from "@/components/key-form";
+import { VercelEnvForm } from "@/components/vercel-env-form";
+import { Submit } from "@/components/submit";
+import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
+import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
+import { MODEL } from "@/lib/ai/claude";
+import { getDb, schema } from "@/lib/db";
+import { env } from "@/lib/env";
+import { listCalendars, type CalendarInfo } from "@/lib/google/calendar";
+import { folderUrl } from "@/lib/google/drive";
+import { getGoogleAccount, GOOGLE_SCOPES } from "@/lib/google/oauth";
+import { canEditLocalEnv, LOCAL_KEYS, type LocalKey } from "@/lib/local-env";
+import { getSettings } from "@/lib/settings";
+
+export const metadata = { title: "Settings" };
+
+// Opus 5.5 list prices, USD per million tokens.
+const PRICE_IN = 4;
+const PRICE_OUT = 20;
+
+export default async function SettingsPage() {
+  const db = await getDb();
+  const settings = await getSettings();
+  const account = await getGoogleAccount();
+  const connected = Boolean(account?.accessToken);
+  const missingScopes = connected ? GOOGLE_SCOPES.filter((s) => s.startsWith("https") && !account?.scope?.includes(s)) : [];
+
+  let calendars: CalendarInfo[] = [];
+  let calendarError: string | null = null;
+  if (connected) {
+    try {
+      calendars = await listCalendars();
+    } catch (err) {
+      calendarError = err instanceof Error ? err.message : "Could not load calendars";
+    }
+  }
+
+  const tutoringPlaces = (await db.select({ place: schema.tutoring.place }).from(schema.tutoring)).map((t) => t.place);
+  const places = [...new Set(["school", "home", "gym", "online", ...tutoringPlaces, ...Object.keys(settings.travel).flatMap((k) => k.split(">"))])];
+
+  const usage = async (since: Date) => {
+    const [r] = await db
+      .select({
+        n: sql<number>`count(*)::int`,
+        input: sql<number>`coalesce(sum(${schema.aiUsage.inputTokens}), 0)::int`,
+        output: sql<number>`coalesce(sum(${schema.aiUsage.outputTokens}), 0)::int`,
+      })
+      .from(schema.aiUsage)
+      .where(gte(schema.aiUsage.createdAt, since));
+    return { ...r, cost: (r.input * PRICE_IN + r.output * PRICE_OUT) / 1_000_000 };
+  };
+  const [hour, month] = await Promise.all([usage(new Date(Date.now() - 3600_000)), usage(new Date(Date.now() - 30 * 86400_000))]);
+
+  return (
+    <>
+      <PageHeader title="Settings" />
+
+      <Section title="Connections">
+        <List>
+          <Row>
+            <span className="grid size-8 place-items-center rounded-lg bg-blue text-white">
+              <CalendarDays size={17} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Google Calendar & Drive</p>
+              <p className="truncate text-[13px] text-label-2">
+                {!env.googleConfigured()
+                  ? "Not set up: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"
+                  : connected
+                    ? `Connected as ${account!.email}`
+                    : "Not connected"}
+              </p>
+            </div>
+            {env.googleConfigured() && (
+              <a href="/api/auth/google" className={buttonClass(connected ? "gray" : "filled", "sm")}>
+                {connected ? "Reconnect" : "Connect"}
+              </a>
+            )}
+          </Row>
+          {account?.rootFolderId && (
+            <Row>
+              <span className="grid size-8 place-items-center rounded-lg bg-green text-white">
+                <FolderOpen size={17} />
+              </span>
+              <p className="flex-1 font-medium">Drive folder “Personal Hub”</p>
+              <a href={folderUrl(account.rootFolderId)} target="_blank" rel="noreferrer" className={buttonClass("plain", "sm")}>
+                Open
+              </a>
+            </Row>
+          )}
+          <Row>
+            <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-orange to-pink text-white">
+              <Sparkles size={17} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Claude</p>
+              <p className="text-[13px] text-label-2">
+                {env.claudeConfigured() ? `${MODEL} · max ${env.aiMaxPerHour()} requests/hour` : "Not set up: add ANTHROPIC_API_KEY"}
+              </p>
+            </div>
+          </Row>
+        </List>
+        {missingScopes.length > 0 && (
+          <Notice tone="orange">Some Google permissions are missing. Tap Reconnect and allow Calendar and Drive.</Notice>
+        )}
+      </Section>
+
+      {canEditLocalEnv() && (
+        <Section title="Keys (this Mac only)" footer="Saved straight into your local config file and never shown again. The Supabase connection string is only used to copy your data online and for the Vercel file; this Mac keeps using its local database.">
+          <Card className="space-y-4 p-4">
+            {(Object.keys(LOCAL_KEYS) as LocalKey[]).map((k) => (
+              <KeyForm key={k} name={k} label={LOCAL_KEYS[k].label} prefix={LOCAL_KEYS[k].prefix} isSet={Boolean(process.env[k])} />
+            ))}
+            <VercelEnvForm />
+          </Card>
+        </Section>
+      )}
+
+      <Section title="Claude usage" footer="Estimated from Opus 5.5 list prices; your Anthropic console has the exact bill.">
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            ["Last hour", hour],
+            ["Last 30 days", month],
+          ].map(([label, u]) => {
+            const x = u as typeof hour;
+            return (
+              <Card key={label as string} className="p-4">
+                <p className="text-[13px] text-label-2">{label as string}</p>
+                <p className="text-[24px] font-semibold">${x.cost.toFixed(2)}</p>
+                <p className="text-[12px] text-label-2">
+                  {x.n} requests · {(x.input / 1000).toFixed(1)}k in · {(x.output / 1000).toFixed(1)}k out
+                </p>
+              </Card>
+            );
+          })}
+        </div>
+      </Section>
+
+      {connected && (
+        <Section title="Calendars" footer="The planner works around events in the calendars you tick. Accepted plan blocks are added to the chosen calendar.">
+          {calendarError ? (
+            <Notice tone="red">{calendarError}</Notice>
+          ) : (
+            <Card className="p-4">
+              <form action={saveCalendarSettings} className="flex flex-col gap-4">
+                <fieldset className="space-y-2">
+                  <legend className="mb-1 text-[13px] font-medium text-label-2">Read events from</legend>
+                  {calendars.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2.5 text-[15px]">
+                      <input
+                        type="checkbox"
+                        name="calendarIds"
+                        value={c.id}
+                        defaultChecked={settings.calendarIds.length === 0 || settings.calendarIds.includes(c.id)}
+                        className="size-4 accent-[var(--blue)]"
+                      />
+                      <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+                      {c.name}
+                    </label>
+                  ))}
+                </fieldset>
+                <Field label="Add accepted plan blocks to">
+                  <select name="targetCalendarId" defaultValue={settings.targetCalendarId} className="field">
+                    <option value="primary">Primary calendar</option>
+                    {calendars.filter((c) => !c.primary).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Submit className="self-end">Save calendars</Submit>
+              </form>
+            </Card>
+          )}
+        </Section>
+      )}
+
+      <Section
+        title="Travel times"
+        footer="Minutes to get from one place to another. Gym → anywhere includes showering and changing. Online sessions happen wherever you are. The planner never puts two things closer together than this, and Today warns you if fixed sessions are too close. Clear a row's minutes to remove it."
+      >
+        <Card className="p-4">
+          <form action={saveTravel} className="space-y-2">
+            <datalist id="places">
+              {places.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+            <div className="grid grid-cols-[1fr_1fr_88px] gap-2 px-1 text-[12px] font-medium text-label-2">
+              <span>From</span>
+              <span>To</span>
+              <span>Minutes</span>
+            </div>
+            {[...Object.entries(settings.travel), ["", 0] as const].map(([key, min], i) => {
+              const [from, to] = key ? key.split(">") : ["", ""];
+              return (
+                <div key={key || `new-${i}`} className="grid grid-cols-[1fr_1fr_88px] gap-2">
+                  <input name="from" list="places" defaultValue={from} placeholder={key ? undefined : "Add: from…"} aria-label="From" className="field" />
+                  <input name="to" list="places" defaultValue={to} placeholder={key ? undefined : "to…"} aria-label="To" className="field" />
+                  <input name="minutes" type="number" min={0} max={600} defaultValue={key ? min : ""} aria-label="Minutes" className="field" />
+                </div>
+              );
+            })}
+            <div className="flex justify-end pt-2">
+              <Submit>Save travel times</Submit>
+            </div>
+          </form>
+        </Card>
+      </Section>
+
+      <Section title="Planner">
+        <Card className="p-4">
+          <form action={savePlannerSettings} className="grid gap-4 sm:grid-cols-2">
+            <Field label="Your name" hint="Used in the Home greeting.">
+              <input name="displayName" maxLength={40} defaultValue={settings.displayName} className="field" />
+            </Field>
+            <Field label="Day starts">
+              <input type="time" name="dayStart" required defaultValue={settings.dayStart} className="field" />
+            </Field>
+            <Field label="Day ends">
+              <input type="time" name="dayEnd" required defaultValue={settings.dayEnd} className="field" />
+            </Field>
+            <Field label="Days without school start" hint="Weekends and holidays: nothing is suggested before this.">
+              <input type="time" name="freeDayStart" required defaultValue={settings.freeDayStart} className="field" />
+            </Field>
+            <Field label="Class length (min)">
+              <input type="number" name="classMinutes" min={20} max={120} required defaultValue={settings.classMinutes} className="field" />
+            </Field>
+            <Field label="Break length (min)">
+              <input type="number" name="breakMinutes" min={0} max={60} required defaultValue={settings.breakMinutes} className="field" />
+            </Field>
+            <Field label="Time zone">
+              <input name="timezone" required defaultValue={settings.timezone} className="field" />
+            </Field>
+            <div className="flex items-end justify-end">
+              <Submit>Save planner</Submit>
+            </div>
+          </form>
+        </Card>
+      </Section>
+
+      <form action="/api/auth/logout" method="post" className="mb-8">
+        <button className={buttonClass("destructive")}>
+          <LogOut size={16} /> Sign out
+        </button>
+      </form>
+    </>
+  );
+}

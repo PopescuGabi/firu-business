@@ -1,0 +1,13 @@
+// Personal Hub mark: three folded bands (school, gym, clients) forming one hub.
+export function LogoMark({ size = 32, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" strokeLinejoin="round" strokeWidth={2.5} className={className} aria-hidden>
+      <polygon points="32,6 54.52,19 54.52,45 44.12,39 44.12,25 32,18" fill="#0A84FF" stroke="#0A84FF" />
+      <polygon points="54.52,45 32,58 9.48,45 19.88,39 32,46 44.12,39" fill="#FF9F0A" stroke="#FF9F0A" />
+      <polygon points="9.48,45 9.48,19 32,6 32,18 19.88,25 19.88,39" fill="#30D158" stroke="#30D158" />
+      <polygon points="32,6 36.5,8.6 34.42,19.4 32,18" fill="#000" fillOpacity={0.2} />
+      <polygon points="54.52,45 50.02,47.6 41.7,40.4 44.12,39" fill="#000" fillOpacity={0.2} />
+      <polygon points="9.48,45 9.48,39.8 19.88,36.2 19.88,39" fill="#000" fillOpacity={0.2} />
+    </svg>
+  );
+}
