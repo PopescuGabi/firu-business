@@ -1,8 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-/** A number that counts up from zero when it first appears (straight to the value with reduced motion). */
-export function CountUp({ value, decimals = 0, suffix = "", duration = 900 }: { value: number; decimals?: number; suffix?: string; duration?: number }) {
+/** Minutes as hours and minutes: 2454 → "40h 54m", 45 → "45m". */
+const hoursMinutes = (min: number) => {
+  const total = Math.round(min);
+  const h = Math.floor(total / 60);
+  return h ? `${h}h ${total % 60}m` : `${total}m`;
+};
+
+/**
+ * A number that counts up from zero when it first appears (straight to the value with reduced motion).
+ * With `minutes`, the value is a number of minutes shown as hours and minutes.
+ */
+export function CountUp({ value, minutes = false, duration = 900 }: { value: number; minutes?: boolean; duration?: number }) {
   const [shown, setShown] = useState(0);
   const from = useRef(0);
   useEffect(() => {
@@ -25,8 +35,7 @@ export function CountUp({ value, decimals = 0, suffix = "", duration = 900 }: { 
   }, [value, duration]);
   return (
     <span className="tabular-nums">
-      {shown.toFixed(decimals)}
-      {suffix}
+      {minutes ? hoursMinutes(shown) : Math.round(shown)}
     </span>
   );
 }

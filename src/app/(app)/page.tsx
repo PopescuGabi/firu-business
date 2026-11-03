@@ -475,7 +475,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <RoundLink href="/calendar" label="Open calendar" />
       </header>
       <p className="text-[34px] leading-tight font-bold tracking-tight">
-        <CountUp value={busy.reduce((a, b) => a + b, 0) / 60} decimals={1} suffix="h" />
+        <CountUp value={busy.reduce((a, b) => a + b, 0)} minutes />
       </p>
       <p className="mb-3 text-[12px] text-label-2">School, sessions and events over the next 7 days</p>
       <div className="mt-auto grid h-28 grid-cols-7 items-end gap-2">
