@@ -1,6 +1,6 @@
 import Link from "next/link";
 import clsx from "clsx";
-import { ExternalLink, Mail } from "lucide-react";
+import { ChevronLeft, ExternalLink, Mail } from "lucide-react";
 import { MailToTask, ReplyForm } from "@/components/mail-actions";
 import { buttonClass, Card, Empty, PageHeader } from "@/components/ui";
 import { requireModule } from "@/lib/sections";
@@ -10,7 +10,7 @@ import { getSettings } from "@/lib/settings";
 export const metadata = { title: "Email" };
 
 const FILTERS = [
-  { key: "primary", label: "Primary", q: "in:inbox category:primary" },
+  { key: "inbox", label: "Inbox", q: "in:inbox" },
   { key: "unread", label: "Unread", q: "in:inbox is:unread" },
   { key: "important", label: "Important", q: "in:inbox is:important" },
 ] as const;
@@ -58,7 +58,8 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
       </div>
       {error && <p className="mb-4 text-[14px] text-red">{error}</p>}
       <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
-        <Card className="divide-y divide-separator self-start">
+        {/* On phones an open email takes the whole width; the list comes back with "Inbox". */}
+        <Card className={clsx("divide-y divide-separator self-start", open && "hidden lg:block")}>
           {inbox.length === 0 && <p className="p-4 text-[14px] text-label-2">Nothing here.</p>}
           {inbox.map((mail) => (
             <Link key={mail.id} href={href({ m: mail.id })} className={clsx("block px-4 py-3 transition hover:bg-fill", m === mail.id && "bg-fill")}>
@@ -74,6 +75,9 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
         </Card>
         {open ? (
           <Card className="flex flex-col gap-4 p-5">
+            <Link href={href({ m: undefined })} className="-mb-1 inline-flex items-center gap-1 text-[14px] font-semibold text-accent lg:hidden">
+              <ChevronLeft size={16} /> {filter.label}
+            </Link>
             <div>
               <h2 className="text-[20px] leading-tight font-semibold">{open.subject}</h2>
               <p className="mt-1 text-[13px] text-label-2">

@@ -82,8 +82,8 @@ function plainText(p: Part | undefined): string {
     .trim();
 }
 
-/** Recent inbox mail: unread first. `q` is a Gmail search (defaults to the primary inbox). */
-export async function listInbox(uid: number, { max = 20, q = "in:inbox category:primary" } = {}) {
+/** Recent inbox mail. `q` is a Gmail search (defaults to the whole inbox; not every inbox has a Primary tab). */
+export async function listInbox(uid: number, { max = 20, q = "in:inbox" } = {}) {
   const ids = (await (await googleFetch(uid, `${API}/messages?maxResults=${max}&q=${encodeURIComponent(q)}`)).json()) as {
     messages?: { id: string }[];
   };

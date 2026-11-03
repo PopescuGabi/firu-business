@@ -217,7 +217,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     ]);
   // Email tile: a few unread mails from the primary inbox (only when Gmail is connected).
   const gmail = on("email") && (await gmailConnected(user.id));
-  const inbox = gmail ? await listInbox(user.id, { max: 5, q: "in:inbox category:primary is:unread" }).catch(() => null) : null;
+  const inbox = gmail ? await listInbox(user.id, { max: 5, q: "in:inbox is:unread" }).catch(() => null) : null;
 
   const day = days[0];
   const { current, next, leaveBy } = nowAndNext(day, now, settings.travel);
