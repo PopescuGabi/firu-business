@@ -99,6 +99,16 @@ export const settings = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );
 
+// Each person's own background photo (shrunk in the browser before upload), as base64.
+export const backgrounds = pgTable("backgrounds", {
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  mime: text("mime").notNull(),
+  data: text("data").notNull(),
+  updatedAt: updatedAt(),
+});
+
 export const clients = pgTable(
   "clients",
   {

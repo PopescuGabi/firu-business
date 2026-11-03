@@ -31,6 +31,7 @@ const sourceArg = process.argv.find((a) => a.startsWith("--source="))?.slice("--
 const TABLES = [
   ["users", schema.users],
   ["invites", schema.invites],
+  ["backgrounds", schema.backgrounds],
   ["settings", schema.settings],
   ["school_days", schema.schoolDays],
   ["school_classes", schema.schoolClasses],

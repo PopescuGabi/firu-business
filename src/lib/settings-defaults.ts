@@ -18,6 +18,8 @@ export const DEFAULT_SETTINGS = {
   // Minutes from one place to another ("from>to"). Gym → X includes showering and changing.
   // Set yours in Settings → Travel times.
   travel: {} as Record<string, number>,
+  // App background: a built-in (lib/backgrounds.ts) or "photo" (your upload).
+  background: "default",
 };
 
 export type AppSettings = typeof DEFAULT_SETTINGS;

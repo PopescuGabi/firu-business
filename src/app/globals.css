@@ -7,7 +7,8 @@
  */
 :root {
   --bg: #efedf3;
-  --backdrop:
+  --backdrop: var(--backdrop-default); /* a picked background (Settings) replaces this */
+  --backdrop-default:
     radial-gradient(60% 55% at 8% 4%, rgba(190, 176, 255, 0.55), transparent 70%),
     radial-gradient(50% 50% at 92% 10%, rgba(255, 212, 186, 0.6), transparent 70%),
     radial-gradient(55% 55% at 78% 96%, rgba(166, 226, 214, 0.5), transparent 70%),
@@ -58,7 +59,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0d0c11;
-    --backdrop:
+    --backdrop-default:
       radial-gradient(60% 55% at 8% 4%, rgba(118, 96, 255, 0.24), transparent 70%),
       radial-gradient(50% 50% at 92% 10%, rgba(255, 140, 92, 0.13), transparent 70%),
       radial-gradient(55% 55% at 78% 96%, rgba(48, 186, 160, 0.15), transparent 70%),
@@ -189,6 +190,35 @@ body::before {
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-edge), var(--shadow);
   backdrop-filter: saturate(170%) blur(24px);
+}
+
+/* Over your own photo the backdrop isn't smooth any more, so cards frost it (blur) and get a little
+   more body; headings and labels that sit straight on the photo get a soft halo to stay readable. */
+[data-bg="photo"] {
+  --card: rgba(255, 255, 255, 0.5);
+}
+[data-bg="photo"] .glass {
+  backdrop-filter: saturate(170%) blur(22px);
+}
+[data-bg="photo"] main :is(h1, h2, header p, section > p) {
+  text-shadow:
+    0 0 1px color-mix(in srgb, var(--bg) 70%, transparent),
+    0 0 14px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  [data-bg="photo"] {
+    --card: rgba(24, 23, 31, 0.45);
+  }
+}
+
+/* Background choices in Settings: each swatch carries its light and dark look. */
+.swatch {
+  background: var(--sw-light, var(--backdrop-default));
+}
+@media (prefers-color-scheme: dark) {
+  .swatch {
+    background: var(--sw-dark, var(--backdrop-default));
+  }
 }
 
 /* Right-click menu, like a macOS context menu. */

@@ -1,6 +1,7 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { CalendarDays, FolderOpen, LogOut, Mail, Sparkles } from "lucide-react";
 import { AnthropicKeyForm, DeleteAccountForm, InviteForm, RemoveMember, WithdrawInvite } from "@/components/account-forms";
+import { BackgroundPicker } from "@/components/background-picker";
 import { SectionsForm } from "@/components/sections-form";
 import { CalendarSyncForm } from "@/components/calendar-sync-form";
 import { KeyForm } from "@/components/key-form";
@@ -10,6 +11,7 @@ import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from
 import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
 import { claudeAvailable, MODEL } from "@/lib/ai/claude";
 import { requireUser } from "@/lib/auth";
+import { photoVersion } from "@/lib/background";
 import { HUB_CALENDAR_NAME, lastSyncInfo } from "@/lib/calendar-sync";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -32,6 +34,7 @@ export default async function SettingsPage() {
   const settings = await getSettings(user.id);
   const account = await getGoogleAccount(user.id);
   const claudeOn = await claudeAvailable(user.id);
+  const photo = await photoVersion(user.id);
   const [me] = await db.select({ key: schema.users.anthropicKey }).from(schema.users).where(eq(schema.users.id, user.id));
   const gmailOn = GMAIL_SCOPES.every((s) => hasScope(account, s));
   const members = user.role === "owner" ? await listMembers() : null;
@@ -140,6 +143,12 @@ export default async function SettingsPage() {
         <div id="sections">
           <SectionsForm initial={user.modules} />
         </div>
+      </Section>
+
+      <Section title="Background" footer="Your own photo stays private to you. Browsers can't read your desktop wallpaper directly, so “Use my wallpaper” opens your Pictures folder to pick its file.">
+        <Card className="p-4">
+          <BackgroundPicker current={settings.background} photoUrl={photo ? `/api/background?v=${photo}` : null} />
+        </Card>
       </Section>
 
       <Section title="Your Anthropic key">

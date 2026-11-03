@@ -28,6 +28,7 @@ const PER_USER = [
   "portfolioItems",
   "calendarLinks",
   "aiUsage",
+  "backgrounds",
 ];
 
 function sourceFiles(dir: string): string[] {

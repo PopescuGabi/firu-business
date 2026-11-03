@@ -57,6 +57,13 @@
       "when": 1793737391500,
       "tag": "0007_users",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793744013575,
+      "tag": "0008_backgrounds",
+      "breakpoints": true
     }
   ]
 }
