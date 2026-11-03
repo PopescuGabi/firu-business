@@ -1,7 +1,8 @@
 "use client";
 import clsx from "clsx";
 import { Check } from "lucide-react";
-import type { ComponentProps, ReactNode } from "react";
+import { useEffect, useRef, type ComponentProps, type ReactNode } from "react";
+import { play } from "@/lib/sfx";
 import { buttonClass } from "./ui";
 
 export type LiquidState = "idle" | "busy" | "done";
@@ -35,6 +36,11 @@ export function LiquidButton({
   square?: boolean;
   size?: "sm" | "md" | "lg";
 }) {
+  const before = useRef(state);
+  useEffect(() => {
+    if (state === "done" && before.current !== "done") play("success");
+    before.current = state;
+  }, [state]);
   const text = state === "busy" ? (busyLabel ?? label) : state === "done" ? (doneLabel ?? label) : label;
   const mark = state === "done" ? <Check size={size === "sm" ? 13 : 16} strokeWidth={2.6} /> : icon;
   return (

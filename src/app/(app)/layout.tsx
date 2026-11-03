@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { getBackground } from "@/lib/background";
 import { getSettings } from "@/lib/settings";
 import { ThemeSync } from "@/components/theme-sync";
+import { SoundEffects } from "@/components/sound-effects";
 import { getDb, schema } from "@/lib/db";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-dvh" data-bg={background.kind}>
       {background.css && <style>{background.css}</style>}
       <ThemeSync theme={settings.theme} />
+      <SoundEffects on={settings.sounds} />
       <Sidebar clients={clients} modules={user.modules} />
       <main className="min-w-0 flex-1 px-4 pt-6 pb-32 sm:px-6 md:pr-8 md:pb-12 md:pl-6">
         <div className="mx-auto max-w-[1680px]">{children}</div>

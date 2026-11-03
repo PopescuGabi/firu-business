@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS = {
   background: "default",
   // Light, dark, or "auto" (follows the device).
   theme: "auto" as "auto" | "light" | "dark",
+  // Little interface sounds (taps, toggles, a chime when something is saved).
+  sounds: true,
 };
 
 export type AppSettings = typeof DEFAULT_SETTINGS;

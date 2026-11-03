@@ -2,7 +2,8 @@
 import { useRef, useState, useTransition } from "react";
 import clsx from "clsx";
 import { Check, ImagePlus, Monitor, Trash2 } from "lucide-react";
-import { chooseBackground, chooseTheme, removeBackgroundPhoto, uploadBackground } from "@/app/actions/background";
+import { chooseBackground, chooseSounds, chooseTheme, removeBackgroundPhoto, uploadBackground } from "@/app/actions/background";
+import { play, setSoundsEnabled } from "@/lib/sfx";
 import { BACKGROUNDS } from "@/lib/backgrounds";
 import { applyTheme, THEMES, type ThemePref } from "@/lib/theme";
 import { LiquidButton } from "./liquid-button";
@@ -24,8 +25,9 @@ async function shrink(file: File): Promise<Blob> {
 
 type FilePicker = (opts: { startIn?: string; types?: { description: string; accept: Record<string, string[]> }[] }) => Promise<{ getFile(): Promise<File> }[]>;
 
-export function BackgroundPicker({ current, photoUrl, theme }: { current: string; photoUrl: string | null; theme: ThemePref }) {
+export function BackgroundPicker({ current, photoUrl, theme, sounds }: { current: string; photoUrl: string | null; theme: ThemePref; sounds: boolean }) {
   const [mode, setMode] = useState(theme);
+  const [sound, setSound] = useState(sounds);
   const input = useRef<HTMLInputElement>(null);
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
@@ -86,6 +88,25 @@ export function BackgroundPicker({ current, photoUrl, theme }: { current: string
           ))}
         </div>
       </div>
+      <label className="flex cursor-pointer items-center justify-between gap-3">
+        <span>
+          <span className="block text-[15px] font-medium">Sounds</span>
+          <span className="block text-[13px] text-label-2">Soft taps, toggles and a chime when something is saved.</span>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          className="switch"
+          checked={sound}
+          onChange={(e) => {
+            const on = e.target.checked;
+            setSound(on);
+            setSoundsEnabled(on);
+            if (on) play("success");
+            void chooseSounds(on);
+          }}
+        />
+      </label>
       <div role="radiogroup" aria-label="Background" className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
         {BACKGROUNDS.map((b) => (
           <Swatch key={b.key} label={b.label} on={active === b.key} onClick={() => pick(b.key)} style={b.light ? ({ "--sw-light": b.light, "--sw-dark": b.dark } as React.CSSProperties) : undefined} />

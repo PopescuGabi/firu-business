@@ -23,6 +23,12 @@ export async function chooseTheme(theme: string) {
   await saveSettings(user.id, { theme });
 }
 
+export async function chooseSounds(on: boolean) {
+  const user = await requireUser();
+  await saveSettings(user.id, { sounds: Boolean(on) });
+  revalidatePath("/", "layout");
+}
+
 /** Saves (or replaces) this person's background photo and switches to it. */
 export async function uploadBackground(fd: FormData) {
   const user = await requireUser();

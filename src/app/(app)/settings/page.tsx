@@ -147,7 +147,7 @@ export default async function SettingsPage() {
 
       <Section title="Appearance" footer="Auto follows your device's light or dark mode. Your own photo stays private to you. Browsers can't read your desktop wallpaper directly, so “Use my wallpaper” opens your Pictures folder to pick its file.">
         <Card className="p-4">
-          <BackgroundPicker current={settings.background} theme={settings.theme} photoUrl={photo ? `/api/background?v=${photo}` : null} />
+          <BackgroundPicker current={settings.background} theme={settings.theme} sounds={settings.sounds} photoUrl={photo ? `/api/background?v=${photo}` : null} />
         </Card>
       </Section>
 
