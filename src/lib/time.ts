@@ -5,6 +5,8 @@ export const toMin = (hhmm: string) => {
 };
 export const toHHMM = (min: number) =>
   `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+/** For showing a time: midnight at the end of a day (24:00) reads 00:00. */
+export const clock = (min: number) => toHHMM(min % (24 * 60));
 
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 export const WEEKDAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

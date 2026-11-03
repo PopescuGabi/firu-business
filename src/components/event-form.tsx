@@ -2,6 +2,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteCalendarEvent, saveCalendarEvent, type EventFormState } from "@/app/actions/events";
+import { addDays, fmtDate, toHHMM, toMin } from "@/lib/time";
 import { buttonClass, Field } from "./ui";
 
 export type EditableEvent = {
@@ -11,12 +12,14 @@ export type EditableEvent = {
   title: string;
   allDay: boolean;
   date: string;
-  endDate: string; // last day, for all-day events
+  endDate: string; // last day (all-day events) or the day it ends (timed)
   start: string;
   end: string;
   location: string;
   notes: string;
 };
+
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
 /** Add or edit a Google Calendar event. Lives inside a <Sheet> and closes it after saving. */
 export function EventForm({
@@ -37,6 +40,39 @@ export function EventForm({
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
   const [repeat, setRepeat] = useState("none");
   const [scope, setScope] = useState<"this" | "all">("this");
+  const [when, setWhen] = useState(() => {
+    const date = event?.date ?? defaultDate;
+    return { date, endDate: event?.endDate || date, start: event?.start || "16:00", end: event?.end || "17:00" };
+  });
+  // Set when the end date moved to the next day only because the end time went past midnight.
+  const [rolledOver, setRolledOver] = useState(
+    () => !event?.allDay && Boolean(event?.end && event.end <= event.start && event.endDate === addDays(event.date, 1)),
+  );
+  const length = daysBetween(when.date, when.endDate) * 1440 + toMin(when.end) - toMin(when.start);
+
+  const setStartDate = (date: string) => {
+    if (!date) return;
+    setWhen((w) => ({ ...w, date, endDate: addDays(w.endDate, daysBetween(w.date, date)) }));
+  };
+  // Moving the start keeps the event's length, like Apple Calendar.
+  const setStart = (start: string) => {
+    if (!start) return;
+    const endAt = toMin(start) + Math.max(length, 0);
+    setWhen((w) => ({ ...w, start, endDate: addDays(w.date, Math.floor(endAt / 1440)), end: toHHMM(endAt % 1440) }));
+  };
+  // An end time at or before the start (22:00 → 00:00) means the next day; undone if the time moves back.
+  const setEnd = (end: string) => {
+    if (!end) return;
+    if (when.endDate === when.date && end <= when.start) {
+      setRolledOver(true);
+      setWhen({ ...when, end, endDate: addDays(when.date, 1) });
+    } else if (rolledOver && when.endDate === addDays(when.date, 1) && end > when.start) {
+      setRolledOver(false);
+      setWhen({ ...when, end, endDate: when.date });
+    } else {
+      setWhen({ ...when, end });
+    }
+  };
   const ref = useRef<HTMLDivElement>(null);
   const state = [saved, deleted].filter(Boolean).sort((a, b) => b!.at - a!.at)[0] ?? null;
   const listId = `places-${event?.id ?? "new"}`;
@@ -88,28 +124,69 @@ export function EventForm({
           </select>
         </Field>
         <label className="flex items-center gap-2.5 text-[15px]">
-          <input type="checkbox" name="allDay" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="size-4 accent-[var(--blue)]" />
+          <input type="checkbox" name="allDay" checked={allDay} onChange={(e) => {
+              setAllDay(e.target.checked);
+              setRolledOver(false);
+              setWhen((w) => ({ ...w, endDate: w.date }));
+            }} className="size-4 accent-[var(--blue)]" />
           All day
         </label>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={allDay ? "From" : "Date"} hint={series && scope === "all" ? "The series keeps its days." : undefined}>
-            <input type="date" name="date" required defaultValue={event?.date ?? defaultDate} className="field" />
-          </Field>
-          {allDay && (
-            <Field label="Until">
-              <input type="date" name="endDate" defaultValue={event?.endDate ?? event?.date ?? defaultDate} className="field" />
-            </Field>
-          )}
-        </div>
-        {!allDay && (
+        {allDay ? (
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Starts">
-              <input type="time" name="start" required defaultValue={event?.start || "16:00"} className="field" />
+            <Field label="From" hint={series && scope === "all" ? "The series keeps its days." : undefined}>
+              <input type="date" name="date" required value={when.date} onChange={(e) => setStartDate(e.target.value)} className="field" />
             </Field>
-            <Field label="Ends">
-              <input type="time" name="end" required defaultValue={event?.end || "17:00"} className="field" />
+            <Field label="Until">
+              <input
+                type="date"
+                name="endDate"
+                min={when.date}
+                value={when.endDate < when.date ? when.date : when.endDate}
+                onChange={(e) => e.target.value && setWhen((w) => ({ ...w, endDate: e.target.value }))}
+                className="field"
+              />
             </Field>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-[3fr_2fr] gap-3">
+              <Field label="Starts" hint={series && scope === "all" ? "The series keeps its days." : undefined}>
+                <input type="date" name="date" required value={when.date} onChange={(e) => setStartDate(e.target.value)} className="field" />
+              </Field>
+              <Field label={"\u00a0"}>
+                <input type="time" name="start" required aria-label="Start time" value={when.start} onChange={(e) => setStart(e.target.value)} className="field" />
+              </Field>
+            </div>
+            <div className="grid grid-cols-[3fr_2fr] gap-3">
+              <Field
+                label="Ends"
+                hint={
+                  length <= 0
+                    ? "Ends before it starts: check the date."
+                    : when.endDate === addDays(when.date, 1)
+                      ? `Ends the next day (${fmtDate(when.endDate, { weekday: "long", day: "numeric", month: "short" })}).`
+                      : undefined
+                }
+              >
+                <input
+                  type="date"
+                  name="endDate"
+                  required
+                  min={when.date}
+                  value={when.endDate}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setRolledOver(false);
+                    setWhen((w) => ({ ...w, endDate: e.target.value }));
+                  }}
+                  className="field"
+                />
+              </Field>
+              <Field label={"\u00a0"}>
+                <input type="time" name="end" required aria-label="End time" value={when.end} onChange={(e) => setEnd(e.target.value)} className="field" />
+              </Field>
+            </div>
+          </>
         )}
         {series ? (
           <p className="px-1 text-[13px] text-label-2">Repeats. To change how it repeats, edit it in Google Calendar.</p>
@@ -126,7 +203,7 @@ export function EventForm({
             </Field>
             {repeat !== "none" && (
               <Field label="Ends on" hint="Leave empty to repeat forever.">
-                <input type="date" name="until" className="field" />
+                <input type="date" name="until" min={when.date} className="field" />
               </Field>
             )}
           </div>

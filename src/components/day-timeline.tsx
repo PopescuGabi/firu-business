@@ -1,8 +1,12 @@
 import { Dumbbell } from "lucide-react";
+import clsx from "clsx";
+import { acceptBlock, removeBlock } from "@/app/actions/tasks";
 import { BlockActions } from "./block-actions";
+import { ContextMenu, type MenuItem } from "./context-menu";
+import { eventMenu } from "./event-menu";
 import { Empty, List, Pill, Row } from "./ui";
 import { KIND_COLORS } from "@/lib/kinds";
-import { toHHMM, toMin } from "@/lib/time";
+import { clock, toHHMM, toMin } from "@/lib/time";
 import type { PlanAdvice } from "@/lib/settings-defaults";
 import type { DayView } from "@/lib/week";
 
@@ -25,6 +29,9 @@ type Item = {
   color: string;
   detail?: React.ReactNode;
   block?: { id: number; accepted: boolean };
+  // Real start/end when the item runs past midnight; otherwise the clipped times are shown.
+  times?: [string, string];
+  menu?: MenuItem[];
 };
 
 export function Timeline({ day, now }: { day: DayView; now: number }) {
@@ -48,7 +55,17 @@ export function Timeline({ day, now }: { day: DayView; now: number }) {
     });
   }
   for (const e of day.events) {
-    items.push({ key: e.id, start: e.startMin, end: e.endMin, title: e.title, color: e.color, detail: e.calendarName });
+    const [from, to] = e.label.split("–");
+    items.push({
+      key: e.id,
+      start: e.startMin,
+      end: e.endMin,
+      title: e.title,
+      color: e.color,
+      detail: e.calendarName,
+      times: [from.includes(" ") ? clock(e.startMin) : from, to], // "Thu 23:00" is too wide here
+      menu: e.writable ? eventMenu(e) : undefined,
+    });
   }
   if (day.gymFixed && day.gym) {
     items.push({
@@ -77,6 +94,13 @@ export function Timeline({ day, now }: { day: DayView; now: number }) {
         </>
       ),
       block: { id: b.id, accepted: b.status === "accepted" },
+      menu:
+        b.status === "accepted"
+          ? [{ label: "Remove from plan", destructive: true, action: removeBlock.bind(null, b.id) }]
+          : [
+              { label: "Accept", action: acceptBlock.bind(null, b.id) },
+              { label: "Delete suggestion", destructive: true, action: removeBlock.bind(null, b.id) },
+            ],
     });
   }
   items.sort((a, b) => a.start - b.start);
@@ -96,20 +120,20 @@ export function Timeline({ day, now }: { day: DayView; now: number }) {
         </Row>
       )}
       {day.allDay.map((e) => (
-        <Row key={e.id} className="text-[14px]">
+        <ContextMenu key={e.id} items={e.writable ? eventMenu(e) : []} className="flex min-h-11 items-center gap-3 py-2.5 pr-4 pl-4 text-[14px]">
           <span className="size-2.5 rounded-full" style={{ background: e.color }} />
           <span className="flex-1">{e.title}</span>
           <span className="text-label-2">All day</span>
-        </Row>
+        </ContextMenu>
       ))}
       {items.map((it) => {
         const past = it.end <= now;
         const current = it.start <= now && now < it.end;
         return (
-          <Row key={it.key} className={past ? "opacity-50" : undefined}>
+          <ContextMenu key={it.key} items={it.menu ?? []} className={clsx("flex min-h-11 items-center gap-3 py-2.5 pr-4 pl-4", past && "opacity-50")}>
             <div className="w-[52px] shrink-0 text-right text-[13px] tabular-nums">
-              <p className="font-semibold">{toHHMM(it.start)}</p>
-              <p className="text-label-2">{toHHMM(it.end)}</p>
+              <p className="font-semibold">{it.times?.[0] ?? clock(it.start)}</p>
+              <p className="text-label-2">{it.times?.[1] ?? clock(it.end)}</p>
             </div>
             <span className="w-1 self-stretch rounded-full" style={{ background: it.color, opacity: it.block && !it.block.accepted ? 0.4 : 1 }} />
             <div className="min-w-0 flex-1">
@@ -120,7 +144,7 @@ export function Timeline({ day, now }: { day: DayView; now: number }) {
               {it.detail && <div className="text-[13px] text-label-2">{it.detail}</div>}
             </div>
             {it.block && <BlockActions id={it.block.id} accepted={it.block.accepted} />}
-          </Row>
+          </ContextMenu>
         );
       })}
     </List>

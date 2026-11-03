@@ -40,7 +40,7 @@ import { env } from "@/lib/env";
 import { KIND_COLORS } from "@/lib/kinds";
 import { nowAndNext } from "@/lib/now-next";
 import { getPlanAdvice, getSettings } from "@/lib/settings";
-import { fmtDate, toHHMM, WEEKDAYS } from "@/lib/time";
+import { clock, fmtDate, WEEKDAYS } from "@/lib/time";
 import { countSuggestions, getWeek, nowMinutesIn, todayIn } from "@/lib/week";
 
 export const metadata = { title: "Home" };
@@ -161,7 +161,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           {current ? (
             <>
               <p className="mt-0.5 text-[17px] font-semibold">{current.title}</p>
-              <p className="text-[13px] text-label-2">until {toHHMM(current.end)}</p>
+              <p className="text-[13px] text-label-2">until {clock(current.end)}</p>
             </>
           ) : (
             <p className="mt-0.5 text-[17px] font-semibold">Free time</p>
@@ -173,12 +173,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <>
               <p className="mt-0.5 text-[17px] font-semibold">{next.title}</p>
               <p className="text-[13px] text-label-2">
-                at {toHHMM(next.start)}
+                at {clock(next.start)}
                 {next.start - now <= 180 && ` · in ${fmtMin(next.start - now)}`}
               </p>
               {leaveBy != null && (
                 <p className={clsx("mt-1 text-[13px] font-semibold", leaveBy - now <= 15 ? "text-red" : "text-orange")}>
-                  {leaveBy <= now ? "Leave now" : `Leave by ${toHHMM(leaveBy)}`}
+                  {leaveBy <= now ? "Leave now" : `Leave by ${clock(leaveBy)}`}
                 </p>
               )}
             </>

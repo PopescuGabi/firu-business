@@ -13,7 +13,8 @@ import { occursOn } from "./tutoring";
 import { placeOf, type DayContext } from "./planner";
 import { fixedClashes, knownPlace, travelTime, type Clash, type PlacedItem } from "./travel";
 
-export type DayEvent = CalendarEvent & { date: string; startMin: number; endMin: number; place: string | null };
+// startMin/endMin are clipped to this day (0–1440); label shows the real times, e.g. "22:00–00:00".
+export type DayEvent = CalendarEvent & { date: string; startMin: number; endMin: number; label: string; place: string | null };
 export type ClassSlot = Interval & { subject: string };
 export type DayView = {
   date: string;
@@ -101,11 +102,16 @@ export async function getWeek(weekStart: string, numDays = 7) {
       const sDate = format(s, "yyyy-MM-dd");
       const eDate = format(en, "yyyy-MM-dd");
       if (sDate > date || eDate < date) continue;
+      const startMin = sDate < date ? 0 : s.getHours() * 60 + s.getMinutes();
+      const endMin = eDate > date ? 24 * 60 : en.getHours() * 60 + en.getMinutes();
+      if (sDate < date && endMin === 0) continue; // ended at midnight, nothing left on this day
+      const end = eDate === sDate || eDate === addDays(sDate, 1) ? format(en, "HH:mm") : format(en, "EEE HH:mm");
       timed.push({
         ...e,
         date,
-        startMin: sDate < date ? 0 : s.getHours() * 60 + s.getMinutes(),
-        endMin: eDate > date ? 24 * 60 : en.getHours() * 60 + en.getMinutes(),
+        startMin,
+        endMin,
+        label: `${format(s, sDate < date ? "EEE HH:mm" : "HH:mm")}–${end}`,
         place: knownPlace(e.location, settings.travel),
       });
     }

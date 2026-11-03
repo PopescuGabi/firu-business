@@ -14,12 +14,18 @@ export async function savePlannerSettings(fd: FormData) {
   } catch {
     throw new Error("Unknown time zone");
   }
+  const dayStart = time.parse(fd.get("dayStart"));
+  const dayEnd = time.parse(fd.get("dayEnd"));
+  const freeDayStart = time.parse(fd.get("freeDayStart"));
+  // The planner's day can't wrap past midnight; late events (e.g. a game until 00:00) still show on the calendar.
+  if (dayEnd <= dayStart) throw new Error("The day must end after it starts");
+  if (freeDayStart < dayStart || freeDayStart >= dayEnd) throw new Error("Free days must start inside your day");
   await saveSettings({
     displayName: String(fd.get("displayName") ?? "").trim().slice(0, 40),
     timezone: tz,
-    dayStart: time.parse(fd.get("dayStart")),
-    dayEnd: time.parse(fd.get("dayEnd")),
-    freeDayStart: time.parse(fd.get("freeDayStart")),
+    dayStart,
+    dayEnd,
+    freeDayStart,
     classMinutes: z.coerce.number().int().min(20).max(120).parse(fd.get("classMinutes")),
     breakMinutes: z.coerce.number().int().min(0).max(60).parse(fd.get("breakMinutes")),
   });

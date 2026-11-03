@@ -45,7 +45,7 @@ function parse(fd: FormData) {
     title: fd.get("title"),
     allDay,
     date: fd.get("date"),
-    endDate: allDay ? opt(fd.get("endDate")) : undefined,
+    endDate: opt(fd.get("endDate")),
     start: allDay ? undefined : opt(fd.get("start")),
     end: allDay ? undefined : opt(fd.get("end")),
     repeat: fd.get("repeat"),
@@ -78,9 +78,12 @@ export async function saveCalendarEvent(_prev: EventFormState, fd: FormData): Pr
     end = { date: addDays(last, 1) };
   } else {
     if (!v.start || !v.end) return fail("Add a start and end time");
-    if (v.end <= v.start) return fail("The event must end after it starts");
+    // An end time at or before the start on the same day means it runs past midnight (e.g. 22:00–00:00).
+    let endDate = v.endDate ?? v.date;
+    if (endDate === v.date && v.end <= v.start) endDate = addDays(v.date, 1);
+    if (`${endDate}T${v.end}` <= `${v.date}T${v.start}`) return fail("The event must end after it starts");
     start = { dateTime: `${v.date}T${v.start}:00`, timeZone: tz };
-    end = { dateTime: `${v.date}T${v.end}:00`, timeZone: tz };
+    end = { dateTime: `${endDate}T${v.end}:00`, timeZone: tz };
   }
   const body: EventBody = { summary: v.title, location: v.location, description: v.notes, start, end };
   if (v.repeat !== "none") {
@@ -101,7 +104,7 @@ export async function saveCalendarEvent(_prev: EventFormState, fd: FormData): Pr
       const shift = (d: string) => addDays(first, Math.round((Date.parse(d) - Date.parse(v.date)) / 86_400_000));
       delete body.recurrence;
       body.start = start.date ? { date: first } : { dateTime: `${first}T${v.start}:00`, timeZone: tz };
-      body.end = end.date ? { date: shift(end.date) } : { dateTime: `${first}T${v.end}:00`, timeZone: tz };
+      body.end = end.date ? { date: shift(end.date) } : { dateTime: `${shift(end.dateTime!.slice(0, 10))}T${v.end}:00`, timeZone: tz };
       await patchEvent(v.calendarId, v.seriesId, body);
     } else {
       if (v.seriesId) delete body.recurrence; // one occurrence can't repeat on its own
@@ -120,14 +123,18 @@ export async function saveCalendarEvent(_prev: EventFormState, fd: FormData): Pr
 }
 
 export async function deleteCalendarEvent(_prev: EventFormState, fd: FormData): Promise<EventFormState> {
-  await requireUser();
-  const calendarId = z.string().min(1).parse(fd.get("calendarId"));
-  const eventId = z.string().min(1).parse(fd.get("eventId"));
   const seriesId = opt(fd.get("seriesId"));
-  const scope = fd.get("scope") === "all" ? "all" : "this";
+  const eventId = String(fd.get("eventId") ?? "");
+  return deleteEventNow(String(fd.get("calendarId") ?? ""), seriesId && fd.get("scope") === "all" ? seriesId : eventId);
+}
+
+/** Deletes one event (or a whole series, given its id). Used by the form and the right-click menu. */
+export async function deleteEventNow(calendarId: string, eventId: string): Promise<EventFormState> {
+  await requireUser();
+  const ids = z.object({ calendarId: z.string().min(1).max(300), eventId: z.string().min(1).max(300) }).parse({ calendarId, eventId });
   try {
-    await assertWritable(calendarId);
-    await deleteEvent(calendarId, seriesId && scope === "all" ? seriesId : eventId);
+    await assertWritable(ids.calendarId);
+    await deleteEvent(ids.calendarId, ids.eventId);
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Couldn't delete the event");
   }

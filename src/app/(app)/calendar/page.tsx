@@ -5,7 +5,9 @@ import { Check, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { ClearSuggestions } from "@/components/clear-suggestions";
 import { CalendarNotices } from "@/components/clash-notice";
+import type { MenuItem } from "@/components/context-menu";
 import { EventForm, type EditableEvent } from "@/components/event-form";
+import { eventMenu } from "@/components/event-menu";
 import { Slide } from "@/components/motion";
 import { Sheet } from "@/components/sheet";
 import { acceptBlock, removeBlock } from "@/app/actions/tasks";
@@ -16,8 +18,8 @@ import { listCalendars, type CalendarEvent } from "@/lib/google/calendar";
 import { HUB_CALENDAR_NAME } from "@/lib/calendar-sync";
 import { KIND_COLORS } from "@/lib/kinds";
 import { getSettings } from "@/lib/settings";
-import { addDays, fmtDate, mondayOf, toHHMM, toMin, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/time";
-import { countSuggestions, getWeek, nowMinutesIn, todayIn } from "@/lib/week";
+import { addDays, clock, fmtDate, mondayOf, toMin, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/time";
+import { countSuggestions, getWeek, nowMinutesIn, todayIn, type DayView } from "@/lib/week";
 
 export const metadata = { title: "Calendar" };
 
@@ -29,11 +31,79 @@ type Ev = {
   end: number;
   title: string;
   color: string;
+  label: string;
   sub?: string;
   reason?: string;
   block?: { id: number; accepted: boolean };
   edit?: EditableEvent;
+  menu?: MenuItem[];
 };
+
+const span = (start: number, end: number) => `${clock(start)}–${clock(end)}`;
+
+/** Everything shown in a day's column. */
+function dayEvents(d: DayView, tz: string): Ev[] {
+  return [
+    ...d.school.map((c, i) => ({
+      key: `s${i}`,
+      start: c.start,
+      end: c.end,
+      label: span(c.start, c.end),
+      title: c.subject,
+      color: KIND_COLORS.school,
+    })),
+    ...d.events.map((e) => ({
+      key: e.id,
+      start: e.startMin,
+      end: e.endMin,
+      label: e.label,
+      title: e.title,
+      color: e.color,
+      sub: e.calendarName,
+      edit: e.writable ? editable(e, tz) : undefined,
+      menu: e.writable ? eventMenu(e) : undefined,
+    })),
+    ...(d.gymFixed && d.gym
+      ? [
+          {
+            key: "gym",
+            start: d.gymFixed.start,
+            end: d.gymFixed.end,
+            label: span(d.gymFixed.start, d.gymFixed.end),
+            title: `Gym · ${d.gym.title}`,
+            color: KIND_COLORS.gym,
+          },
+        ]
+      : []),
+    ...d.tutoring.map((t) => ({
+      key: `t${t.id}`,
+      start: toMin(t.start),
+      end: toMin(t.end),
+      label: `${t.start}–${t.end}`,
+      title: `Tutoring · ${t.subject}`,
+      color: KIND_COLORS.tutoring,
+    })),
+    ...d.blocks.map((b) => {
+      const accepted = b.status === "accepted";
+      return {
+        key: `b${b.id}`,
+        start: toMin(b.start),
+        end: toMin(b.end),
+        label: `${b.start}–${b.end}`,
+        title: b.title,
+        color: KIND_COLORS[b.kind] ?? "var(--blue)",
+        block: { id: b.id, accepted },
+        reason: b.reason,
+        menu: accepted
+          ? [{ label: "Remove from plan", destructive: true, action: removeBlock.bind(null, b.id) }]
+          : [
+              { label: "Accept", action: acceptBlock.bind(null, b.id) },
+              { label: "Delete suggestion", destructive: true, action: removeBlock.bind(null, b.id) },
+            ],
+      };
+    }),
+  ];
+}
 
 /** A Google event as the edit form needs it (local date and times). */
 function editable(e: CalendarEvent, tz: string): EditableEvent {
@@ -56,13 +126,14 @@ function editable(e: CalendarEvent, tz: string): EditableEvent {
       end: "",
     };
   const s = local(e.start);
+  const en = local(e.end);
   return {
     ...base,
     allDay: false,
     date: format(s, "yyyy-MM-dd"),
-    endDate: format(s, "yyyy-MM-dd"),
+    endDate: format(en, "yyyy-MM-dd"),
     start: format(s, "HH:mm"),
-    end: format(local(e.end), "HH:mm"),
+    end: format(en, "HH:mm"),
   };
 }
 
@@ -108,8 +179,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     places: [...new Set(Object.keys(settings.travel).flatMap((k) => k.split(">")))].filter((p) => p !== "online"),
   };
 
-  const firstHour = Math.floor(toMin(settings.dayStart) / 60);
-  const lastHour = Math.ceil(toMin(settings.dayEnd) / 60);
+  const columns = days.map((d) => ({ day: d, evs: dayEvents(d, settings.timezone) }));
+  // The grid covers your day window, stretched to fit anything earlier or later (e.g. a game until midnight).
+  const all = columns.flatMap((c) => c.evs);
+  const firstHour = Math.floor(Math.min(toMin(settings.dayStart), ...all.map((e) => e.start)) / 60);
+  const lastHour = Math.ceil(Math.max(toMin(settings.dayEnd), ...all.map((e) => e.end)) / 60);
   const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const top = (m: number) => ((m - firstHour * 60) / 60) * HOUR_PX;
   const end = addDays(start, 6);
@@ -224,6 +298,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         triggerLabel={`${e.title}, all day`}
                         triggerClassName="mt-1 block w-full cursor-pointer truncate rounded px-1 text-left text-[11px] text-white hover:brightness-110"
                         triggerStyle={{ background: e.color }}
+                        menu={eventMenu(e)}
+                        openLabel="Edit…"
                       >
                         <EventForm {...formProps} defaultDate={d.date} event={editable(e, settings.timezone)} />
                       </Sheet>
@@ -244,52 +320,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   </span>
                 ))}
               </div>
-              {days.map((d) => {
-                const evs: Ev[] = [
-                  ...d.school.map((c, i) => ({
-                    key: `s${i}`,
-                    start: c.start,
-                    end: c.end,
-                    title: c.subject,
-                    color: KIND_COLORS.school,
-                  })),
-                  ...d.events.map((e) => ({
-                    key: e.id,
-                    start: e.startMin,
-                    end: e.endMin,
-                    title: e.title,
-                    color: e.color,
-                    sub: e.calendarName,
-                    edit: e.writable ? editable(e, settings.timezone) : undefined,
-                  })),
-                  ...(d.gymFixed && d.gym
-                    ? [
-                        {
-                          key: "gym",
-                          start: d.gymFixed.start,
-                          end: d.gymFixed.end,
-                          title: `Gym · ${d.gym.title}`,
-                          color: KIND_COLORS.gym,
-                        },
-                      ]
-                    : []),
-                  ...d.tutoring.map((t) => ({
-                    key: `t${t.id}`,
-                    start: toMin(t.start),
-                    end: toMin(t.end),
-                    title: `Tutoring · ${t.subject}`,
-                    color: KIND_COLORS.tutoring,
-                  })),
-                  ...d.blocks.map((b) => ({
-                    key: `b${b.id}`,
-                    start: toMin(b.start),
-                    end: toMin(b.end),
-                    title: b.title,
-                    color: KIND_COLORS[b.kind] ?? "var(--blue)",
-                    block: { id: b.id, accepted: b.status === "accepted" },
-                    reason: b.reason,
-                  })),
-                ];
+              {columns.map(({ day: d, evs }) => {
                 return (
                   <div key={d.date} className="relative border-l border-separator">
                     {hours.map((h, i) => (
@@ -316,7 +347,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                           <span className="block truncate font-semibold">{e.title}</span>
                           {h > 30 && (
                             <span className="block truncate text-label-2">
-                              {toHHMM(e.start)}–{toHHMM(e.end)}
+                              {e.label}
                             </span>
                           )}
                         </>
@@ -327,9 +358,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                             key={e.key}
                             title="Event"
                             trigger={body}
-                            triggerLabel={`${e.title}, ${toHHMM(e.start)}–${toHHMM(e.end)}`}
+                            triggerLabel={`${e.title}, ${e.label}`}
                             triggerClassName={clsx(cls, "cursor-pointer hover:brightness-110")}
                             triggerStyle={style}
+                            menu={e.menu}
+                            openLabel="Edit…"
                           >
                             <EventForm {...formProps} defaultDate={d.date} event={e.edit} />
                           </Sheet>
@@ -337,7 +370,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       }
                       if (!e.block) {
                         return (
-                          <div key={e.key} className={cls} style={style} title={`${toHHMM(e.start)}–${toHHMM(e.end)} ${e.title}`}>
+                          <div key={e.key} className={cls} style={style} title={`${e.label} ${e.title}`}>
                             {body}
                           </div>
                         );
@@ -347,13 +380,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                           key={e.key}
                           title={proposed ? "Suggestion" : "Planned block"}
                           trigger={body}
-                          triggerLabel={`${e.title}, ${toHHMM(e.start)}–${toHHMM(e.end)}${proposed ? ", suggestion" : ""}`}
+                          triggerLabel={`${e.title}, ${e.label}${proposed ? ", suggestion" : ""}`}
                           triggerClassName={clsx(cls, "cursor-pointer hover:brightness-110")}
                           triggerStyle={style}
+                          menu={e.menu}
                         >
                           <p className="text-[17px] font-semibold">{e.title}</p>
                           <p className="text-[14px] text-label-2">
-                            {WEEKDAYS[d.weekday - 1]} {Number(d.date.slice(8))} · {toHHMM(e.start)}–{toHHMM(e.end)}
+                            {WEEKDAYS[d.weekday - 1]} {Number(d.date.slice(8))} · {e.label}
                           </p>
                           {e.reason && <p className="mt-2 text-[14px]">{e.reason}</p>}
                           <div className="mt-5 flex flex-wrap justify-end gap-2">
@@ -398,7 +432,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           </span>
         ))}
         <span>Dashed = suggestion: tap it to accept or delete</span>
-        {writable.length > 0 && <span>Tap a date to add an event, or an event to edit it</span>}
+        {writable.length > 0 && <span>Tap a date to add an event, or an event to edit it. Right-click an event to delete it</span>}
       </p>
     </>
   );

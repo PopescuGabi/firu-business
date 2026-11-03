@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+import clsx from "clsx";
+import { useContextMenu, type MenuItem } from "./context-menu";
 
 /**
  * Native <dialog> sheet. Closes itself after a form inside it submits (unless marked data-keep-open),
- * on Escape, and when the backdrop is clicked.
+ * on Escape, and when the backdrop is clicked. With `menu`, right-clicking the trigger offers
+ * those actions (plus opening the sheet).
  */
 export function Sheet({
   trigger,
@@ -14,6 +17,8 @@ export function Sheet({
   triggerLabel,
   triggerStyle,
   defaultOpen = false,
+  menu,
+  openLabel = "Open",
 }: {
   trigger: ReactNode;
   title: string;
@@ -22,16 +27,27 @@ export function Sheet({
   triggerLabel?: string;
   triggerStyle?: React.CSSProperties;
   defaultOpen?: boolean;
+  menu?: MenuItem[];
+  openLabel?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const ctx = useContextMenu(menu?.length ? [{ label: openLabel, action: () => ref.current?.showModal() }, ...menu] : []);
   useEffect(() => {
     if (defaultOpen) ref.current?.showModal();
   }, [defaultOpen]);
   return (
     <>
-      <button type="button" className={triggerClassName} style={triggerStyle} aria-label={triggerLabel} onClick={() => ref.current?.showModal()}>
+      <button
+        type="button"
+        className={clsx(triggerClassName, ctx.pending && "pointer-events-none opacity-40 transition-opacity")}
+        style={triggerStyle}
+        aria-label={triggerLabel}
+        onClick={() => ref.current?.showModal()}
+        onContextMenu={ctx.onContextMenu}
+      >
         {trigger}
       </button>
+      {ctx.menu}
       <dialog
         ref={ref}
         className="sheet"
