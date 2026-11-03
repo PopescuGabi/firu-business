@@ -38,6 +38,8 @@ export async function proxy(req: NextRequest) {
   }
 
   if (PUBLIC.some((p) => pathname === p)) return NextResponse.next();
+  // Google Search Console ownership file (public/googleXXXX.html).
+  if (/^\/google[0-9a-f]+\.html$/.test(pathname)) return NextResponse.next();
 
   const secret = process.env.SESSION_SECRET ?? "";
   const session = secret.length >= 32
@@ -59,5 +61,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|manifest.webmanifest).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|manifest.webmanifest|google[0-9a-f]+\\.html).*)"],
 };
