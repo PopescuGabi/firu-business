@@ -190,13 +190,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         <div className="mt-5 flex flex-wrap justify-end gap-2">
                           <form action={removeBlock.bind(null, e.block.id)}>
                             <button className={buttonClass("destructive")}>
-                              <Trash2 size={15} /> {proposed ? "Delete suggestion" : "Remove (also from Google Calendar)"}
+                              <Trash2 size={15} /> {proposed ? "Delete suggestion" : "Remove"}
                             </button>
                           </form>
                           {proposed && (
                             <form action={acceptBlockForm.bind(null, e.block.id)}>
                               <button className={buttonClass("filled")}>
-                                <Check size={15} /> Accept & add to Google Calendar
+                                <Check size={15} /> Accept
                               </button>
                             </form>
                           )}

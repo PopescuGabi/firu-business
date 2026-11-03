@@ -27,10 +27,10 @@ Google shows an "unverified app" screen until the app passes verification for it
 |---|---|---|
 | `openid`, `email`, `profile` | non-sensitive | Confirms the signed-in Google account is the single allowed owner of this private app. |
 | `https://www.googleapis.com/auth/calendar.readonly` | sensitive | The Calendar and Today screens show the user's events from all their calendars, and the week planner reads event times so it can suggest study, gym and project blocks only in free time, including the travel time between places. It needs every calendar the user selects in Settings; `calendar.events.readonly` alone can't list the calendars and their colours, and the user chooses which calendars count. |
-| `https://www.googleapis.com/auth/calendar.events` | sensitive | When the user taps "Accept" on a suggested block or saves a repeating tutoring session, the app creates that event in the calendar the user picked, and deletes or updates it when the user removes or edits it in the app. Read-only access would make "Accept & add to Google Calendar" impossible. The app never edits events it didn't create. |
+| `https://www.googleapis.com/auth/calendar.events` | sensitive | With calendar sync on (Settings → Calendar sync), the app keeps the user's school classes, gym, tutoring, accepted plan blocks and task due dates in a "Personal Hub" calendar the user created, so they're on their phone, and applies edits the user makes to those events (move, rename, delete) back in the app. Read-only access would make this impossible. The app never edits events it didn't create. |
 | `https://www.googleapis.com/auth/drive.file` | non-sensitive | Saves files the user uploads (footage, screenshots) and exported carousel images into a "Personal Hub" folder the app creates. The narrowest Drive scope; it can't see other files. |
 
-**What breaks with narrower scopes:** without `calendar.readonly` the planner can't see existing commitments (tutoring, events) and would schedule on top of them; without `calendar.events` accepted plans and tutoring can't appear in the user's calendar on their phone.
+**What breaks with narrower scopes:** without `calendar.readonly` the planner can't see existing commitments (tutoring, events) and would schedule on top of them; without `calendar.events` the user's schedule can't appear in their calendar on their phone.
 
 ## Demo video shot list (2–3 minutes, English)
 
@@ -40,7 +40,7 @@ Record the screen with sound off or a short English narration. Keep the app's na
 2. **Consent screen:** click **Sign in with Google**, pick the account. At the bottom-left of Google's screens set the language to **English (United States)**. Show the full consent screen, scrolling so every requested permission is visible, then allow.
 3. **calendar.readonly:** open **Calendar**: show existing Google Calendar events appearing in the week view. Open **Settings → Calendars** to show the calendar list.
 4. **Planner:** on **Today** or **Home → Schedule**, tap **Plan my week**; show suggestions placed around existing events with travel time.
-5. **calendar.events:** tap a suggestion → **Accept & add to Google Calendar**; switch to Google Calendar in another tab and show the new event; delete it in Personal Hub and show it disappears from Google Calendar. Optionally add a tutoring session in **School → Tutoring** and show the repeating event.
+5. **calendar.events:** in **Settings → Calendar sync** tap **Sync now**; switch to Google Calendar and show the classes, gym and tutoring in the "Personal Hub" calendar. Accept a suggestion and show it appear there; move an event in Google Calendar, reload Personal Hub and show the new time.
 6. **drive.file:** open a reel → **Upload to Drive**, pick a file; open the Drive folder link and show the file inside "Personal Hub".
 7. End on **Settings → Your Google data** (privacy link, revoke access).
 

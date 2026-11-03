@@ -14,6 +14,7 @@ export type CalendarEvent = {
   end: string; // ISO
   allDay: boolean;
   htmlLink?: string;
+  recurringEventId?: string;
 };
 
 export async function listCalendars(): Promise<CalendarInfo[]> {
@@ -50,6 +51,7 @@ export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: stri
           status?: string;
           htmlLink?: string;
           transparency?: string;
+          recurringEventId?: string;
           start: { dateTime?: string; date?: string };
           end: { dateTime?: string; date?: string };
         }[];
@@ -66,6 +68,7 @@ export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: stri
           end: e.end.dateTime ?? e.end.date!,
           allDay: !e.start.dateTime,
           htmlLink: e.htmlLink,
+          recurringEventId: e.recurringEventId,
         }));
     }),
   );
@@ -97,4 +100,64 @@ export async function deleteEvent(calendarId: string, eventId: string) {
   }).catch((err: Error) => {
     if (!err.message.includes("410") && !err.message.includes("404")) throw err;
   });
+}
+
+// ── Raw event access for two-way sync ─────────────────────
+export type RawEvent = {
+  id: string;
+  status?: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  updated?: string;
+  recurringEventId?: string;
+  start: { date?: string; dateTime?: string; timeZone?: string };
+  end: { date?: string; dateTime?: string; timeZone?: string };
+  recurrence?: string[];
+};
+export type EventBody = Omit<RawEvent, "id" | "status" | "updated" | "recurringEventId">;
+
+const eventsUrl = (calendarId: string, eventId?: string) =>
+  `${API}/calendars/${encodeURIComponent(calendarId)}/events${eventId ? `/${encodeURIComponent(eventId)}` : ""}`;
+
+export async function insertEvent(calendarId: string, body: EventBody): Promise<RawEvent> {
+  const res = await googleFetch(eventsUrl(calendarId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+export async function patchEvent(calendarId: string, eventId: string, body: EventBody): Promise<RawEvent> {
+  const res = await googleFetch(eventsUrl(calendarId, eventId), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+/** Events changed since `updatedMin` (including deleted ones), as series masters, not instances. */
+export async function changedEvents(calendarId: string, updatedMin: string): Promise<RawEvent[]> {
+  const out: RawEvent[] = [];
+  let pageToken = "";
+  do {
+    const url = new URL(eventsUrl(calendarId));
+    url.search = new URLSearchParams({
+      updatedMin,
+      showDeleted: "true",
+      singleEvents: "false",
+      maxResults: "250",
+      ...(pageToken ? { pageToken } : {}),
+    }).toString();
+    const data = (await (await googleFetch(url.toString())).json()) as { items: RawEvent[]; nextPageToken?: string };
+    out.push(...data.items);
+    pageToken = data.nextPageToken ?? "";
+  } while (pageToken);
+  return out;
+}
+
+export async function getEvent(calendarId: string, eventId: string): Promise<RawEvent> {
+  return (await googleFetch(eventsUrl(calendarId, eventId))).json();
 }

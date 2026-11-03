@@ -5,9 +5,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { parseExercises } from "@/lib/gym";
-import { createEvent, deleteEvent } from "@/lib/google/calendar";
-import { getGoogleAccount } from "@/lib/google/oauth";
-import { getSettings } from "@/lib/settings";
+import { requestSync } from "@/lib/calendar-sync";
 import { nextWeekday } from "@/lib/tutoring";
 import { weekdayOf } from "@/lib/time";
 
@@ -32,6 +30,7 @@ export async function saveSchoolDay(weekday: number, fd: FormData) {
     }
   });
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function saveGymDay(weekday: number, fd: FormData) {
@@ -51,6 +50,7 @@ export async function saveGymDay(weekday: number, fd: FormData) {
     .values({ weekday: day, ...values })
     .onConflictDoUpdate({ target: schema.gymDays.weekday, set: values });
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function addGymDay(fd: FormData) {
@@ -63,6 +63,7 @@ export async function deleteGymDay(weekday: number) {
   const db = await getDb();
   await db.delete(schema.gymDays).where(eq(schema.gymDays.weekday, weekday));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 // ── Tutoring ───────────────────────────────────────────────
@@ -94,59 +95,26 @@ function tutoringFromForm(fd: FormData) {
   return { ...t, startDate };
 }
 
-/** Adds a repeating Google Calendar event for a session; returns its id (or null when Google isn't connected). */
-async function syncToGoogle(t: ReturnType<typeof tutoringFromForm>) {
-  if (!(await getGoogleAccount())?.accessToken) return null;
-  const settings = await getSettings();
-  return createEvent(settings.targetCalendarId, {
-    title: `Tutoring · ${t.subject}`,
-    description: "Added from Personal Hub (School → Tutoring).",
-    start: `${t.startDate}T${t.start}:00`,
-    end: `${t.startDate}T${t.end}:00`,
-    timeZone: settings.timezone,
-    recurrence: [`RRULE:FREQ=WEEKLY;INTERVAL=${t.everyWeeks}`],
-  });
-}
-
-async function removeFromGoogle(gcalEventId: string | null) {
-  if (!gcalEventId) return;
-  const settings = await getSettings();
-  await deleteEvent(settings.targetCalendarId, gcalEventId);
-}
-
 export async function addTutoring(fd: FormData) {
   await requireUser();
-  const t = tutoringFromForm(fd);
-  const gcalEventId = fd.get("google") === "on" ? await syncToGoogle(t) : null;
   const db = await getDb();
-  await db.insert(schema.tutoring).values({ ...t, gcalEventId });
+  await db.insert(schema.tutoring).values(tutoringFromForm(fd));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function updateTutoring(id: number, fd: FormData) {
   await requireUser();
-  const t = tutoringFromForm(fd);
   const db = await getDb();
-  const [old] = await db.select().from(schema.tutoring).where(eq(schema.tutoring.id, id));
-  if (!old) return;
-  const wantGoogle = fd.get("google") === "on";
-  // Only rebuild the Google Calendar event when something it shows changed.
-  const sameEvent =
-    wantGoogle === Boolean(old.gcalEventId) &&
-    (["subject", "weekday", "start", "end", "everyWeeks", "startDate"] as const).every((k) => old[k] === t[k]);
-  let gcalEventId = old.gcalEventId;
-  if (!sameEvent) {
-    await removeFromGoogle(old.gcalEventId);
-    gcalEventId = wantGoogle ? await syncToGoogle(t) : null;
-  }
-  await db.update(schema.tutoring).set({ ...t, gcalEventId }).where(eq(schema.tutoring.id, id));
+  await db.update(schema.tutoring).set(tutoringFromForm(fd)).where(eq(schema.tutoring.id, id));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function deleteTutoring(id: number) {
   await requireUser();
   const db = await getDb();
-  const [old] = await db.delete(schema.tutoring).where(eq(schema.tutoring.id, id)).returning();
-  await removeFromGoogle(old?.gcalEventId ?? null);
+  await db.delete(schema.tutoring).where(eq(schema.tutoring.id, id));
   revalidatePath("/", "layout");
+  requestSync();
 }

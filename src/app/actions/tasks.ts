@@ -4,9 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { createEvent, deleteEvent } from "@/lib/google/calendar";
-import { getGoogleAccount } from "@/lib/google/oauth";
-import { getSettings } from "@/lib/settings";
+import { requestSync } from "@/lib/calendar-sync";
 
 const taskInput = z.object({
   title: z.string().trim().min(1).max(300),
@@ -33,6 +31,7 @@ export async function createTask(fd: FormData) {
   const db = await getDb();
   await db.insert(schema.tasks).values(fromForm(fd));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function updateTask(id: number, fd: FormData) {
@@ -40,6 +39,7 @@ export async function updateTask(id: number, fd: FormData) {
   const db = await getDb();
   await db.update(schema.tasks).set(fromForm(fd)).where(eq(schema.tasks.id, id));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function toggleTask(id: number, done: boolean) {
@@ -47,6 +47,7 @@ export async function toggleTask(id: number, done: boolean) {
   const db = await getDb();
   await db.update(schema.tasks).set({ done }).where(eq(schema.tasks.id, id));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function deleteTask(id: number) {
@@ -54,46 +55,25 @@ export async function deleteTask(id: number) {
   const db = await getDb();
   await db.delete(schema.tasks).where(eq(schema.tasks.id, id));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
-/** Accepting a block puts it in Google Calendar (when connected). */
+/** Accepting a block puts it in the Personal Hub calendar (when calendar sync is on). */
 export async function acceptBlock(id: number) {
   await requireUser();
   const db = await getDb();
-  const [b] = await db.select().from(schema.planBlocks).where(eq(schema.planBlocks.id, id));
-  if (!b || b.status === "accepted") return { ok: true };
-  const settings = await getSettings();
-  let gcalEventId: string | null = null;
-  let warning: string | null = null;
-  if ((await getGoogleAccount())?.accessToken) {
-    try {
-      gcalEventId = await createEvent(settings.targetCalendarId, {
-        title: b.title,
-        description: b.reason ? `${b.reason}\n\nAdded from Personal Hub.` : "Added from Personal Hub.",
-        start: `${b.date}T${b.start}:00`,
-        end: `${b.date}T${b.end}:00`,
-        timeZone: settings.timezone,
-      });
-    } catch (err) {
-      warning = err instanceof Error ? err.message : "Could not add to Google Calendar";
-    }
-  }
-  await db.update(schema.planBlocks).set({ status: "accepted", gcalEventId }).where(eq(schema.planBlocks.id, id));
+  await db.update(schema.planBlocks).set({ status: "accepted" }).where(eq(schema.planBlocks.id, id));
   revalidatePath("/", "layout");
-  return { ok: true, warning };
+  requestSync();
+  return { ok: true, warning: null as string | null };
 }
 
 export async function removeBlock(id: number) {
   await requireUser();
   const db = await getDb();
-  const [b] = await db.select().from(schema.planBlocks).where(eq(schema.planBlocks.id, id));
-  if (!b) return;
-  if (b.gcalEventId) {
-    const settings = await getSettings();
-    await deleteEvent(settings.targetCalendarId, b.gcalEventId).catch(() => {});
-  }
   await db.delete(schema.planBlocks).where(eq(schema.planBlocks.id, id));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 /** Deletes every suggestion you haven't accepted. Accepted blocks stay. */
@@ -102,6 +82,7 @@ export async function clearSuggestions() {
   const db = await getDb();
   await db.delete(schema.planBlocks).where(eq(schema.planBlocks.status, "proposed"));
   revalidatePath("/", "layout");
+  requestSync();
 }
 
 export async function acceptBlockForm(id: number) {

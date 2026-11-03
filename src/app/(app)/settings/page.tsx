@@ -1,11 +1,13 @@
 import { gte, sql } from "drizzle-orm";
 import { CalendarDays, FolderOpen, LogOut, Sparkles } from "lucide-react";
+import { CalendarSyncForm } from "@/components/calendar-sync-form";
 import { KeyForm } from "@/components/key-form";
 import { VercelEnvForm } from "@/components/vercel-env-form";
 import { Submit } from "@/components/submit";
 import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
 import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
 import { MODEL } from "@/lib/ai/claude";
+import { HUB_CALENDAR_NAME, lastSyncInfo } from "@/lib/calendar-sync";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { listCalendars, type CalendarInfo } from "@/lib/google/calendar";
@@ -155,7 +157,7 @@ export default async function SettingsPage() {
       </Section>
 
       {connected && (
-        <Section title="Calendars" footer="The planner works around events in the calendars you tick. Accepted plan blocks are added to the chosen calendar.">
+        <Section title="Calendars" footer="The planner works around events in the calendars you tick.">
           {calendarError ? (
             <Notice tone="red">{calendarError}</Notice>
           ) : (
@@ -177,20 +179,26 @@ export default async function SettingsPage() {
                     </label>
                   ))}
                 </fieldset>
-                <Field label="Add accepted plan blocks to">
-                  <select name="targetCalendarId" defaultValue={settings.targetCalendarId} className="field">
-                    <option value="primary">Primary calendar</option>
-                    {calendars.filter((c) => !c.primary).map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
                 <Submit className="self-end">Save calendars</Submit>
               </form>
             </Card>
           )}
+        </Section>
+      )}
+
+      {connected && !calendarError && (
+        <Section
+          title="Calendar sync"
+          footer={`School classes, gym days with a set time, tutoring, accepted plan blocks and task due dates go to your “${HUB_CALENDAR_NAME}” Google calendar, so they're on your phone. Moving, renaming or deleting them there updates the hub too.`}
+        >
+          <Card className="p-4">
+            <CalendarSyncForm
+              enabled={settings.calendarSync}
+              schoolYearEnd={settings.schoolYearEnd}
+              hasCalendar={calendars.some((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase())}
+              lastSync={(await lastSyncInfo()).at}
+            />
+          </Card>
         </Section>
       )}
 

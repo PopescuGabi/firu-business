@@ -30,7 +30,6 @@ export async function saveCalendarSettings(fd: FormData) {
   await requireUser();
   await saveSettings({
     calendarIds: fd.getAll("calendarIds").map(String).slice(0, 50),
-    targetCalendarId: String(fd.get("targetCalendarId") || "primary"),
   });
   revalidatePath("/", "layout");
 }
@@ -87,4 +86,26 @@ export async function createVercelEnvFile(_prev: KeyFormState, fd: FormData): Pr
   return missing.length
     ? { ok: false, message: `Created, but these are still empty: ${missing.join(", ")}. Add them in the Keys box above, then create the file again.` }
     : { ok: true, message: "Created .env.vercel and opened it in TextEdit. Select all, copy, and paste into Vercel → Environment Variables." };
+}
+
+export type SyncFormState = { ok: boolean; message: string } | null;
+
+/** Turns two-way sync with the "Personal Hub" Google calendar on/off and runs it straight away. */
+export async function saveCalendarSync(_prev: SyncFormState, fd: FormData): Promise<SyncFormState> {
+  await requireUser();
+  const calendarSync = fd.get("calendarSync") === "on";
+  const schoolYearEnd = z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]).catch("").parse(fd.get("schoolYearEnd") ?? "");
+  await saveSettings({ calendarSync, schoolYearEnd });
+  revalidatePath("/", "layout");
+  if (!calendarSync) return { ok: true, message: "Sync is off. Events already in the Personal Hub calendar stay there but stop updating." };
+  const { runSync } = await import("@/lib/calendar-sync");
+  return runSync();
+}
+
+export async function syncCalendarNow(): Promise<SyncFormState> {
+  await requireUser();
+  const { runSync } = await import("@/lib/calendar-sync");
+  const result = await runSync();
+  revalidatePath("/", "layout");
+  return result;
 }

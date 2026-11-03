@@ -2,6 +2,7 @@ import "server-only";
 import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { syncIfStale } from "./calendar-sync";
 import { getDb, schema } from "./db";
 import { getSettings } from "./settings";
 import { listEvents, type CalendarEvent } from "./google/calendar";
@@ -47,6 +48,7 @@ export async function getSchool() {
 }
 
 export async function getWeek(weekStart: string, numDays = 7) {
+  await syncIfStale(); // pick up edits made in Google Calendar first
   const db = await getDb();
   const settings = await getSettings();
   const tz = settings.timezone;
@@ -64,6 +66,8 @@ export async function getWeek(weekStart: string, numDays = 7) {
     getGoogleAccount(),
     db.select().from(schema.tutoring),
   ]);
+  // Events the hub writes to the Personal Hub calendar (shown as school / gym / tutoring / plans instead).
+  const mirrored = new Set((await db.select({ id: schema.calendarLinks.eventId }).from(schema.calendarLinks)).map((r) => r.id));
 
   let events: CalendarEvent[] = [];
   let calendarError: string | null = null;
@@ -91,7 +95,8 @@ export async function getWeek(weekStart: string, numDays = 7) {
     const timed: DayEvent[] = [];
     const allDay: CalendarEvent[] = [];
     for (const e of events) {
-      if (acceptedIds.has(e.id) || isTutoringEvent(e.id)) continue; // shown as a plan block / tutoring instead
+      if (mirrored.has(e.id) || (e.recurringEventId && mirrored.has(e.recurringEventId))) continue;
+      if (acceptedIds.has(e.id) || isTutoringEvent(e.id)) continue; // older events: shown as a plan block / tutoring instead
       if (e.allDay) {
         if (e.start <= date && date < e.end) allDay.push(e);
         continue;

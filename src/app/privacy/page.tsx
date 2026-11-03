@@ -20,8 +20,9 @@ export default function PrivacyPage() {
           project time around them, and to warn when sessions are too close for the travel between them.
         </li>
         <li>
-          <strong>Google Calendar events (calendar.events):</strong> to add the plan blocks and repeating tutoring sessions
-          you choose to add, and to remove or update those same events when you change them in the app. It doesn&apos;t
+          <strong>Google Calendar events (calendar.events):</strong> when you turn on calendar sync, to keep your school
+          classes, gym, tutoring, accepted plan blocks and task due dates in a &ldquo;Personal Hub&rdquo; calendar you create,
+          and to bring the changes you make to those events (moving, renaming, deleting) back into the app. It doesn&apos;t
           change other events.
         </li>
         <li>

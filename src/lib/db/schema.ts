@@ -234,6 +234,16 @@ export const gymDays = pgTable("gym_days", {
   startTime: text("start_time"), // HH:mm, when timing = fixed
 });
 
+// Which Google Calendar event mirrors which hub item (see lib/calendar-sync).
+export const calendarLinks = pgTable("calendar_links", {
+  key: text("key").primaryKey(), // e.g. class:1:0, gym:6, tutoring:3, block:45, task:7
+  calendarId: text("calendar_id").notNull(),
+  eventId: text("event_id").notNull(),
+  written: jsonb("written").notNull(), // signature of what the hub last wrote or accepted
+  remoteUpdated: text("remote_updated"), // Google's "updated" timestamp after that write
+  updatedAt: updatedAt(),
+});
+
 // Every Claude call, for rate limiting and spend visibility.
 export const aiUsage = pgTable("ai_usage", {
   id: serial("id").primaryKey(),

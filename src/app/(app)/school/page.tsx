@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
-import { BookOpen, CalendarCheck, Dumbbell, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Dumbbell, Pencil, Plus, Trash2 } from "lucide-react";
 import { Sheet } from "@/components/sheet";
 import { ConfirmButton, Submit } from "@/components/submit";
 import { buttonClass, Card, Empty, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
 import { addGymDay, addTutoring, deleteGymDay, deleteTutoring, saveGymDay, saveSchoolDay, updateTutoring } from "@/app/actions/school";
+import { syncIfStale } from "@/lib/calendar-sync";
 import { getDb, schema } from "@/lib/db";
 import { formatExercises } from "@/lib/gym";
 import { getSettings } from "@/lib/settings";
 import { schoolPeriods, toHHMM, weekdayOf, WEEKDAYS } from "@/lib/time";
-import { getGoogleAccount } from "@/lib/google/oauth";
 import { getSchool, todayIn } from "@/lib/week";
 
 export const metadata = { title: "School" };
@@ -17,17 +17,16 @@ export const metadata = { title: "School" };
 type PlanAdvice = { dailyTargets: { date: string; studyMin: number; projectMin: number; gymMin: number; note: string }[] };
 
 export default async function SchoolPage() {
+  await syncIfStale(); // pick up edits made in Google Calendar first
   const db = await getDb();
   const settings = await getSettings();
   const today = todayIn(settings.timezone);
-  const [{ days: schoolDays, classes }, gym, adviceRow, tutoring, account] = await Promise.all([
+  const [{ days: schoolDays, classes }, gym, adviceRow, tutoring] = await Promise.all([
     getSchool(),
     db.select().from(schema.gymDays),
     db.select().from(schema.settings).where(eq(schema.settings.key, "planAdvice")),
     db.select().from(schema.tutoring).orderBy(asc(schema.tutoring.weekday), asc(schema.tutoring.start)),
-    getGoogleAccount(),
   ]);
-  const googleConnected = Boolean(account?.accessToken);
   const targets = (adviceRow[0]?.value as PlanAdvice | undefined)?.dailyTargets ?? [];
   const freeGymDays = [1, 2, 3, 4, 5, 6, 7].filter((d) => !gym.some((g) => g.weekday === d));
 
@@ -86,7 +85,7 @@ export default async function SchoolPage() {
         footer="Fixed sessions. The planner keeps them free and only plans study time for these subjects."
         action={
           <Sheet title="Add tutoring" trigger={<><Plus size={14} /> Add</>} triggerClassName={buttonClass("plain", "sm")}>
-            <TutoringForm action={addTutoring} googleConnected={googleConnected} today={today} />
+            <TutoringForm action={addTutoring} today={today} />
           </Sheet>
         }
       >
@@ -106,15 +105,10 @@ export default async function SchoolPage() {
                     {t.everyWeeks > 1 && ` · from ${shortDate(t.startDate)}`} · {t.place === "online" ? "online" : t.place}
                   </p>
                 </div>
-                {t.gcalEventId && (
-                  <span className="hidden items-center gap-1 text-[12px] text-label-2 sm:flex">
-                    <CalendarCheck size={13} /> In Google Calendar
-                  </span>
-                )}
                 <Sheet title={`${t.subject} tutoring`} trigger={<Pencil size={15} />} triggerLabel={`Edit ${t.subject} tutoring`} triggerClassName="cursor-pointer rounded-full p-2 text-label-2 hover:bg-fill">
-                  <TutoringForm action={updateTutoring.bind(null, t.id)} googleConnected={googleConnected} today={today} session={t} />
+                  <TutoringForm action={updateTutoring.bind(null, t.id)} today={today} session={t} />
                   <form action={deleteTutoring.bind(null, t.id)} className="mt-3 border-t border-separator pt-3">
-                    <ConfirmButton message={`Remove ${t.subject} tutoring${t.gcalEventId ? " (also from Google Calendar)" : ""}?`}>
+                    <ConfirmButton message={`Remove ${t.subject} tutoring?`}>
                       <Trash2 size={15} /> Remove tutoring
                     </ConfirmButton>
                   </form>
@@ -262,12 +256,10 @@ const shortDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("
 function TutoringForm({
   action,
   session,
-  googleConnected,
   today,
 }: {
   action: (fd: FormData) => Promise<void>;
-  session?: { subject: string; weekday: number; start: string; end: string; everyWeeks: number; startDate: string; gcalEventId: string | null; place: string };
-  googleConnected: boolean;
+  session?: { subject: string; weekday: number; start: string; end: string; everyWeeks: number; startDate: string; place: string };
   today: string;
 }) {
   return (
@@ -314,12 +306,6 @@ function TutoringForm({
           Online
         </label>
       </div>
-      {googleConnected && (
-        <label className="flex items-center gap-2.5 text-[15px]">
-          <input type="checkbox" name="google" defaultChecked={session ? Boolean(session.gcalEventId) : true} className="size-4 accent-[var(--blue)]" />
-          Also add to Google Calendar (repeating)
-        </label>
-      )}
       <Submit className="self-end">Save</Submit>
     </form>
   );
