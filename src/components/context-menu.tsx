@@ -75,7 +75,7 @@ export function useContextMenu(items: MenuItem[]) {
       <div
         ref={ref}
         role="menu"
-        className="ctx-menu fixed z-50 min-w-[200px] rounded-2xl border border-[var(--glass-border)] p-1.5 text-[14px]"
+        className="ctx-menu fixed z-50 min-w-[200px] rounded-[18px] border border-[var(--glass-border)] p-1.5 text-[14px]"
         style={pos ?? { left: at.x, top: at.y, visibility: "hidden" }}
         onContextMenu={(e) => e.preventDefault()}
         onKeyDown={(e) => {

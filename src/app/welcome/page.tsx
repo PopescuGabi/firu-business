@@ -69,7 +69,7 @@ export default function WelcomePage() {
 
       <section className="mt-14 grid gap-4 sm:grid-cols-2" aria-label="What it does">
         {FEATURES.map(({ icon: Icon, title, text }) => (
-          <div key={title} className="rounded-2xl bg-card p-5 shadow-apple">
+          <div key={title} className="glass rounded-[24px] p-5">
             <Icon size={22} className="text-blue" />
             <h2 className="mt-3 text-[17px] font-semibold">{title}</h2>
             <p className="mt-1 text-[15px] text-label-2">{text}</p>
@@ -77,7 +77,7 @@ export default function WelcomePage() {
         ))}
       </section>
 
-      <section className="mt-12 rounded-2xl bg-card p-6 shadow-apple" aria-labelledby="google-data">
+      <section className="glass mt-12 rounded-[24px] p-6" aria-labelledby="google-data">
         <h2 id="google-data" className="flex items-center gap-2 text-[19px] font-semibold">
           <ShieldCheck size={20} className="text-green" /> How it uses your Google data
         </h2>

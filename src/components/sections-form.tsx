@@ -40,7 +40,7 @@ export function SectionsForm({
             type="button"
             onClick={() => setPicked(p.modules)}
             className={clsx(
-              "glass cursor-pointer rounded-2xl p-4 text-left transition",
+              "glass cursor-pointer rounded-[24px] p-4 text-left transition",
               preset?.key === p.key ? "ring-2 ring-[var(--accent)]" : "hover:-translate-y-0.5",
             )}
           >
@@ -49,7 +49,7 @@ export function SectionsForm({
           </button>
         ))}
       </div>
-      <div className="glass divide-y divide-separator overflow-hidden rounded-2xl">
+      <div className="glass divide-y divide-separator overflow-hidden rounded-[24px]">
         {MODULES.map((m) => {
           const on = picked.includes(m.key);
           return (

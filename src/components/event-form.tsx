@@ -3,7 +3,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteCalendarEvent, saveCalendarEvent, type EventFormState } from "@/app/actions/events";
 import { addDays, fmtDate, toHHMM, toMin } from "@/lib/time";
-import { buttonClass, Field } from "./ui";
+import { buttonClass, Field, segmentClass, segmentGroupClass } from "./ui";
 
 export type EditableEvent = {
   id: string;
@@ -93,7 +93,7 @@ export function EventForm({
   return (
     <div ref={ref} className="flex flex-col gap-4">
       {series && (
-        <div className="flex rounded-lg bg-fill p-0.5 text-[14px] font-medium" role="radiogroup" aria-label="Change">
+        <div className={`${segmentGroupClass} w-full p-1 text-[14px]`} role="radiogroup" aria-label="Change">
           {(["this", "all"] as const).map((s) => (
             <button
               key={s}
@@ -101,7 +101,7 @@ export function EventForm({
               role="radio"
               aria-checked={scope === s}
               onClick={() => setScope(s)}
-              className={`flex-1 cursor-pointer rounded-md py-1.5 transition ${scope === s ? "bg-card-solid shadow-sm" : "text-label-2"}`}
+              className={`flex-1 py-1.5 ${segmentClass(scope === s)}`}
             >
               {s === "this" ? "This event" : "All events"}
             </button>

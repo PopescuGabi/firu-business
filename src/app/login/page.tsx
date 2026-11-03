@@ -21,13 +21,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { error } = await searchParams;
   return (
     <main className="grid min-h-dvh place-items-center px-4">
-      <div className="w-full max-w-sm text-center">
+      <div className="glass w-full max-w-sm rounded-[28px] px-6 py-9 text-center">
         <LogoMark size={72} className="mx-auto mb-5" />
         <h1 className="text-[28px] font-bold tracking-tight">Personal Hub</h1>
         <p className="mt-1 text-[15px] text-label-2">Your own private hub. Invite only.</p>
 
         {error && (
-          <p role="alert" className="mt-5 rounded-xl bg-red/12 px-4 py-3 text-[14px] text-red">
+          <p role="alert" className="mt-5 rounded-2xl bg-red/12 px-4 py-3 text-[14px] text-red">
             {ERRORS[error] ?? "Sign-in failed."}
           </p>
         )}

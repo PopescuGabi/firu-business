@@ -81,15 +81,15 @@ export function ReelEditor({
             placeholder="Reel title"
           />
           <div className="flex flex-wrap items-center gap-3">
-            <div role="radiogroup" aria-label="Status" className="flex flex-wrap gap-1 rounded-[10px] bg-fill p-0.5">
+            <div role="radiogroup" aria-label="Status" className="flex flex-wrap gap-1 rounded-[20px] bg-fill p-1">
               {STATUSES.map((s) => (
                 <button
                   key={s}
                   role="radio"
                   aria-checked={fields.status === s}
                   onClick={() => set("status", s)}
-                  className="h-7 cursor-pointer rounded-[8px] px-2.5 text-[13px] font-medium transition"
-                  style={fields.status === s ? { background: "var(--segment)", color: STATUS_COLORS[s], boxShadow: "var(--shadow)" } : { color: "var(--label-2)" }}
+                  className="h-7 cursor-pointer rounded-full px-3 text-[13px] font-medium transition-colors duration-200"
+                  style={fields.status === s ? { background: `color-mix(in srgb, ${STATUS_COLORS[s]} 18%, var(--card-solid))`, color: STATUS_COLORS[s], fontWeight: 600 } : { color: "var(--label-2)" }}
                 >
                   {statusLabel(s)}
                 </button>

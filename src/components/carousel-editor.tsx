@@ -9,7 +9,7 @@ import type { CarouselTheme, DriveFile, Slide } from "@/lib/db/schema";
 import { ClaudePanel, type ChatMessage } from "./claude-panel";
 import { DriveFiles, uploadToDrive } from "./drive-files";
 import { SlidePreview } from "./slide-preview";
-import { buttonClass, Card, Field, STATUS_COLORS, statusLabel } from "./ui";
+import { buttonClass, Card, Field, segmentClass, segmentGroupClass, STATUS_COLORS, statusLabel } from "./ui";
 import { SaveIndicator, useAutosave } from "./use-autosave";
 
 type Carousel = {
@@ -149,15 +149,15 @@ export function CarouselEditor({
             placeholder="Carousel title"
           />
           <div className="flex flex-wrap items-center gap-3">
-            <div role="radiogroup" aria-label="Status" className="flex gap-1 rounded-[10px] bg-fill p-0.5">
+            <div role="radiogroup" aria-label="Status" className="flex flex-wrap gap-1 rounded-[20px] bg-fill p-1">
               {STATUSES.map((s) => (
                 <button
                   key={s}
                   role="radio"
                   aria-checked={f.status === s}
                   onClick={() => setF((x) => ({ ...x, status: s }))}
-                  className="h-7 cursor-pointer rounded-[8px] px-2.5 text-[13px] font-medium"
-                  style={f.status === s ? { background: "var(--segment)", color: STATUS_COLORS[s], boxShadow: "var(--shadow)" } : { color: "var(--label-2)" }}
+                  className="h-7 cursor-pointer rounded-full px-3 text-[13px] font-medium transition-colors duration-200"
+                  style={f.status === s ? { background: `color-mix(in srgb, ${STATUS_COLORS[s]} 18%, var(--card-solid))`, color: STATUS_COLORS[s], fontWeight: 600 } : { color: "var(--label-2)" }}
                 >
                   {statusLabel(s)}
                 </button>
@@ -356,14 +356,14 @@ function IconBtn({ label, onClick, disabled, children }: { label: string; onClic
 
 function Segment<T extends string>({ value, options, onChange, label }: { value: T; options: T[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-[10px] bg-fill p-0.5">
+    <div role="radiogroup" aria-label={label} className={clsx(segmentGroupClass, "p-1")}>
       {options.map((o) => (
         <button
           key={o}
           role="radio"
           aria-checked={value === o}
           onClick={() => onChange(o)}
-          className={clsx("h-7 cursor-pointer rounded-[8px] px-3 text-[13px] font-medium capitalize", value === o ? "bg-segment shadow-apple" : "text-label-2")}
+          className={clsx("h-7 px-3 text-[13px] capitalize", segmentClass(value === o))}
         >
           {o}
         </button>

@@ -79,7 +79,7 @@ export function DriveFiles({
   return (
     <div>
       {files.length > 0 && (
-        <ul className="mb-2 divide-y divide-separator rounded-xl bg-fill/60">
+        <ul className="mb-2 divide-y divide-separator rounded-2xl bg-fill/60">
           {files.map((f) => {
             const Icon = iconFor(f.mimeType);
             return (

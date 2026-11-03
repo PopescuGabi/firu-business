@@ -9,7 +9,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
       </Link>
       <h1 className="text-[34px] font-bold tracking-tight">{title}</h1>
       <p className="mt-1 text-[13px] text-label-2">Last updated {updated}</p>
-      <div className="mt-8 space-y-5 text-[15px] leading-relaxed [&_h2]:mt-8 [&_h2]:text-[19px] [&_h2]:font-semibold [&_li]:ml-5 [&_li]:list-disc">
+      <div className="glass mt-8 space-y-5 rounded-[24px] p-6 sm:p-8 text-[15px] leading-relaxed [&_h2]:mt-8 [&_h2:first-child]:mt-0 [&_h2]:text-[19px] [&_h2]:font-semibold [&_li]:ml-5 [&_li]:list-disc">
         {children}
       </div>
     </main>

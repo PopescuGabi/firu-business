@@ -41,7 +41,7 @@ export function Section({
 }
 
 export function Card({ className, ...props }: ComponentProps<"div">) {
-  return <div className={clsx("glass overflow-hidden rounded-[22px]", className)} {...props} />;
+  return <div className={clsx("glass overflow-hidden rounded-[24px]", className)} {...props} />;
 }
 
 /** Columns a bento tile takes: phone (of 2), tablet (of 6), laptop and desktop (of 12); rows likewise. */
@@ -91,6 +91,15 @@ export function buttonClass(variant: ButtonVariant = "filled", size: "sm" | "md"
     size === "md" && "h-9 px-4 text-[15px]",
     size === "lg" && "h-11 px-6 text-[17px]",
     buttonStyles[variant],
+  );
+}
+
+/** Small in-page toggles (radio groups), matching the sliding ink pill of SegmentedLinks. */
+export const segmentGroupClass = "inline-flex rounded-full bg-fill";
+export function segmentClass(on: boolean) {
+  return clsx(
+    "cursor-pointer rounded-full font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40",
+    on ? "bg-ink font-semibold text-on-ink" : "text-label-2 hover:text-label",
   );
 }
 

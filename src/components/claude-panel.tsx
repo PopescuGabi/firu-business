@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { ArrowUp, Check, ClipboardPaste, Copy, RotateCcw, Sparkles } from "lucide-react";
 import { applyProposal, clearChat } from "@/app/actions/clients";
 import { importClaudeReply, prepareClaudePrompt } from "@/app/actions/claude-app";
-import { buttonClass } from "./ui";
+import { buttonClass, segmentClass, segmentGroupClass } from "./ui";
 
 export type ChatMessage = {
   id: number;
@@ -119,7 +119,7 @@ export function ClaudePanel<T>({
         </span>
         <div className="flex-1">
           <p className="text-[15px] font-semibold leading-tight">Opus 5.5</p>
-          <div role="radiogroup" aria-label="Where Claude runs" className="mt-1 inline-flex rounded-[8px] bg-fill p-0.5 text-[11px] font-medium">
+          <div role="radiogroup" aria-label="Where Claude runs" className={clsx(segmentGroupClass, "mt-1 p-0.5 text-[11px]")}>
             {(
               [
                 ["app", "Claude app"],
@@ -133,10 +133,7 @@ export function ClaudePanel<T>({
                 disabled={m === "api" && !claudeConfigured}
                 title={m === "api" && !claudeConfigured ? "Needs an Anthropic API key" : undefined}
                 onClick={() => setMode(m)}
-                className={clsx(
-                  "h-5 cursor-pointer rounded-[6px] px-2 disabled:cursor-not-allowed disabled:opacity-40",
-                  mode === m ? "bg-segment shadow-apple" : "text-label-2",
-                )}
+                className={clsx("h-5 px-2.5", segmentClass(mode === m))}
               >
                 {label}
               </button>

@@ -31,7 +31,7 @@ function ClashNotice({ days }: { days: DayView[] }) {
   const clashes = days.flatMap((d) => d.clashes.map((c) => ({ ...c, date: d.date, weekday: d.weekday })));
   if (!clashes.length) return null;
   return (
-    <div role="alert" className="mb-4 rounded-xl bg-red/12 px-4 py-3 text-[14px]">
+    <div role="alert" className="mb-4 rounded-2xl bg-red/12 px-4 py-3 text-[14px]">
       <p className="mb-1 flex items-center gap-1.5 font-semibold text-red">
         <TriangleAlert size={16} /> Not enough travel time
       </p>
