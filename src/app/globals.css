@@ -204,3 +204,78 @@ dialog.sheet[open] {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* ── Motion ─────────────────────────────────────────────── */
+/* Fill "backwards" only: once finished, no transform lingers (it would break sticky/fixed children). */
+.enter-right {
+  animation: enter-right 0.34s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+.enter-left {
+  animation: enter-left 0.34s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+.enter-up {
+  animation: enter-up 0.3s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+@keyframes enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+@keyframes enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(100deg, var(--fill) 40%, var(--fill-2) 50%, var(--fill) 60%) 0 0 / 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* Sheets also animate out. */
+dialog.sheet {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    overlay 0.2s allow-discrete,
+    display 0.2s allow-discrete;
+}
+dialog.sheet:not([open]) {
+  opacity: 0;
+  transform: scale(0.97);
+}
+@media (max-width: 640px) {
+  dialog.sheet:not([open]) {
+    opacity: 1;
+    transform: translateY(100%);
+  }
+}
+
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  dialog.sheet::backdrop {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { LogoMark } from "./logo";
+import { usePendingHref } from "./motion";
 import { BookText, Briefcase, CalendarDays, GraduationCap, House, Plus, Settings, Sun } from "lucide-react";
 
 const ITEMS = [
@@ -17,7 +17,8 @@ const ITEMS = [
 const isActive = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
 export function Sidebar({ clients }: { clients: { id: number; name: string; color: string }[] }) {
-  const path = usePathname();
+  const { path: current, pending, setPending } = usePendingHref();
+  const path = pending ?? current;
   return (
     <aside className="material sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col border-r border-separator px-3 pt-6 pb-4 md:flex">
       <div className="mb-5 flex items-center gap-2 px-3">
@@ -29,6 +30,7 @@ export function Sidebar({ clients }: { clients: { id: number; name: string; colo
           <Link
             key={href}
             href={href}
+            onClick={() => setPending(href)}
             aria-current={isActive(path, href) ? "page" : undefined}
             className={clsx(
               "flex h-8 items-center gap-2.5 rounded-lg px-3 text-[14px] font-medium transition",
@@ -55,6 +57,7 @@ export function Sidebar({ clients }: { clients: { id: number; name: string; colo
             <Link
               key={c.id}
               href={href}
+              onClick={() => setPending(href)}
               className={clsx(
                 "flex h-8 items-center gap-2.5 rounded-lg px-3 text-[14px] transition",
                 active ? "bg-fill-2 font-semibold" : "hover:bg-fill",
@@ -69,6 +72,7 @@ export function Sidebar({ clients }: { clients: { id: number; name: string; colo
 
       <Link
         href="/settings"
+        onClick={() => setPending("/settings")}
         aria-current={path.startsWith("/settings") ? "page" : undefined}
         className={clsx(
           "mt-auto flex h-8 items-center gap-2.5 rounded-lg px-3 text-[14px] font-medium",
@@ -83,7 +87,8 @@ export function Sidebar({ clients }: { clients: { id: number; name: string; colo
 }
 
 export function TabBar() {
-  const path = usePathname();
+  const { path: current, pending, setPending } = usePendingHref();
+  const path = pending ?? current;
   return (
     <nav
       aria-label="Main"
@@ -93,9 +98,10 @@ export function TabBar() {
         <Link
           key={href}
           href={href}
+          onClick={() => setPending(href)}
           aria-current={isActive(path, href) ? "page" : undefined}
           className={clsx(
-            "flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10px] font-medium",
+            "flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10px] font-medium transition-colors active:scale-90 [&>svg]:transition-transform",
             isActive(path, href) ? "text-blue" : "text-label-2",
           )}
         >

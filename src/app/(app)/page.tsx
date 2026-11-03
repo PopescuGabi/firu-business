@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SegmentedLinks, Slide } from "@/components/motion";
 import { asc, desc, eq, ne } from "drizzle-orm";
 import clsx from "clsx";
 import {
@@ -610,21 +611,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </Link>
       </header>
 
-      <nav aria-label="Home sections" className="mb-5 inline-flex rounded-[10px] bg-fill p-0.5">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <Link
-            key={key}
-            href={key === "overview" ? "/" : `/?tab=${key}`}
-            aria-current={tab === key ? "page" : undefined}
-            className={clsx(
-              "flex h-8 items-center gap-1.5 rounded-[8px] px-4 text-[14px] font-medium transition",
-              tab === key ? "bg-segment font-semibold shadow-apple" : "text-label-2 hover:text-label",
-            )}
-          >
-            <Icon size={15} /> {label}
-          </Link>
-        ))}
-      </nav>
+      <SegmentedLinks
+        label="Home sections"
+        className="mb-5"
+        active={tab}
+        items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? "/" : `/?tab=${key}`, icon: <Icon size={15} /> }))}
+      />
 
       {!googleConnected && (
         <Notice tone="orange">
@@ -634,7 +626,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {calendarError && <Notice tone="red">Couldn&apos;t load Google Calendar: {calendarError}</Notice>}
       <ClashNotice days={days} />
 
-      <div className="grid grid-flow-row-dense gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <Slide group="home-tab" index={TABS.findIndex((t) => t.key === tab)} className="grid grid-flow-row-dense gap-4 md:grid-cols-2 xl:grid-cols-3">
         {tab === "overview" && (
           <>
             {nowNext}
@@ -662,7 +654,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             {appUpdatesW}
           </>
         )}
-      </div>
+      </Slide>
     </>
   );
 }

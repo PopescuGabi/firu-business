@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { SegmentedLinks, Slide } from "@/components/motion";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
-import clsx from "clsx";
 import { Archive, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2 } from "lucide-react";
 import { ClientForm } from "@/components/client-form";
 import { DriveFiles } from "@/components/drive-files";
@@ -76,25 +76,18 @@ export default async function ClientPage({
       />
       {client.description && <p className="-mt-3 mb-5 text-[15px] text-label-2">{client.description}</p>}
 
-      <nav aria-label="Sections" className="mb-6 inline-flex rounded-[10px] bg-fill p-0.5">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <Link
-            key={key}
-            href={`/clients/${id}?tab=${key}`}
-            aria-current={tab === key ? "page" : undefined}
-            className={clsx(
-              "flex h-8 items-center gap-1.5 rounded-[8px] px-4 text-[14px] font-medium transition",
-              tab === key ? "bg-segment font-semibold shadow-apple" : "text-label-2 hover:text-label",
-            )}
-          >
-            <Icon size={15} /> {label}
-          </Link>
-        ))}
-      </nav>
+      <SegmentedLinks
+        label="Sections"
+        className="mb-6"
+        active={tab}
+        items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, href: `/clients/${id}?tab=${key}`, icon: <Icon size={15} /> }))}
+      />
 
-      {tab === "app" && <AppTab clientId={id} appName={client.appName} googleConnected={googleConnected} />}
-      {tab === "reels" && <ReelsTab clientId={id} />}
-      {tab === "carousels" && <CarouselsTab clientId={id} />}
+      <Slide group={`client-tab-${id}`} index={TABS.findIndex((t) => t.key === tab)}>
+        {tab === "app" && <AppTab clientId={id} appName={client.appName} googleConnected={googleConnected} />}
+        {tab === "reels" && <ReelsTab clientId={id} />}
+        {tab === "carousels" && <CarouselsTab clientId={id} />}
+      </Slide>
     </>
   );
 }

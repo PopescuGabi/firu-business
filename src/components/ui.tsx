@@ -68,7 +68,7 @@ const buttonStyles: Record<ButtonVariant, string> = {
 
 export function buttonClass(variant: ButtonVariant = "filled", size: "sm" | "md" | "lg" = "md") {
   return clsx(
-    "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full font-semibold transition select-none disabled:cursor-not-allowed disabled:opacity-40",
+    "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full font-semibold transition select-none active:scale-[0.97] disabled:cursor-not-allowed disabled:active:scale-100 disabled:opacity-40",
     size === "sm" && "h-7 px-3 text-[13px]",
     size === "md" && "h-9 px-4 text-[15px]",
     size === "lg" && "h-11 px-6 text-[17px]",
