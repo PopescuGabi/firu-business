@@ -915,3 +915,15 @@ button {
     stroke-dashoffset: 0;
   }
 }
+
+/* The phone "More" sheet rises out of the dock. */
+.more-sheet {
+  transform-origin: 90% 100%;
+  animation: more-in 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes more-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}

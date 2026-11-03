@@ -1,10 +1,10 @@
 "use client";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
-import { BookText, Briefcase, CalendarDays, Dumbbell, GraduationCap, House, Images, Mail, Settings, Sun } from "lucide-react";
+import { BookText, Briefcase, CalendarDays, Dumbbell, GraduationCap, House, Images, LayoutGrid, Mail, Settings, Sun } from "lucide-react";
 
 // `module`: shown only when that section is turned on (lib/modules.ts); the rest are always there.
 const ALL_ITEMS = [
@@ -187,48 +187,109 @@ export function Sidebar({ clients, modules }: { clients: { id: number; name: str
   );
 }
 
-/** Floating glass dock (phones). */
-export function TabBar({ modules }: { modules: string[] }) {
+// On a phone the dock keeps the everyday pages; everything else is in More.
+const DOCK = ["/", "/today", "/calendar", "/email"];
+
+/** Floating glass dock (phones): Home, Today, Calendar, Email, and More for the rest. */
+export function TabBar({ modules, clients }: { modules: string[]; clients: { id: number; name: string; color: string }[] }) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
-  // At most six on a phone: the always-on tabs plus the first chosen sections (Prompts is reached from Clients).
-  const items = itemsFor(modules)
-    .filter((i) => i.href !== "/prompts")
-    .slice(0, 6);
-  const active = activeOf(path, items.map((i) => i.href));
-  const { register, blob, box } = useGlide(active, DOCK_SQUASH);
+  const [open, setOpen] = useState(false);
+  const all = itemsFor(modules);
+  const items = all.filter((i) => DOCK.includes(i.href));
+  const more = [...all.filter((i) => !DOCK.includes(i.href)), { href: "/settings", label: "Settings", icon: Settings }];
+  const inMore = more.some((i) => isActive(path, i.href));
+  const active = activeOf(path, items.map((i) => i.href)) ?? (inMore ? "more" : null);
+  const { register, blob, box } = useGlide(open ? "more" : active, DOCK_SQUASH);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  const go = (href: string) => {
+    setPending(href.split("?")[0] || "/");
+    setOpen(false);
+  };
+  const tab = "relative z-[1] flex flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-semibold transition-[color,transform] delay-75 duration-300 active:scale-90";
   return (
-    <nav
-      aria-label="Main"
-      className="chrome fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 grid gap-0.5 rounded-full p-1.5 md:hidden"
-      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
-    >
-      <span
-        ref={blob}
-        aria-hidden
-        className="absolute rounded-full transition-[top,left,width,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
-        style={{ background: "var(--orb)", boxShadow: "var(--glow)", ...(box ? { ...box, opacity: 1 } : { opacity: 0 }) }}
-      />
-      {items.map(({ href, label, icon: Icon }) => {
-        const on = active === href;
-        return (
-          <Link
-            key={href}
-            ref={register(href)}
-            href={href}
-            onClick={() => setPending(href)}
-            aria-current={on ? "page" : undefined}
-            className={clsx(
-              "relative z-[1] flex flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-semibold transition-[color,transform] delay-75 duration-300 active:scale-90",
-              on ? "text-white" : "text-label-2",
-              on && !box && "orb-btn-on",
-            )}
+    <>
+      {open && (
+        <>
+          <button type="button" aria-label="Close menu" className="fixed inset-0 z-30 cursor-default bg-black/10 md:hidden" onClick={() => setOpen(false)} />
+          <div
+            id="more-menu"
+            className="more-sheet chrome fixed inset-x-3 bottom-[calc(max(12px,env(safe-area-inset-bottom))+76px)] z-40 max-h-[60dvh] overflow-y-auto rounded-[26px] !bg-[var(--bg-elevated)] p-2 md:hidden"
           >
-            <Icon size={20} strokeWidth={on ? 2.3 : 1.9} />
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
+            <ul className="flex flex-col">
+              {more.map(({ href, label, icon: Icon }) => {
+                const on = isActive(path, href);
+                return (
+                  <li key={href}>
+                    <Link href={href} onClick={() => go(href)} aria-current={on ? "page" : undefined} className="flex items-center gap-3 rounded-[16px] px-2.5 py-2 text-[16px] font-medium hover:bg-fill">
+                      <span className={clsx("grid size-9 shrink-0 place-items-center rounded-full", on ? "orb-btn-on" : "bg-fill text-label-2")}>
+                        <Icon size={18} />
+                      </span>
+                      {label}
+                    </Link>
+                    {href === "/clients" && clients.length > 0 && (
+                      <ul className="tree mb-1 ml-[30px]">
+                        {clients.map((c) => (
+                          <li key={c.id}>
+                            <Link href={`/clients/${c.id}`} onClick={() => go(`/clients/${c.id}`)} className="flex items-center gap-2 rounded-[10px] px-2 py-1.5 text-[15px] hover:bg-fill">
+                              <span className="size-2 shrink-0 rounded-full" style={{ background: c.color }} />
+                              <span className="truncate">{c.name}</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </>
+      )}
+      <nav
+        aria-label="Main"
+        className="chrome fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 grid gap-0.5 rounded-full p-1.5 md:hidden"
+        style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}
+      >
+        <span
+          ref={blob}
+          aria-hidden
+          className="absolute rounded-full transition-[top,left,width,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
+          style={{ background: "var(--orb)", boxShadow: "var(--glow)", ...(box ? { ...box, opacity: 1 } : { opacity: 0 }) }}
+        />
+        {items.map(({ href, label, icon: Icon }) => {
+          const on = !open && active === href;
+          return (
+            <Link
+              key={href}
+              ref={register(href)}
+              href={href}
+              onClick={() => go(href)}
+              aria-current={on ? "page" : undefined}
+              className={clsx(tab, on ? "text-white" : "text-label-2", on && !box && "orb-btn-on")}
+            >
+              <Icon size={20} strokeWidth={on ? 2.3 : 1.9} />
+              {label}
+            </Link>
+          );
+        })}
+        <button
+          ref={register("more")}
+          type="button"
+          aria-expanded={open}
+          aria-controls="more-menu"
+          onClick={() => setOpen((o) => !o)}
+          className={clsx(tab, "cursor-pointer", open || active === "more" ? "text-white" : "text-label-2", (open || active === "more") && !box && "orb-btn-on")}
+        >
+          <LayoutGrid size={20} strokeWidth={open || active === "more" ? 2.3 : 1.9} />
+          More
+        </button>
+      </nav>
+    </>
   );
 }
