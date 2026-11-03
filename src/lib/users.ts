@@ -105,6 +105,18 @@ export async function anthropicKeyFor(uid: number) {
   return null;
 }
 
+// Their own Google Maps key (encrypted); never sent to the browser.
+export async function setMapsKey(uid: number, key: string | null) {
+  const db = await getDb();
+  await db.update(schema.users).set({ mapsKey: key ? encrypt(key) : null }).where(eq(schema.users.id, uid));
+}
+
+export async function mapsKeyFor(uid: number) {
+  const db = await getDb();
+  const [u] = await db.select({ key: schema.users.mapsKey }).from(schema.users).where(eq(schema.users.id, uid));
+  return u?.key ? decrypt(u.key) : null;
+}
+
 export const newShareToken = () => randomBytes(18).toString("base64url");
 
 /** Which sections this person uses (for lib code that only has their id). */

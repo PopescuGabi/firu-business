@@ -9,14 +9,18 @@ import { Sheet } from "@/components/sheet";
 import { DeleteFooter } from "@/components/submit";
 import { TaskCheck } from "@/components/check";
 import { TaskForm } from "@/components/task-form";
-import { buttonClass, Card, Empty, List, PageHeader, Row, Section } from "@/components/ui";
+import { buttonClass, Card, Chip, Empty, List, PageHeader, Row, RouteTimeline, Section } from "@/components/ui";
+import { RouteMap } from "@/components/route-map";
+import { RouteAdvice } from "@/components/route-advice";
 import { createTask, deleteTask, updateTask } from "@/app/actions/tasks";
 import { claudeAvailable } from "@/lib/ai/claude";
 import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { fmtDate, toHHMM, WEEKDAYS } from "@/lib/time";
+import { clock, fmtDate, toHHMM, WEEKDAYS } from "@/lib/time";
 import { countSuggestions, getWeek, nowMinutesIn, todayIn } from "@/lib/week";
 import { getPlanAdvice, getSettings } from "@/lib/settings";
+import { mapsAvailable } from "@/lib/google/maps";
+import { liveNowAndNext, routeForDay } from "@/lib/route";
 
 export const metadata = { title: "Today" };
 
@@ -33,6 +37,11 @@ export default async function TodayPage() {
     getPlanAdvice(user.id),
   ]);
   const day = days[0];
+  const mapsOn = await mapsAvailable(user.id);
+  const opts = { tz: settings.timezone, mode: settings.travelMode, gymExtraMinutes: settings.gymExtraMinutes };
+  const [route, live] = mapsOn
+    ? await Promise.all([routeForDay(user.id, day, opts).catch(() => null), liveNowAndNext(user.id, day, now, settings.travel, opts)])
+    : [null, null];
   const target = advice?.dailyTargets.find((t) => t.date === today);
   const openTasks = tasks.filter((t) => !t.done);
   const doneTasks = tasks.filter((t) => t.done).slice(0, 5);
@@ -135,6 +144,47 @@ export default async function TodayPage() {
         </div>
 
         <div>
+          {mapsOn && (
+            <Section title="Route today">
+              <Card className="flex flex-col gap-4 p-3">
+                {route ? (
+                  <>
+                    <RouteMap route={route} />
+                    {live?.next && live.leaveBy != null && (
+                      <div className="px-1">
+                        <Chip tone={live.leaveBy - now <= 15 ? "red" : "orange"}>
+                          {live.leaveBy <= now ? "Leave now" : `Leave by ${clock(live.leaveBy)}`} for {live.next.title}
+                          {live.live && " · live"}
+                        </Chip>
+                      </div>
+                    )}
+                    <RouteTimeline
+                      className="px-1"
+                      stops={route.stops.map((s, i) => ({
+                        title: s.title,
+                        sub: [s.start != null && i > 0 ? `from ${clock(s.start)}` : null, s.end != null && i < route.stops.length - 1 ? `leave ${clock(s.end)}` : null, route.legs.find((l) => l.from === s.place && i < route.stops.length - 1) ? `${fmtMin(route.legs.find((l) => l.from === s.place)!.minutes)} to next` : null]
+                          .filter(Boolean)
+                          .join(" · "),
+                        state: i === 0 ? "here" : i === 1 ? "next" : "later",
+                      }))}
+                    />
+                    {route.missing.length > 0 && (
+                      <p className="px-1 text-[12px] text-label-2">
+                        No address yet for {route.missing.join(", ")}. <Link href="/settings" className="font-semibold text-accent">Add in Settings</Link>
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="p-1 text-[14px] text-label-2">
+                    Nothing to travel to today, or your places have no addresses yet. <Link href="/settings" className="font-semibold text-accent">Settings → Google Maps</Link>
+                  </p>
+                )}
+                <div className="px-1 pb-1">
+                  <RouteAdvice />
+                </div>
+              </Card>
+            </Section>
+          )}
           <Section title="Recommended today">
             <Card className="p-4">
               {target ? (

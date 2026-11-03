@@ -850,3 +850,68 @@ button {
 .switch:checked::after {
   transform: translateX(18px);
 }
+
+/* Route map: the map picture (night or porcelain), the route drawing itself in, glowing stops. */
+.route-map {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  background: var(--well);
+  box-shadow: var(--glass-edge);
+}
+.route-map > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.map-dark,
+[data-theme="dark"] .map-light {
+  display: none;
+}
+[data-theme="dark"] .map-dark {
+  display: block;
+}
+.route-glow {
+  fill: none;
+  stroke: var(--glow-color);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.25;
+  filter: blur(4px);
+}
+.route-line {
+  fill: none;
+  stroke: var(--glow-color);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: route-draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+[data-theme="dark"] .route-line {
+  stroke: #fff;
+}
+.route-pin {
+  fill: var(--glow-color);
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px var(--glow-color));
+}
+.map-chip {
+  backdrop-filter: saturate(160%) blur(14px);
+  background: color-mix(in srgb, var(--card-solid) 72%, transparent);
+}
+@keyframes route-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-line {
+    stroke-dashoffset: 0;
+  }
+}

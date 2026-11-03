@@ -32,6 +32,7 @@ const TABLES = [
   ["users", schema.users],
   ["invites", schema.invites],
   ["backgrounds", schema.backgrounds],
+  ["places", schema.places],
   ["settings", schema.settings],
   ["school_days", schema.schoolDays],
   ["school_classes", schema.schoolClasses],
@@ -48,7 +49,7 @@ const TABLES = [
   ["client_feedback", schema.clientFeedback],
   ["portfolio_items", schema.portfolioItems],
 ] as const;
-const SERIAL = ["users", "tutoring", "clients", "app_updates", "reels", "carousels", "prompts", "ai_messages", "tasks", "plan_blocks", "client_feedback", "portfolio_items"];
+const SERIAL = ["users", "tutoring", "clients", "app_updates", "reels", "carousels", "prompts", "ai_messages", "tasks", "plan_blocks", "client_feedback", "portfolio_items", "places"];
 
 function readLocalEnv(key: string) {
   try {

@@ -60,10 +60,19 @@ export default function PrivacyPage() {
         requests by default.
       </p>
 
+      <h2>Google Maps (optional)</h2>
+      <p>
+        If you add your own Google Maps API key, the addresses you save for your places (home, school, gym, tutoring) are
+        stored in your hub and sent to Google Maps Platform with your key to search addresses, work out travel times and
+        draw your route. That use is billed to your own Google Cloud project and covered by Google&apos;s terms. When you
+        ask for AI route advice, only your place names, schedule and travel minutes go to Claude, never the addresses. You
+        can remove any address, or the key, in Settings at any time.
+      </p>
+
       <h2>Where data is stored</h2>
       <p>
         What you store in your hub (schedule, tasks, clients, reels, carousels, prompts, notes) is kept in Personal Hub&apos;s
-        database, separated per person. Google sign-in tokens and your Anthropic key are encrypted (AES-256-GCM). Files stay
+        database, separated per person. Google sign-in tokens and your Anthropic and Google Maps keys are encrypted (AES-256-GCM). Files stay
         in your own Google Drive. Calendar events and emails are read when a page needs them and aren&apos;t stored, except
         the events this app created itself.
       </p>

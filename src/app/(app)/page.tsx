@@ -21,6 +21,7 @@ import {
   MessageSquareText,
   Navigation,
   Plus,
+  Route as RouteIcon,
   Settings,
   Smartphone,
   Sparkles,
@@ -50,6 +51,9 @@ import { gmailConnected, listInbox } from "@/lib/google/gmail";
 import type { ModuleKey } from "@/lib/modules";
 import { KIND_COLORS } from "@/lib/kinds";
 import { nowAndNext } from "@/lib/now-next";
+import { mapsAvailable } from "@/lib/google/maps";
+import { liveNowAndNext, routeForDay } from "@/lib/route";
+import { RouteMap } from "@/components/route-map";
 import { getPlanAdvice, getSettings } from "@/lib/settings";
 import { addDays, clock, fmtDate, toMin, WEEKDAYS } from "@/lib/time";
 import { countSuggestions, getWeek, nowMinutesIn, todayIn, type DayView } from "@/lib/week";
@@ -220,7 +224,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const inbox = gmail ? await listInbox(user.id, { max: 5, q: "in:inbox is:unread" }).catch(() => null) : null;
 
   const day = days[0];
-  const { current, next, leaveBy } = nowAndNext(day, now, settings.travel);
+  const mapsOn = await mapsAvailable(user.id);
+  const routeOpts = { tz: settings.timezone, mode: settings.travelMode, gymExtraMinutes: settings.gymExtraMinutes };
+  const [{ current, next, leaveBy, live }, route] = mapsOn
+    ? await Promise.all([liveNowAndNext(user.id, day, now, settings.travel, routeOpts), routeForDay(user.id, day, routeOpts).catch(() => null)])
+    : [{ ...nowAndNext(day, now, settings.travel), live: false }, null];
     const target = advice?.dailyTargets.find((t) => t.date === today);
   const client = (id: number) => clients.find((c) => c.id === id);
   const activeClientIds = new Set(clients.map((c) => c.id));
@@ -254,6 +262,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const dateLabel = fmtDate(today, { weekday: "long", day: "numeric", month: "long" });
 
   // ── Widgets ────────────────────────────────────────────────
+  const routeTile = (p: Placed) => (
+    <Widget {...p} title="Today's route" icon={RouteIcon} href="/today">
+      {route && <RouteMap route={route} />}
+    </Widget>
+  );
   const tasksDue = (p: Placed) => (
     <Widget {...p}
       title="Tasks due soon"
@@ -523,6 +536,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="mt-3">
           <Chip icon={<Footprints size={13} />} tone={leaveBy - now <= 15 ? "red" : "orange"}>
             {leaveBy <= now ? "Leave now" : `Leave by ${clock(leaveBy)}`}
+            {live && " · live"}
           </Chip>
         </div>
       )}
@@ -814,6 +828,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     overview: [
       ...top,
       ...flexible([
+        ...(route ? [routeTile] : []),
         tasksDue,
         busyWeek,
         ...(on("clients") ? [waitingReview] : []),
@@ -829,6 +844,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       [todayTimeline, { p: 2, t: 6, l: 7, d: 7, rl: 3, rd: 2 }],
       [monthStrip, { p: 2, t: 6, l: 5, d: 5 }],
       [busyWeek, { p: 2, t: 6, l: 5, d: 5 }],
+      ...(route ? ([[routeTile, { p: 2, t: 6, l: 7, d: 7 }]] as Tile[]) : []),
     ],
     work: [
       [stats.work, { p: 1, t: 3, l: 3, d: 3 }],

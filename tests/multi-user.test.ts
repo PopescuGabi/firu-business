@@ -29,6 +29,7 @@ const PER_USER = [
   "calendarLinks",
   "aiUsage",
   "backgrounds",
+  "places",
 ];
 
 function sourceFiles(dir: string): string[] {

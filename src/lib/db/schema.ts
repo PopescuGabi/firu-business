@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -8,6 +9,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export type DriveFile = {
@@ -52,6 +54,7 @@ export const users = pgTable("users", {
   modules: jsonb("modules").$type<string[]>().notNull().default([]), // sections they use (lib/modules.ts)
   onboarded: boolean("onboarded").notNull().default(false),
   anthropicKey: text("anthropic_key"), // their own Claude key, encrypted
+  mapsKey: text("maps_key"), // their own Google Maps key, encrypted
   shareToken: text("share_token").unique(), // public portfolio address
   shareEnabled: boolean("share_enabled").notNull().default(false),
   createdAt: createdAt(),
@@ -108,6 +111,22 @@ export const backgrounds = pgTable("backgrounds", {
   data: text("data").notNull(),
   updatedAt: updatedAt(),
 });
+
+// Addresses for the places used in travel times (home, school, gym, tutoring places).
+export const places = pgTable(
+  "places",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    name: text("name").notNull(), // the travel-time place name, e.g. "home" or "Math tutoring"
+    address: text("address").notNull(),
+    lat: doublePrecision("lat").notNull(),
+    lng: doublePrecision("lng").notNull(),
+    googlePlaceId: text("google_place_id"),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("places_user_name").on(t.userId, t.name)],
+);
 
 export const clients = pgTable(
   "clients",

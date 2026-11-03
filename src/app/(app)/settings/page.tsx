@@ -2,6 +2,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { CalendarDays, FolderOpen, LogOut, Mail, Sparkles } from "lucide-react";
 import { AnthropicKeyForm, DeleteAccountForm, InviteForm, RemoveMember, WithdrawInvite } from "@/components/account-forms";
 import { BackgroundPicker } from "@/components/background-picker";
+import { AddressList, MapsKeyForm } from "@/components/maps-settings";
 import { SectionsForm } from "@/components/sections-form";
 import { CalendarSyncForm } from "@/components/calendar-sync-form";
 import { KeyForm } from "@/components/key-form";
@@ -12,6 +13,8 @@ import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/act
 import { claudeAvailable, MODEL } from "@/lib/ai/claude";
 import { requireUser } from "@/lib/auth";
 import { photoVersion } from "@/lib/background";
+import { mapsAvailable, TRAVEL_MODES } from "@/lib/google/maps";
+import { listPlaces } from "@/lib/places";
 import { HUB_CALENDAR_NAME, lastSyncInfo } from "@/lib/calendar-sync";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -35,6 +38,7 @@ export default async function SettingsPage() {
   const account = await getGoogleAccount(user.id);
   const claudeOn = await claudeAvailable(user.id);
   const photo = await photoVersion(user.id);
+  const [mapsOn, savedPlaces] = await Promise.all([mapsAvailable(user.id), listPlaces(user.id)]);
   const [me] = await db.select({ key: schema.users.anthropicKey }).from(schema.users).where(eq(schema.users.id, user.id));
   const gmailOn = GMAIL_SCOPES.every((s) => hasScope(account, s));
   const members = user.role === "owner" ? await listMembers() : null;
@@ -279,6 +283,24 @@ export default async function SettingsPage() {
           </Card>
         </Section>
       )}
+
+      <Section
+        title="Google Maps"
+        footer="With your own Google Maps key, travel times come from real addresses, Today shows your route on a map, and “Leave by” uses live traffic and transit times. Addresses stay private to you."
+      >
+        <Card className="flex flex-col gap-5 p-4">
+          <MapsKeyForm isSet={mapsOn} />
+          {mapsOn && (
+            <AddressList
+              names={places.filter((p) => p !== "online" && p !== "any")}
+              saved={Object.fromEntries(savedPlaces.map((p) => [p.name, p.address]))}
+              travelMode={settings.travelMode}
+              gymExtraMinutes={settings.gymExtraMinutes}
+              modes={TRAVEL_MODES}
+            />
+          )}
+        </Card>
+      </Section>
 
       <Section
         title="Travel times"

@@ -24,6 +24,9 @@ export const DEFAULT_SETTINGS = {
   theme: "auto" as "auto" | "light" | "dark",
   // Little interface sounds (taps, toggles, a chime when something is saved).
   sounds: true,
+  // Google Maps (with your own key): how you usually travel, and minutes added after the gym (shower, changing).
+  travelMode: "transit" as "transit" | "drive" | "walk" | "bicycle",
+  gymExtraMinutes: 15,
 };
 
 export type AppSettings = typeof DEFAULT_SETTINGS;
