@@ -249,9 +249,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       />
 
       <Slide group="calendar-week" index={Math.round(Date.parse(start) / 604_800_000)}>
-        <div className="overflow-x-auto rounded-xl bg-card shadow-apple">
+        <div className="glass overflow-x-auto rounded-[24px]">
           <div className="min-w-[860px]">
-            <div className="sticky top-0 z-10 grid grid-cols-[52px_repeat(7,1fr)] border-b border-separator bg-card">
+            <div className="sticky top-0 z-10 grid grid-cols-[52px_repeat(7,1fr)] border-b border-separator bg-card-solid/80 backdrop-blur-xl">
               <div />
               {days.map((d) => (
                 <div key={d.date} className="border-l border-separator px-2 py-2 text-center">
@@ -334,7 +334,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         height: h,
                         left: `calc(${(e.col / e.cols) * 100}% + 2px)`,
                         width: `calc(${100 / e.cols}% - 4px)`,
-                        background: `color-mix(in srgb, ${e.color} ${proposed ? 10 : 22}%, var(--card))`,
+                        background: `color-mix(in srgb, ${e.color} ${proposed ? 10 : 22}%, var(--card-solid))`,
                         borderColor: e.color,
                         borderLeft: `3px solid ${e.color}`,
                       };

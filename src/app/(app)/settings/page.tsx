@@ -56,7 +56,7 @@ export default async function SettingsPage() {
   const [hour, month] = await Promise.all([usage(new Date(Date.now() - 3600_000)), usage(new Date(Date.now() - 30 * 86400_000))]);
 
   return (
-    <>
+    <div className="mx-auto max-w-[1100px]">
       <PageHeader title="Settings" />
 
       <Section title="Connections">
@@ -271,6 +271,6 @@ export default async function SettingsPage() {
           <LogOut size={16} /> Sign out
         </button>
       </form>
-    </>
+    </div>
   );
 }

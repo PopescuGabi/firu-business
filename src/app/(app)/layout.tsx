@@ -14,8 +14,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-dvh">
       <Sidebar clients={clients} />
-      <main className="min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-8 md:pb-12">
-        <div className="mx-auto max-w-[1100px]">{children}</div>
+      <main className="min-w-0 flex-1 px-4 pt-6 pb-32 sm:px-6 md:pr-8 md:pb-12 md:pl-6">
+        <div className="mx-auto max-w-[1680px]">{children}</div>
       </main>
       <TabBar />
     </div>

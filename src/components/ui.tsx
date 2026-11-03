@@ -41,7 +41,25 @@ export function Section({
 }
 
 export function Card({ className, ...props }: ComponentProps<"div">) {
-  return <div className={clsx("overflow-hidden rounded-xl bg-card shadow-apple", className)} {...props} />;
+  return <div className={clsx("glass overflow-hidden rounded-[22px]", className)} {...props} />;
+}
+
+/** Columns a bento tile takes: phone (of 2), tablet (of 6), laptop and desktop (of 12); rows likewise. */
+export type Span = { p?: number; t?: number; l?: number; d?: number; rp?: number; rt?: number; rl?: number; rd?: number };
+
+/** The grid behind every bento layout; tiles inside animate in one after another. */
+export function Bento({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={clsx("bento", className)}>
+      <div className="bento-grid">{children}</div>
+    </div>
+  );
+}
+
+export function spanStyle(span: Span, index: number): React.CSSProperties {
+  const vars: Record<string, number> = { "--i": index };
+  for (const [k, v] of Object.entries(span)) if (v) vars[`--${k}`] = v;
+  return vars as React.CSSProperties;
 }
 
 /** A grouped list: rows separated by inset hairlines, like iOS Settings. */
@@ -59,10 +77,10 @@ export function Row({ className, ...props }: ComponentProps<"div">) {
 
 type ButtonVariant = "filled" | "tinted" | "plain" | "gray" | "destructive";
 const buttonStyles: Record<ButtonVariant, string> = {
-  filled: "bg-blue text-white hover:brightness-110 active:brightness-95",
-  tinted: "bg-blue/15 text-blue hover:bg-blue/20",
-  gray: "bg-fill text-label hover:bg-fill-2",
-  plain: "text-blue hover:bg-fill",
+  filled: "bg-ink text-on-ink hover:opacity-85 active:opacity-95",
+  tinted: "bg-accent-soft text-accent hover:brightness-[0.97]",
+  gray: "bg-card-solid/70 text-label shadow-[0_0_0_1px_var(--separator)] hover:bg-card-solid",
+  plain: "text-accent hover:bg-fill",
   destructive: "bg-red/12 text-red hover:bg-red/20",
 };
 
@@ -127,7 +145,7 @@ export function Notice({ tone = "blue", children }: { tone?: "blue" | "orange" |
   const color = `var(--${tone})`;
   return (
     <div
-      className="mb-4 rounded-xl px-4 py-3 text-[14px]"
+      className="mb-4 rounded-2xl px-4 py-3 text-[14px]"
       style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color: "var(--label)" }}
     >
       {children}

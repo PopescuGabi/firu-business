@@ -112,7 +112,7 @@ export function ClaudePanel<T>({
   }
 
   return (
-    <section aria-label="Claude editor" className="flex h-full min-h-[520px] flex-col overflow-hidden rounded-xl bg-card shadow-apple">
+    <section aria-label="Claude editor" className="glass flex h-full min-h-[520px] flex-col overflow-hidden rounded-[24px]">
       <header className="flex items-center gap-2 border-b border-separator px-4 py-3">
         <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-orange to-pink text-white">
           <Sparkles size={15} />

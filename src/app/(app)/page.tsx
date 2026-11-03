@@ -1,13 +1,15 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { SegmentedLinks, Slide } from "@/components/motion";
 import { asc, desc, eq, ne } from "drizzle-orm";
 import clsx from "clsx";
 import {
-  ArrowRight,
+  ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   BookText,
   CalendarDays,
   Clapperboard,
-  Clock,
   Dumbbell,
   FileUp,
   GalleryHorizontalEnd,
@@ -30,7 +32,8 @@ import { PlanButton } from "@/components/plan-button";
 import { Sheet } from "@/components/sheet";
 import { Submit } from "@/components/submit";
 import { TaskForm } from "@/components/task-form";
-import { buttonClass, Field, Pill, STATUS_COLORS, statusLabel } from "@/components/ui";
+import { CountUp } from "@/components/count-up";
+import { Bento, buttonClass, Field, Pill, spanStyle, STATUS_COLORS, statusLabel, type Span } from "@/components/ui";
 import { quickAddAppUpdate, quickAddCarousel, quickAddReel } from "@/app/actions/clients";
 import { addFeedback } from "@/app/actions/feedback";
 import { importPromptFiles } from "@/app/actions/prompts";
@@ -40,8 +43,8 @@ import { env } from "@/lib/env";
 import { KIND_COLORS } from "@/lib/kinds";
 import { nowAndNext } from "@/lib/now-next";
 import { getPlanAdvice, getSettings } from "@/lib/settings";
-import { clock, fmtDate, WEEKDAYS } from "@/lib/time";
-import { countSuggestions, getWeek, nowMinutesIn, todayIn } from "@/lib/week";
+import { addDays, clock, fmtDate, toMin, WEEKDAYS } from "@/lib/time";
+import { countSuggestions, getWeek, nowMinutesIn, todayIn, type DayView } from "@/lib/week";
 
 export const metadata = { title: "Home" };
 
@@ -55,40 +58,114 @@ type Tab = (typeof TABS)[number]["key"];
 const IN_PROGRESS_REEL = ["scripting", "filming", "editing"];
 const daysSince = (d: Date) => Math.max(0, Math.floor((Date.now() - d.getTime()) / 86_400_000));
 
-/** An iOS-style widget: small coloured icon + title, optional link out. */
+type Placed = { span: Span; i: number };
+
+/** A bento tile: frosted card that fades in after the ones before it and lifts on hover. */
+function Tile({ span, i, className, style, children }: Placed & { className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <section className={clsx("tile glass relative flex min-w-0 flex-col rounded-[24px] p-4 @container", className)} style={{ ...spanStyle(span, i), ...style }}>
+      {children}
+    </section>
+  );
+}
+
+/** A tile with a title, an optional action and a round "open" button. */
 function Widget({
   title,
   icon: Icon,
-  color,
   href,
   action,
-  wide,
   children,
-}: {
+  ...placed
+}: Placed & {
   title: string;
-  icon: React.ComponentType<{ size?: number }>;
-  color: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   href?: string;
   action?: React.ReactNode;
-  wide?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section className={clsx("flex flex-col rounded-2xl bg-card p-4 shadow-apple", wide && "md:col-span-2")}>
+    <Tile {...placed}>
       <header className="mb-3 flex items-center gap-2">
-        <span className="grid size-7 place-items-center rounded-lg text-white" style={{ background: color }}>
-          <Icon size={15} />
-        </span>
+        <Icon size={16} className="text-label-2" />
         <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</h2>
         {action}
-        {href && (
-          <Link href={href} aria-label={`Open ${title}`} className="rounded-full p-1 text-label-2 hover:bg-fill hover:text-label">
-            <ArrowRight size={16} />
-          </Link>
-        )}
+        {href && <RoundLink href={href} label={`Open ${title}`} />}
       </header>
       <div className="min-h-0 flex-1">{children}</div>
-    </section>
+    </Tile>
+  );
+}
+
+function RoundLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      className="grid size-8 shrink-0 place-items-center rounded-full bg-card-solid/70 text-label-2 shadow-[0_0_0_1px_var(--separator)] transition hover:bg-ink hover:text-on-ink"
+    >
+      <ArrowUpRight size={15} />
+    </Link>
+  );
+}
+
+/** Big number with a small label, like the stat cards in the reference. The accent one is mint. */
+function Stat({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  href,
+  accent,
+  ...placed
+}: Placed & { label: string; value: number; sub: React.ReactNode; icon: React.ComponentType<{ size?: number }>; href: string; accent?: boolean }) {
+  return (
+    <Tile {...placed} className={clsx("justify-between gap-3", accent && "border-transparent text-white")} style={accent ? { background: "var(--mint)" } : undefined}>
+      <Link href={href} className="absolute inset-0 rounded-[24px]" aria-label={`${label}: ${value}`} />
+      <div className="flex items-start justify-between gap-2">
+        <p className={clsx("text-[13px] font-medium", accent ? "text-white/85" : "text-label-2")}>{label}</p>
+        <span className={clsx("grid size-8 shrink-0 place-items-center rounded-full", accent ? "bg-white/20" : "bg-fill")}>
+          <Icon size={15} />
+        </span>
+      </div>
+      <div>
+        <p className="text-[34px] leading-none font-bold tracking-tight">
+          <CountUp value={value} />
+        </p>
+        <p className={clsx("mt-1.5 truncate text-[12px]", accent ? "text-white/80" : "text-label-2")}>{sub}</p>
+      </div>
+    </Tile>
+  );
+}
+
+/** Minutes of fixed things in a day: school, events, gym, tutoring and accepted blocks. */
+function busyMinutes(d: DayView) {
+  let m = d.school.length ? d.school.at(-1)!.end - d.school[0].start : 0;
+  for (const e of d.events) m += e.endMin - e.startMin;
+  if (d.gymFixed) m += d.gymFixed.end - d.gymFixed.start;
+  for (const t of d.tutoring) m += toMin(t.end) - toMin(t.start);
+  for (const b of d.blocks) if (b.status === "accepted") m += toMin(b.end) - toMin(b.start);
+  return m;
+}
+
+/** Decorative bloom for the banner (soft petals, like the reference's flower). */
+function Bloom() {
+  return (
+    <svg aria-hidden viewBox="0 0 200 200" className="pointer-events-none absolute -top-12 -right-12 size-44 opacity-90 @[480px]:size-56">
+      <defs>
+        <radialGradient id="petal" cx="50%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+          <stop offset="55%" stopColor="#b9a8ff" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#7a63f0" stopOpacity="0.55" />
+        </radialGradient>
+      </defs>
+      <g transform="translate(100 100)">
+        {Array.from({ length: 10 }, (_, k) => (
+          <ellipse key={k} rx="26" ry="70" fill="url(#petal)" transform={`rotate(${k * 36}) translate(0 -38)`} />
+        ))}
+        <circle r="22" fill="#fff" fillOpacity="0.7" />
+      </g>
+    </svg>
   );
 }
 
@@ -153,51 +230,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const dateLabel = fmtDate(today, { weekday: "long", day: "numeric", month: "long" });
 
   // ── Widgets ────────────────────────────────────────────────
-  const nowNext = (
-    <Widget title="Now & next" icon={Clock} color="var(--red)" href="/today" wide>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-fill/60 p-3">
-          <p className="text-[12px] font-semibold text-label-2 uppercase">Now</p>
-          {current ? (
-            <>
-              <p className="mt-0.5 text-[17px] font-semibold">{current.title}</p>
-              <p className="text-[13px] text-label-2">until {clock(current.end)}</p>
-            </>
-          ) : (
-            <p className="mt-0.5 text-[17px] font-semibold">Free time</p>
-          )}
-        </div>
-        <div className="rounded-xl bg-fill/60 p-3">
-          <p className="text-[12px] font-semibold text-label-2 uppercase">Next</p>
-          {next ? (
-            <>
-              <p className="mt-0.5 text-[17px] font-semibold">{next.title}</p>
-              <p className="text-[13px] text-label-2">
-                at {clock(next.start)}
-                {next.start - now <= 180 && ` · in ${fmtMin(next.start - now)}`}
-              </p>
-              {leaveBy != null && (
-                <p className={clsx("mt-1 text-[13px] font-semibold", leaveBy - now <= 15 ? "text-red" : "text-orange")}>
-                  {leaveBy <= now ? "Leave now" : `Leave by ${clock(leaveBy)}`}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="mt-0.5 text-[17px] font-semibold">Nothing else today</p>
-          )}
-        </div>
-      </div>
-    </Widget>
-  );
-
-  const tasksDue = (
-    <Widget
+  const tasksDue = (p: Placed) => (
+    <Widget {...p}
       title="Tasks due soon"
       icon={ListTodo}
-      color="var(--blue)"
       href="/today"
       action={
-        <Sheet title="New task" trigger={<Plus size={16} />} triggerLabel="New task" triggerClassName="rounded-full p-1 text-blue hover:bg-fill">
+        <Sheet title="New task" trigger={<Plus size={16} />} triggerLabel="New task" triggerClassName="grid size-8 cursor-pointer place-items-center rounded-full bg-accent-soft text-accent transition hover:bg-ink hover:text-on-ink">
           <TaskForm action={createTask} clients={clients} />
         </Sheet>
       }
@@ -227,8 +266,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const waitingReview = (
-    <Widget title="Waiting on review" icon={Hourglass} color="var(--yellow)" href="/?tab=work">
+  const waitingReview = (p: Placed) => (
+    <Widget {...p} title="Waiting on review" icon={Hourglass} href="/?tab=work">
       {waiting.length === 0 ? (
         <EmptyLine>Nothing sent for review. Set a reel or carousel to &ldquo;Review&rdquo; when you send it to the client.</EmptyLine>
       ) : (
@@ -251,8 +290,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const quickAdd = (
-    <Widget title="Quick add" icon={Plus} color="var(--green)">
+  const quickAdd = (p: Placed) => (
+    <Widget {...p} title="Quick add" icon={Plus}>
       <div className="grid grid-cols-2 gap-2">
         <Sheet title="New task" trigger={<><ListTodo size={15} /> Task</>} triggerClassName={buttonClass("gray", "sm") + " w-full whitespace-nowrap"}>
           <TaskForm action={createTask} clients={clients} />
@@ -309,8 +348,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const promptUpload = (
-    <Widget title="Prompts" icon={BookText} color="var(--purple)" href="/prompts">
+  const promptUpload = (p: Placed) => (
+    <Widget {...p} title="Prompts" icon={BookText} href="/prompts">
       <p className="mb-3 text-[13px] text-label-2">
         {promptCount.length} saved. Upload .txt or .md files; each file becomes a prompt named after the file.
       </p>
@@ -341,8 +380,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const recommended = (
-    <Widget title="Recommended today" icon={Sparkles} color="var(--indigo)">
+  const recommended = (p: Placed) => (
+    <Widget {...p} title="Recommended today" icon={Sparkles}>
       {target ? (
         <>
           <TargetStats target={target} />
@@ -354,44 +393,139 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const weekGlance = (
-    <Widget title="Week at a glance" icon={CalendarDays} color="var(--teal)" href="/calendar" wide>
-      <div className="grid grid-cols-7 gap-1.5">
+  // The next seven days as a strip of dates; today is the dark pill.
+  const monthStrip = (p: Placed) => (
+    <Tile {...p}>
+      <header className="mb-3 flex items-center gap-2">
+        <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight">{fmtDate(today, { month: "long", year: "numeric" })}</h2>
+        <Link href={`/calendar?week=${addDays(today, -7)}`} aria-label="Previous week" className="grid size-8 place-items-center rounded-full bg-fill text-label-2 transition hover:bg-ink hover:text-on-ink">
+          <ChevronLeft size={16} />
+        </Link>
+        <Link href="/calendar" aria-label="Open calendar" className="grid size-8 place-items-center rounded-full bg-fill text-label-2 transition hover:bg-ink hover:text-on-ink">
+          <ChevronRight size={16} />
+        </Link>
+      </header>
+      <div className="grid flex-1 grid-cols-7 content-center gap-1">
         {days.map((d) => {
+          const isToday = d.date === today;
           const suggested = d.blocks.filter((b) => b.status === "proposed").length;
           return (
             <Link
               key={d.date}
               href={`/calendar?week=${d.date}`}
-              className={clsx("rounded-xl p-2 text-center transition hover:bg-fill", d.date === today ? "bg-blue/12" : "bg-fill/50")}
+              title={suggested ? `${suggested} suggestion${suggested === 1 ? "" : "s"}` : undefined}
+              className={clsx(
+                "flex flex-col items-center justify-center gap-0.5 rounded-2xl py-2 transition-[background-color,transform] duration-300 hover:-translate-y-0.5",
+                isToday ? "bg-ink text-on-ink shadow-apple" : "hover:bg-fill",
+              )}
             >
-              <p className="text-[11px] font-semibold text-label-2 uppercase">{WEEKDAYS[d.weekday - 1].slice(0, 3)}</p>
-              <p className={clsx("text-[17px] font-semibold", d.date === today && "text-blue")}>{Number(d.date.slice(8))}</p>
-              <div className="mt-1 flex min-h-4 flex-wrap justify-center gap-1">
-                {d.school.length > 0 && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.school }} title="School" />}
-                {d.gym && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.gym }} title={`Gym · ${d.gym.title}`} />}
-                {d.tutoring.map((t) => (
-                  <span key={t.id} className="size-1.5 rounded-full" style={{ background: KIND_COLORS.tutoring }} title={`${t.subject} tutoring`} />
-                ))}
-                {d.clashes.length > 0 && <span className="size-1.5 rounded-full bg-red" title="Travel clash" />}
-              </div>
-              {suggested > 0 && <p className="mt-0.5 text-[10px] text-label-2">{suggested} sugg.</p>}
+              <span className={clsx("text-[11px] font-medium", isToday ? "opacity-70" : "text-label-2")}>{WEEKDAYS[d.weekday - 1].slice(0, 3)}</span>
+              <span className="text-[17px] font-semibold tabular-nums">{Number(d.date.slice(8))}</span>
+              <span className="flex h-1.5 gap-0.5">
+                {d.school.length > 0 && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.school }} />}
+                {d.gym && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.gym }} />}
+                {d.tutoring.length > 0 && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.tutoring }} />}
+                {d.clashes.length > 0 && <span className="size-1.5 rounded-full bg-red" />}
+              </span>
             </Link>
           );
         })}
       </div>
-      <p className="mt-2 flex flex-wrap gap-3 text-[11px] text-label-2">
+      <p className="mt-3 flex flex-wrap gap-3 text-[11px] text-label-2">
         {[["School", "school"], ["Gym", "gym"], ["Tutoring", "tutoring"]].map(([l, k]) => (
           <span key={k} className="inline-flex items-center gap-1">
             <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS[k] }} /> {l}
           </span>
         ))}
       </p>
-    </Widget>
+    </Tile>
   );
 
-  const scheduleShortcuts = (
-    <Widget title="Shortcuts" icon={Sun} color="var(--orange)">
+  // Hours of fixed things each day this week, as bars that grow in.
+  const busy = days.map(busyMinutes);
+  const busyTop = Math.max(8 * 60, ...busy);
+  const busyWeek = (p: Placed) => (
+    <Tile {...p}>
+      <header className="mb-1 flex items-center gap-2">
+        <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">Busy this week</h2>
+        <RoundLink href="/calendar" label="Open calendar" />
+      </header>
+      <p className="text-[34px] leading-tight font-bold tracking-tight">
+        <CountUp value={busy.reduce((a, b) => a + b, 0) / 60} decimals={1} suffix="h" />
+      </p>
+      <p className="mb-3 text-[12px] text-label-2">School, sessions and events over the next 7 days</p>
+      <div className="mt-auto grid h-28 grid-cols-7 items-end gap-2">
+        {days.map((d, k) => (
+          <div key={d.date} className="flex h-full flex-col items-center justify-end gap-1.5">
+            <span className="text-[10px] text-label-2 tabular-nums">{busy[k] ? fmtMin(busy[k]) : ""}</span>
+            <span
+              className={clsx("bar w-full max-w-9 rounded-full", d.date === today ? "bg-ink" : "bg-accent-soft")}
+              style={{ height: `${Math.max(6, (busy[k] / busyTop) * 100)}%`, ["--i" as string]: k }}
+            />
+            <span className={clsx("text-[11px]", d.date === today ? "font-semibold" : "text-label-2")}>{WEEKDAYS[d.weekday - 1].slice(0, 1)}</span>
+          </div>
+        ))}
+      </div>
+    </Tile>
+  );
+
+  // The lavender banner: what's on now and next, and the main action.
+  const hero = (p: Placed) => (
+    <Tile {...p} className="overflow-hidden border-transparent !p-5" style={{ background: "var(--hero)" }}>
+      <Bloom />
+      <div className="relative flex h-full flex-col">
+        <p className="text-[13px] font-semibold text-label-2">{current ? "Now" : "Right now"}</p>
+        <p className="mt-0.5 max-w-[80%] text-[26px] leading-tight font-bold tracking-tight">{current ? current.title : "Free time"}</p>
+        {current && <p className="text-[13px] text-label-2">until {clock(current.end)}</p>}
+        <div className="mt-4 max-w-[85%]">
+          <p className="text-[13px] font-semibold text-label-2">Next</p>
+          {next ? (
+            <p className="text-[15px] font-medium">
+              {next.title} · {clock(next.start)}
+              {next.start - now <= 180 && <span className="text-label-2"> · in {fmtMin(next.start - now)}</span>}
+            </p>
+          ) : (
+            <p className="text-[15px] font-medium">Nothing else today</p>
+          )}
+          {leaveBy != null && (
+            <p className={clsx("mt-0.5 text-[13px] font-semibold", leaveBy - now <= 15 ? "text-red" : "text-orange")}>
+              {leaveBy <= now ? "Leave now" : `Leave by ${clock(leaveBy)}`}
+            </p>
+          )}
+        </div>
+        <div className="mt-auto flex flex-wrap items-end gap-2 pt-5">
+          <PlanButton claudeConfigured={env.claudeConfigured()} />
+          <Link href="/today" className={buttonClass("gray")}>
+            Open today
+          </Link>
+        </div>
+      </div>
+    </Tile>
+  );
+
+  const openFeedback = feedback.filter((f) => activeClientIds.has(f.clientId));
+  const dueToday = tasks.filter((t) => t.due && t.due <= today).length;
+  const oldestWait = waiting[0] ? daysSince(waiting[0].row.updatedAt) : 0;
+  const stats = {
+    tasks: (p: Placed) => (
+      <Stat {...p} accent label="Open tasks" value={tasks.length} icon={ListTodo} href="/today" sub={dueToday ? `${dueToday} due today or overdue` : "Nothing due today"} />
+    ),
+    work: (p: Placed) => (
+      <Stat {...p} label="In progress" value={currentWork.length} icon={Wrench} href="/?tab=work" sub="Reels, carousels and app updates" />
+    ),
+    review: (p: Placed) => (
+      <Stat {...p} label="Waiting on review" value={waiting.length} icon={Hourglass} href="/?tab=work" sub={waiting.length ? `Oldest sent ${oldestWait}d ago` : "Nothing sent"} />
+    ),
+    feedback: (p: Placed) => (
+      <Stat {...p} label="Feedback to fix" value={openFeedback.length} icon={MessageSquareText} href="/?tab=work" sub="Open client notes" />
+    ),
+    clients: (p: Placed) => (
+      <Stat {...p} label="Active clients" value={clients.length} icon={Clapperboard} href="/clients" sub={`${myReels.length} reels · ${myCarousels.length} carousels open`} />
+    ),
+  };
+
+  const scheduleShortcuts = (p: Placed) => (
+    <Widget {...p} title="Shortcuts" icon={Sun}>
       <div className="flex flex-col gap-2">
         <PlanButton claudeConfigured={env.claudeConfigured()} />
         <ClearSuggestions count={suggestions} />
@@ -407,16 +541,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const todayTimeline = (
-    <Widget title="Today" icon={Sun} color="var(--red)" href="/today" wide>
+  const todayTimeline = (p: Placed) => (
+    <Widget {...p} title="Today" icon={Sun} href="/today">
       <div className="-mx-4 -mb-4 [&>*]:rounded-none [&>*]:shadow-none">
         <Timeline day={day} now={now} />
       </div>
     </Widget>
   );
 
-  const currentWorkW = (
-    <Widget title="Current work" icon={Wrench} color="var(--blue)" wide>
+  const currentWorkW = (p: Placed) => (
+    <Widget {...p} title="Current work" icon={Wrench}>
       {currentWork.length === 0 ? (
         <EmptyLine>Nothing in progress. Reels being scripted, filmed or edited, draft carousels and app updates in progress show here.</EmptyLine>
       ) : (
@@ -441,8 +575,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const waitingW = (
-    <Widget title="Waiting on client review" icon={Hourglass} color="var(--yellow)">
+  const waitingW = (p: Placed) => (
+    <Widget {...p} title="Waiting on client review" icon={Hourglass}>
       {waiting.length === 0 ? (
         <EmptyLine>Nothing waiting. Set an item to &ldquo;Review&rdquo; when you send it.</EmptyLine>
       ) : (
@@ -479,13 +613,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const feedbackW = (
-    <Widget
+  const feedbackW = (p: Placed) => (
+    <Widget {...p}
       title="Client feedback"
       icon={MessageSquareText}
-      color="var(--pink)"
       action={
-        <Sheet title="Client feedback" trigger={<Plus size={16} />} triggerLabel="Add client feedback" triggerClassName="rounded-full p-1 text-blue hover:bg-fill">
+        <Sheet title="Client feedback" trigger={<Plus size={16} />} triggerLabel="Add client feedback" triggerClassName="grid size-8 cursor-pointer place-items-center rounded-full bg-accent-soft text-accent transition hover:bg-ink hover:text-on-ink">
           <FeedbackForm clients={clients} reels={myReels} carousels={myCarousels} updates={visible(updates)} />
         </Sheet>
       }
@@ -527,8 +660,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const pipeline = (
-    <Widget title="Content in progress" icon={Clapperboard} color="var(--orange)" href="/clients">
+  const pipeline = (p: Placed) => (
+    <Widget {...p} title="Content in progress" icon={Clapperboard} href="/clients">
       {clients.length === 0 ? (
         <EmptyLine>No clients yet.</EmptyLine>
       ) : (
@@ -563,8 +696,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const appUpdatesW = (
-    <Widget title="Latest app updates" icon={Smartphone} color="var(--indigo)">
+  const appUpdatesW = (p: Placed) => (
+    <Widget {...p} title="Latest app updates" icon={Smartphone}>
       {latestUpdates.length === 0 ? (
         <EmptyLine>No client apps yet.</EmptyLine>
       ) : (
@@ -593,24 +726,64 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
+  // Each tab's tiles in reading order, with their size on phone / tablet / laptop / desktop.
+  // Laptop and desktop have 12 columns, tablet 6, phone 2; the grid packs them densely.
+  const layouts: Record<Tab, [(p: Placed) => React.ReactNode, Span][]> = {
+    overview: [
+      [hero, { p: 2, t: 6, l: 6, d: 5, rl: 2, rd: 2 }],
+      [stats.tasks, { p: 1, t: 3, l: 3, d: 2 }],
+      [stats.work, { p: 1, t: 3, l: 3, d: 2 }],
+      [monthStrip, { p: 2, t: 6, l: 6, d: 3, rd: 2 }],
+      [stats.review, { p: 1, t: 3, l: 3, d: 2 }],
+      [stats.feedback, { p: 1, t: 3, l: 3, d: 2 }],
+      [tasksDue, { p: 2, t: 3, l: 6, d: 4 }],
+      [busyWeek, { p: 2, t: 6, l: 6, d: 4 }],
+      [waitingReview, { p: 2, t: 3, l: 6, d: 4 }],
+      [quickAdd, { p: 2, t: 3, l: 6, d: 6 }],
+      [promptUpload, { p: 2, t: 3, l: 6, d: 6 }],
+    ],
+    schedule: [
+      [hero, { p: 2, t: 6, l: 7, d: 6 }],
+      [recommended, { p: 2, t: 3, l: 5, d: 3 }],
+      [scheduleShortcuts, { p: 2, t: 3, l: 5, d: 3 }],
+      [todayTimeline, { p: 2, t: 6, l: 7, d: 7, rl: 3, rd: 2 }],
+      [monthStrip, { p: 2, t: 6, l: 5, d: 5 }],
+      [busyWeek, { p: 2, t: 6, l: 5, d: 5 }],
+    ],
+    work: [
+      [stats.work, { p: 1, t: 3, l: 3, d: 3 }],
+      [stats.review, { p: 1, t: 3, l: 3, d: 3 }],
+      [stats.feedback, { p: 1, t: 3, l: 3, d: 3 }],
+      [stats.clients, { p: 1, t: 3, l: 3, d: 3 }],
+      [currentWorkW, { p: 2, t: 6, l: 7, d: 6, rl: 2, rd: 1 }],
+      [waitingW, { p: 2, t: 3, l: 5, d: 3 }],
+      [feedbackW, { p: 2, t: 3, l: 5, d: 3 }],
+      [pipeline, { p: 2, t: 3, l: 6, d: 6 }],
+      [appUpdatesW, { p: 2, t: 3, l: 6, d: 6 }],
+    ],
+  };
+
   return (
     <>
-      <header className="mb-5 flex items-end justify-between gap-3 pt-2">
-        <div>
-          <p className="text-[13px] font-semibold tracking-wide text-label-2 uppercase">{dateLabel}</p>
-          <h1 className="text-[34px] leading-tight font-bold tracking-tight">{greeting}{settings.displayName ? `, ${settings.displayName}` : ""}</h1>
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 pt-2">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-label-2">{dateLabel}</p>
+          <h1 className="text-[30px] leading-tight font-bold tracking-tight sm:text-[34px]">
+            {greeting}
+            {settings.displayName ? `, ${settings.displayName}` : ""}
+          </h1>
         </div>
-        <Link href="/settings" aria-label="Settings" className="grid size-9 shrink-0 place-items-center rounded-full bg-fill text-label-2 md:hidden">
-          <Settings size={18} />
-        </Link>
+        <div className="flex items-center gap-2">
+          <SegmentedLinks
+            label="Home sections"
+            active={tab}
+            items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? "/" : `/?tab=${key}`, icon: <Icon size={15} /> }))}
+          />
+          <Link href="/settings" aria-label="Settings" className="chrome grid size-10 shrink-0 place-items-center rounded-full text-label-2 md:hidden">
+            <Settings size={18} />
+          </Link>
+        </div>
       </header>
-
-      <SegmentedLinks
-        label="Home sections"
-        className="mb-5"
-        active={tab}
-        items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? "/" : `/?tab=${key}`, icon: <Icon size={15} /> }))}
-      />
 
       <CalendarNotices
         days={days}
@@ -619,34 +792,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         notConnected={<>Google isn&apos;t connected. <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link></>}
       />
 
-      <Slide group="home-tab" index={TABS.findIndex((t) => t.key === tab)} className="grid grid-flow-row-dense gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {tab === "overview" && (
-          <>
-            {nowNext}
-            {tasksDue}
-            {waitingReview}
-            {quickAdd}
-            {promptUpload}
-          </>
-        )}
-        {tab === "schedule" && (
-          <>
-            {nowNext}
-            {recommended}
-            {todayTimeline}
-            {scheduleShortcuts}
-            {weekGlance}
-          </>
-        )}
-        {tab === "work" && (
-          <>
-            {currentWorkW}
-            {waitingW}
-            {feedbackW}
-            {pipeline}
-            {appUpdatesW}
-          </>
-        )}
+      <Slide group="home-tab" index={TABS.findIndex((t) => t.key === tab)}>
+        <Bento>
+          {layouts[tab].map(([tile, span], i) => (
+            <Fragment key={i}>{tile({ span, i })}</Fragment>
+          ))}
+        </Bento>
       </Slide>
     </>
   );

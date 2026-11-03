@@ -1,19 +1,41 @@
 @import "tailwindcss";
 
-/* Apple system colours (iOS / macOS HIG), light + dark. */
+/*
+ * Apple system colours (iOS / macOS HIG) on soft frosted glass, light + dark.
+ * Surfaces (--card) are translucent over a fixed, blurred-colour backdrop; floating chrome
+ * (rail, dock, sheets) also blurs what scrolls under it.
+ */
 :root {
-  --bg: #f2f2f7;
-  --bg-elevated: #ffffff;
-  --card: #ffffff;
-  --card-2: #f2f2f7;
-  --label: #000000;
-  --label-2: rgba(60, 60, 67, 0.6);
-  --label-3: rgba(60, 60, 67, 0.3);
-  --separator: rgba(60, 60, 67, 0.18);
-  --fill: rgba(120, 120, 128, 0.12);
-  --fill-2: rgba(120, 120, 128, 0.2);
+  --bg: #efedf3;
+  --backdrop:
+    radial-gradient(60% 55% at 8% 4%, rgba(190, 176, 255, 0.55), transparent 70%),
+    radial-gradient(50% 50% at 92% 10%, rgba(255, 212, 186, 0.6), transparent 70%),
+    radial-gradient(55% 55% at 78% 96%, rgba(166, 226, 214, 0.5), transparent 70%),
+    radial-gradient(45% 45% at 12% 92%, rgba(255, 234, 198, 0.55), transparent 70%),
+    linear-gradient(180deg, #f4f2f7, #ebe9f0);
+  --bg-elevated: rgba(250, 250, 252, 0.9);
+  --card: rgba(255, 255, 255, 0.64);
+  --card-solid: #ffffff;
+  --card-2: rgba(255, 255, 255, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --chrome: rgba(255, 255, 255, 0.55);
+  --label: #0e0e12;
+  --label-2: rgba(40, 40, 52, 0.6);
+  --label-3: rgba(40, 40, 52, 0.3);
+  --separator: rgba(40, 40, 60, 0.1);
+  --fill: rgba(120, 120, 140, 0.1);
+  --fill-2: rgba(120, 120, 140, 0.17);
   --segment: #ffffff;
-  --material: rgba(249, 249, 249, 0.78);
+  --material: rgba(255, 255, 255, 0.6);
+  --ink: #111116;
+  --on-ink: #ffffff;
+  --rail: #111116;
+  --rail-icon: rgba(255, 255, 255, 0.62);
+  --rail-active: #e6e0ff;
+  --accent: #7462f0;
+  --accent-soft: #e9e4ff;
+  --hero: linear-gradient(120deg, #ddd6ff 0%, #e9e2ff 45%, #f4ecff 100%);
+  --mint: linear-gradient(135deg, #5fcfae 0%, #2f9f86 100%);
   --blue: #007aff;
   --green: #34c759;
   --orange: #ff9500;
@@ -23,24 +45,43 @@
   --teal: #30b0c7;
   --indigo: #5856d6;
   --yellow: #ffcc00;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow: 0 1px 1px rgba(20, 16, 40, 0.03), 0 8px 28px rgba(20, 16, 40, 0.06);
+  --shadow-lift: 0 2px 4px rgba(20, 16, 40, 0.04), 0 18px 44px rgba(20, 16, 40, 0.12);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000;
-    --bg-elevated: #1c1c1e;
-    --card: #1c1c1e;
-    --card-2: #2c2c2e;
-    --label: #ffffff;
+    --bg: #0d0c11;
+    --backdrop:
+      radial-gradient(60% 55% at 8% 4%, rgba(118, 96, 255, 0.24), transparent 70%),
+      radial-gradient(50% 50% at 92% 10%, rgba(255, 140, 92, 0.13), transparent 70%),
+      radial-gradient(55% 55% at 78% 96%, rgba(48, 186, 160, 0.15), transparent 70%),
+      radial-gradient(45% 45% at 12% 92%, rgba(255, 196, 120, 0.08), transparent 70%),
+      linear-gradient(180deg, #0f0e14, #0a090d);
+    --bg-elevated: rgba(30, 29, 37, 0.9);
+    --card: rgba(255, 255, 255, 0.055);
+    --card-solid: #1b1a21;
+    --card-2: rgba(255, 255, 255, 0.04);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --chrome: rgba(36, 34, 44, 0.6);
+    --label: #f5f5f7;
     --label-2: rgba(235, 235, 245, 0.6);
     --label-3: rgba(235, 235, 245, 0.3);
-    --separator: rgba(84, 84, 88, 0.6);
-    --fill: rgba(118, 118, 128, 0.24);
-    --fill-2: rgba(118, 118, 128, 0.36);
-    --segment: #636366;
-    --material: rgba(30, 30, 30, 0.72);
+    --separator: rgba(255, 255, 255, 0.08);
+    --fill: rgba(255, 255, 255, 0.07);
+    --fill-2: rgba(255, 255, 255, 0.12);
+    --segment: rgba(255, 255, 255, 0.16);
+    --material: rgba(30, 29, 37, 0.62);
+    --ink: #f5f5f7;
+    --on-ink: #111116;
+    --rail: rgba(255, 255, 255, 0.06);
+    --rail-icon: rgba(255, 255, 255, 0.55);
+    --rail-active: #ffffff;
+    --accent: #9d90ff;
+    --accent-soft: rgba(157, 144, 255, 0.18);
+    --hero: linear-gradient(120deg, rgba(126, 104, 255, 0.42) 0%, rgba(150, 120, 255, 0.24) 50%, rgba(255, 160, 210, 0.16) 100%);
+    --mint: linear-gradient(135deg, #3fb894 0%, #1f7a66 100%);
     --blue: #0a84ff;
     --green: #30d158;
     --orange: #ff9f0a;
@@ -50,7 +91,8 @@
     --teal: #40c8e0;
     --indigo: #5e5ce6;
     --yellow: #ffd60a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
+    --shadow: 0 1px 1px rgba(0, 0, 0, 0.2), 0 10px 30px rgba(0, 0, 0, 0.35);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.25), 0 20px 48px rgba(0, 0, 0, 0.5);
     color-scheme: dark;
   }
 }
@@ -67,6 +109,11 @@
   --color-fill: var(--fill);
   --color-fill-2: var(--fill-2);
   --color-segment: var(--segment);
+  --color-card-solid: var(--card-solid);
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --color-material: var(--material);
   --color-blue: var(--blue);
   --color-green: var(--green);
@@ -90,6 +137,7 @@ html {
 
 body {
   background: var(--bg);
+  isolation: isolate;
   color: var(--label);
   font-family: var(--font-sans);
   font-size: 15px;
@@ -106,15 +154,40 @@ body {
   background: color-mix(in srgb, var(--blue) 30%, transparent);
 }
 
+/* The soft colour backdrop: fixed and painted once, so scrolling never repaints it. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--backdrop);
+  pointer-events: none;
+}
+
 .material {
   background: var(--material);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
+/* Frosted surfaces. Cards skip backdrop-filter (the backdrop behind them is static, so it would look
+   the same and cost a lot); only floating chrome that sits over scrolling content blurs. */
+.glass {
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+}
+.chrome {
+  background: var(--chrome);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: saturate(170%) blur(24px);
+  -webkit-backdrop-filter: saturate(170%) blur(24px);
+}
+
 /* Right-click menu, like a macOS context menu. */
 .ctx-menu {
-  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+  background: var(--bg-elevated);
   box-shadow: 0 10px 36px rgba(0, 0, 0, 0.3);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -130,7 +203,7 @@ body {
 /* Inputs styled like iOS grouped fields. */
 .field {
   width: 100%;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--fill);
   padding: 9px 12px;
   font-size: 15px;
@@ -143,7 +216,7 @@ body {
 }
 .field:focus {
   outline: none;
-  background: var(--card);
+  background: var(--card-solid);
   border-color: var(--blue);
 }
 textarea.field {
@@ -160,19 +233,21 @@ select.field {
 
 dialog.sheet {
   margin: auto;
-  border: none;
+  border: 1px solid var(--glass-border);
   padding: 0;
   background: var(--bg-elevated);
+  backdrop-filter: saturate(170%) blur(30px);
+  -webkit-backdrop-filter: saturate(170%) blur(30px);
   color: var(--label);
-  border-radius: 14px;
+  border-radius: 24px;
   text-align: left; /* sheets opened from a centered header (e.g. a calendar date) shouldn't inherit it */
   width: min(560px, calc(100vw - 24px));
   max-height: calc(100dvh - 48px);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
 }
 dialog.sheet::backdrop {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(2px);
+  background: rgba(10, 8, 20, 0.3);
+  backdrop-filter: blur(6px);
 }
 dialog.sheet[open] {
   animation: sheet-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
@@ -182,7 +257,7 @@ dialog.sheet[open] {
     margin: auto 0 0;
     width: 100vw;
     max-width: 100vw;
-    border-radius: 14px 14px 0 0;
+    border-radius: 24px 24px 0 0;
     max-height: 92dvh;
   }
   dialog.sheet[open] {
@@ -222,32 +297,142 @@ dialog.sheet[open] {
 }
 
 /* ── Motion ─────────────────────────────────────────────── */
-/* Fill "backwards" only: once finished, no transform lingers (it would break sticky/fixed children). */
+/* Fill "backwards" only: once finished, no transform/filter lingers (it would break sticky/fixed children). */
+.enter-right,
+.enter-left,
+.enter-up {
+  animation: 0.34s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
 .enter-right {
-  animation: enter-right 0.22s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  animation-name: enter-right;
 }
 .enter-left {
-  animation: enter-left 0.22s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  animation-name: enter-left;
 }
 .enter-up {
-  animation: enter-up 0.2s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  animation-name: enter-up;
 }
 @keyframes enter-right {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    filter: blur(6px);
+    transform: translateX(14px);
   }
 }
 @keyframes enter-left {
   from {
     opacity: 0;
-    transform: translateX(-16px);
+    filter: blur(6px);
+    transform: translateX(-14px);
   }
 }
 @keyframes enter-up {
   from {
     opacity: 0;
+    filter: blur(6px);
     transform: translateY(8px);
+  }
+}
+
+/* Bento tiles come in one after another (top-left first), from blurred to sharp, then lift on hover. */
+.tile {
+  animation: tile-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .tile:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(12px) scale(0.985);
+  }
+}
+
+/* Bars grow from the bottom. */
+.bar {
+  transform-origin: bottom;
+  animation: bar-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(240ms + var(--i, 0) * 50ms);
+}
+@keyframes bar-up {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* The side rail grows down from the top the first time the site opens. */
+.rail {
+  transform-origin: top;
+  animation: rail-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.rail > * {
+  animation: fade-in 0.4s ease backwards;
+  animation-delay: 0.35s;
+}
+@keyframes rail-in {
+  from {
+    transform: scaleY(0.12);
+    opacity: 0;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ── Bento grid ─────────────────────────────────────────── */
+/* Four layouts by the width the page has (not the window): phone, tablet, laptop, desktop.
+   Each tile says how many columns it takes in each: --p (of 2), --t (of 6), --l and --d (of 12). */
+.bento {
+  container-type: inline-size;
+}
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: 12px;
+}
+.bento-grid > * {
+  grid-column: span var(--p, 2);
+  grid-row: span var(--rp, 1);
+  min-width: 0;
+}
+@container (min-width: 600px) {
+  .bento-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .bento-grid > * {
+    grid-column: span var(--t, 6);
+    grid-row: span var(--rt, 1);
+  }
+}
+@container (min-width: 940px) {
+  .bento-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .bento-grid > * {
+    grid-column: span var(--l, 6);
+    grid-row: span var(--rl, 1);
+  }
+}
+@container (min-width: 1320px) {
+  .bento-grid {
+    gap: 18px;
+  }
+  .bento-grid > * {
+    grid-column: span var(--d, var(--l, 6));
+    grid-row: span var(--rd, var(--rl, 1));
   }
 }
 

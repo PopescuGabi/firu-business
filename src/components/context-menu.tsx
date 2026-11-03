@@ -75,7 +75,7 @@ export function useContextMenu(items: MenuItem[]) {
       <div
         ref={ref}
         role="menu"
-        className="ctx-menu fixed z-50 min-w-[200px] rounded-xl border border-separator p-1 text-[14px] shadow-apple"
+        className="ctx-menu fixed z-50 min-w-[200px] rounded-2xl border border-[var(--glass-border)] p-1.5 text-[14px]"
         style={pos ?? { left: at.x, top: at.y, visibility: "hidden" }}
         onContextMenu={(e) => e.preventDefault()}
         onKeyDown={(e) => {
@@ -93,7 +93,7 @@ export function useContextMenu(items: MenuItem[]) {
             role="menuitem"
             onClick={() => run(item)}
             className={clsx(
-              "block w-full cursor-pointer rounded-md px-3 py-1.5 text-left outline-none hover:bg-blue hover:text-white focus-visible:bg-blue focus-visible:text-white",
+              "block w-full cursor-pointer rounded-xl px-3 py-1.5 text-left outline-none hover:bg-ink hover:text-on-ink focus-visible:bg-ink focus-visible:text-on-ink",
               item.destructive && "text-red",
             )}
           >

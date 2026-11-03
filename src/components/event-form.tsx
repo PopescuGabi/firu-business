@@ -101,7 +101,7 @@ export function EventForm({
               role="radio"
               aria-checked={scope === s}
               onClick={() => setScope(s)}
-              className={`flex-1 cursor-pointer rounded-md py-1.5 transition ${scope === s ? "bg-card shadow-sm" : "text-label-2"}`}
+              className={`flex-1 cursor-pointer rounded-md py-1.5 transition ${scope === s ? "bg-card-solid shadow-sm" : "text-label-2"}`}
             >
               {s === "this" ? "This event" : "All events"}
             </button>

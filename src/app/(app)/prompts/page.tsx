@@ -51,7 +51,7 @@ export default async function PromptsPage() {
   const db = await getDb();
   const prompts = await db.select().from(schema.prompts).orderBy(asc(schema.prompts.name));
   return (
-    <>
+    <div className="mx-auto max-w-[1100px]">
       <PageHeader
         title="Prompts"
         subtitle="Your instructions for Opus 5.5"
@@ -92,6 +92,6 @@ export default async function PromptsPage() {
           );
         })
       )}
-    </>
+    </div>
   );
 }
