@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { MessageSquareText, Trash2 } from "lucide-react";
 import { addFeedback, deleteFeedback } from "@/app/actions/feedback";
 import { getDb, schema } from "@/lib/db";
-import { FeedbackCheck } from "./feedback-check";
+import { FeedbackCheck } from "./check";
 import { Submit } from "./submit";
 import { Card } from "./ui";
 

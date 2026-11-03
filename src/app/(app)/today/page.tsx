@@ -1,29 +1,21 @@
 import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
 import { Dumbbell, ListTodo, Pencil, Settings, Trash2 } from "lucide-react";
-import { fmtMin, Stat, Timeline, type PlanAdvice } from "@/components/day-timeline";
+import { fmtMin, TargetStats, Timeline } from "@/components/day-timeline";
 import { ClearSuggestions } from "@/components/clear-suggestions";
-import { ClashNotice } from "@/components/clash-notice";
+import { CalendarNotices } from "@/components/clash-notice";
 import { PlanButton } from "@/components/plan-button";
 import { Sheet } from "@/components/sheet";
-import { ConfirmButton } from "@/components/submit";
-import { TaskCheck } from "@/components/task-check";
+import { DeleteFooter } from "@/components/submit";
+import { TaskCheck } from "@/components/check";
 import { TaskForm } from "@/components/task-form";
-import { buttonClass, Card, Empty, List, Notice, PageHeader, Pill, Row, Section } from "@/components/ui";
+import { buttonClass, Card, Empty, List, PageHeader, Row, Section } from "@/components/ui";
 import { createTask, deleteTask, updateTask } from "@/app/actions/tasks";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
-import { toHHMM, toMin, WEEKDAYS } from "@/lib/time";
-import { countSuggestions, getWeek, nowMinutesIn, todayIn, type DayView } from "@/lib/week";
-import { getSettings } from "@/lib/settings";
-import { KIND_COLORS } from "@/lib/kinds";
-
-
-
-function longDate(date: string) {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-}
-
+import { fmtDate, toHHMM, WEEKDAYS } from "@/lib/time";
+import { countSuggestions, getWeek, nowMinutesIn, todayIn } from "@/lib/week";
+import { getPlanAdvice, getSettings } from "@/lib/settings";
 
 export const metadata = { title: "Today" };
 
@@ -32,14 +24,13 @@ export default async function TodayPage() {
   const settings = await getSettings();
   const today = todayIn(settings.timezone);
   const now = nowMinutesIn(settings.timezone);
-  const [{ days, calendarError, googleConnected }, tasks, clients, adviceRow] = await Promise.all([
+  const [{ days, calendarError, googleConnected }, tasks, clients, advice] = await Promise.all([
     getWeek(today, 7),
     db.select().from(schema.tasks).orderBy(asc(schema.tasks.done), asc(schema.tasks.due), desc(schema.tasks.priority)),
     db.select().from(schema.clients).where(eq(schema.clients.archived, false)).orderBy(asc(schema.clients.name)),
-    db.select().from(schema.settings).where(eq(schema.settings.key, "planAdvice")),
+    getPlanAdvice(),
   ]);
   const day = days[0];
-  const advice = adviceRow[0]?.value as PlanAdvice | undefined;
   const target = advice?.dailyTargets.find((t) => t.date === today);
   const openTasks = tasks.filter((t) => !t.done);
   const doneTasks = tasks.filter((t) => t.done).slice(0, 5);
@@ -49,7 +40,7 @@ export default async function TodayPage() {
   return (
     <>
       <PageHeader
-        subtitle={longDate(today)}
+        subtitle={fmtDate(today, { weekday: "long", day: "numeric", month: "long" })}
         title="Today"
         actions={
           <>
@@ -62,14 +53,17 @@ export default async function TodayPage() {
         }
       />
 
-      {!googleConnected && (
-        <Notice tone="orange">
-          Google Calendar isn&apos;t connected yet, so tutoring and other events aren&apos;t shown.{" "}
-          <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link>
-        </Notice>
-      )}
-      {calendarError && <Notice tone="red">Couldn&apos;t load Google Calendar: {calendarError}</Notice>}
-      <ClashNotice days={days} />
+      <CalendarNotices
+        days={days}
+        googleConnected={googleConnected}
+        calendarError={calendarError}
+        notConnected={
+          <>
+            Google Calendar isn&apos;t connected yet, so tutoring and other events aren&apos;t shown.{" "}
+            <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link>
+          </>
+        }
+      />
 
       <div className="grid gap-x-8 lg:grid-cols-[1fr_340px]">
         <div>
@@ -113,11 +107,9 @@ export default async function TodayPage() {
                       </div>
                       <Sheet title="Edit task" trigger={<Pencil size={15} />} triggerLabel={`Edit ${t.title}`} triggerClassName="cursor-pointer rounded-full p-2 text-label-2 hover:bg-fill">
                         <TaskForm action={updateTask.bind(null, t.id)} clients={clients} task={t} submitLabel="Save" />
-                        <form action={deleteTask.bind(null, t.id)} className="mt-3 border-t border-separator pt-3">
-                          <ConfirmButton message="Delete this task?">
-                            <Trash2 size={15} /> Delete task
-                          </ConfirmButton>
-                        </form>
+                        <DeleteFooter action={deleteTask.bind(null, t.id)} message="Delete this task?">
+                          <Trash2 size={15} /> Delete task
+                        </DeleteFooter>
                       </Sheet>
                     </Row>
                   );
@@ -145,11 +137,7 @@ export default async function TodayPage() {
             <Card className="p-4">
               {target ? (
                 <>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <Stat label="Study" value={fmtMin(target.studyMin)} color="var(--purple)" />
-                    <Stat label="Projects" value={fmtMin(target.projectMin)} color="var(--blue)" />
-                    <Stat label="Gym" value={target.gymMin ? fmtMin(target.gymMin) : "Rest"} color="var(--orange)" />
-                  </div>
+                  <TargetStats target={target} />
                   {target.note && <p className="mt-3 text-[14px] text-label-2">{target.note}</p>}
                 </>
               ) : (

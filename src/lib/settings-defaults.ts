@@ -18,8 +18,14 @@ export const DEFAULT_SETTINGS = {
   // Minutes from one place to another ("from>to"). Gym → X includes showering and changing.
   // Set yours in Settings → Travel times.
   travel: {} as Record<string, number>,
-  // Calendar that accepted plan blocks are written to.
-  targetCalendarId: "primary",
 };
 
 export type AppSettings = typeof DEFAULT_SETTINGS;
+
+/** The last week plan's advice and daily targets (saved by the planner). */
+export type PlanAdvice = {
+  advice: string;
+  dailyTargets: { date: string; studyMin: number; projectMin: number; gymMin: number; note: string }[];
+  createdAt: string;
+  source: "ai" | "basic";
+};

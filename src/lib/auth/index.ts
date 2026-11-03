@@ -20,10 +20,7 @@ export async function requireUser() {
   return user;
 }
 
-export class UnauthorizedError extends Error {}
-
-export async function requireApiUser() {
-  const user = await getUser();
-  if (!user) throw new UnauthorizedError("Not signed in");
-  return user;
+/** For route handlers: a 401 response when nobody is signed in, otherwise null. */
+export async function notSignedIn() {
+  return (await getUser()) ? null : Response.json({ error: "Not signed in" }, { status: 401 });
 }

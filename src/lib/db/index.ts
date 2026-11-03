@@ -10,7 +10,7 @@ import postgres from "postgres";
 import * as schema from "./schema";
 import { seed } from "./seed";
 
-type Db = ReturnType<typeof drizzlePg<typeof schema>>;
+export type Db = ReturnType<typeof drizzlePg<typeof schema>>;
 
 const migrationsFolder = path.join(process.cwd(), "drizzle");
 

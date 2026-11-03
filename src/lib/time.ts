@@ -54,3 +54,7 @@ export function freeSlots(dayStart: number, dayEnd: number, busy: Interval[], mi
 export function overlaps(a: Interval, b: Interval) {
   return a.start < b.end && b.start < a.end;
 }
+
+/** A yyyy-mm-dd date in words (en-GB), e.g. fmtDate(d, { day: "numeric", month: "short" }) → "3 Nov". */
+export const fmtDate = (date: string, opts: Intl.DateTimeFormatOptions) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { ...opts, timeZone: "UTC" });

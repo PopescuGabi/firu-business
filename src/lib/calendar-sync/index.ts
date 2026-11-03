@@ -189,20 +189,6 @@ async function applyChange(c: HubChange): Promise<string | void> {
   }
 }
 
-/** Before this sync existed, tutoring and accepted blocks were written to the main calendar: move them. */
-async function migrateOldEvents(oldCalendarId: string) {
-  const db = await getDb();
-  const old = [
-    ...(await db.select({ id: schema.tutoring.id, ev: schema.tutoring.gcalEventId }).from(schema.tutoring)).map((r) => ({ ...r, t: "tutoring" as const })),
-    ...(await db.select({ id: schema.planBlocks.id, ev: schema.planBlocks.gcalEventId }).from(schema.planBlocks)).map((r) => ({ ...r, t: "block" as const })),
-  ].filter((r) => r.ev);
-  for (const r of old) {
-    await deleteEvent(oldCalendarId, r.ev!).catch(() => {});
-    if (r.t === "tutoring") await db.update(schema.tutoring).set({ gcalEventId: null }).where(eq(schema.tutoring.id, r.id));
-    else await db.update(schema.planBlocks).set({ gcalEventId: null }).where(eq(schema.planBlocks.id, r.id));
-  }
-}
-
 export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
   const settings = await getSettings();
   if (!settings.calendarSync) return empty("Calendar sync is off.");
@@ -224,7 +210,6 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
     const cal = await findHubCalendar();
     if (!cal) return empty(`Create a Google calendar named “${HUB_CALENDAR_NAME}” first.`);
     const db = await getDb();
-    await migrateOldEvents(settings.targetCalendarId || "primary");
 
     // Links to another calendar (renamed or re-created): start over in this one.
     await db.delete(schema.calendarLinks).where(sql`${schema.calendarLinks.calendarId} <> ${cal.id}`);

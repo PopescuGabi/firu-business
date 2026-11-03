@@ -3,14 +3,8 @@ import { BlockActions } from "./block-actions";
 import { Empty, List, Pill, Row } from "./ui";
 import { KIND_COLORS } from "@/lib/kinds";
 import { toHHMM, toMin } from "@/lib/time";
+import type { PlanAdvice } from "@/lib/settings-defaults";
 import type { DayView } from "@/lib/week";
-
-export type PlanAdvice = {
-  advice: string;
-  dailyTargets: { date: string; studyMin: number; projectMin: number; gymMin: number; note: string }[];
-  createdAt: string;
-  source: "ai" | "basic";
-};
 
 export const fmtMin = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m}m`);
 
@@ -130,5 +124,16 @@ export function Timeline({ day, now }: { day: DayView; now: number }) {
         );
       })}
     </List>
+  );
+}
+
+/** Today's recommended study / project / gym minutes. */
+export function TargetStats({ target }: { target: PlanAdvice["dailyTargets"][number] }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 text-center">
+      <Stat label="Study" value={fmtMin(target.studyMin)} color="var(--purple)" />
+      <Stat label="Projects" value={fmtMin(target.projectMin)} color="var(--blue)" />
+      <Stat label="Gym" value={target.gymMin ? fmtMin(target.gymMin) : "Rest"} color="var(--orange)" />
+    </div>
   );
 }

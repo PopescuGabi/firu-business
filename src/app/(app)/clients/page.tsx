@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, count, eq } from "drizzle-orm";
+import { asc, count } from "drizzle-orm";
 import { Briefcase, Plus } from "lucide-react";
 import { ClientForm } from "@/components/client-form";
 import { Sheet } from "@/components/sheet";

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { requestSync } from "@/lib/calendar-sync";
+import { mutateSchedule } from "@/lib/mutate";
 
 const taskInput = z.object({
   title: z.string().trim().min(1).max(300),
@@ -27,53 +27,28 @@ function fromForm(fd: FormData) {
 }
 
 export async function createTask(fd: FormData) {
-  await requireUser();
-  const db = await getDb();
-  await db.insert(schema.tasks).values(fromForm(fd));
-  revalidatePath("/", "layout");
-  requestSync();
+  await mutateSchedule((db) => db.insert(schema.tasks).values(fromForm(fd)));
 }
 
 export async function updateTask(id: number, fd: FormData) {
-  await requireUser();
-  const db = await getDb();
-  await db.update(schema.tasks).set(fromForm(fd)).where(eq(schema.tasks.id, id));
-  revalidatePath("/", "layout");
-  requestSync();
+  await mutateSchedule((db) => db.update(schema.tasks).set(fromForm(fd)).where(eq(schema.tasks.id, id)));
 }
 
 export async function toggleTask(id: number, done: boolean) {
-  await requireUser();
-  const db = await getDb();
-  await db.update(schema.tasks).set({ done }).where(eq(schema.tasks.id, id));
-  revalidatePath("/", "layout");
-  requestSync();
+  await mutateSchedule((db) => db.update(schema.tasks).set({ done }).where(eq(schema.tasks.id, id)));
 }
 
 export async function deleteTask(id: number) {
-  await requireUser();
-  const db = await getDb();
-  await db.delete(schema.tasks).where(eq(schema.tasks.id, id));
-  revalidatePath("/", "layout");
-  requestSync();
+  await mutateSchedule((db) => db.delete(schema.tasks).where(eq(schema.tasks.id, id)));
 }
 
 /** Accepting a block puts it in the Personal Hub calendar (when calendar sync is on). */
 export async function acceptBlock(id: number) {
-  await requireUser();
-  const db = await getDb();
-  await db.update(schema.planBlocks).set({ status: "accepted" }).where(eq(schema.planBlocks.id, id));
-  revalidatePath("/", "layout");
-  requestSync();
-  return { ok: true, warning: null as string | null };
+  await mutateSchedule((db) => db.update(schema.planBlocks).set({ status: "accepted" }).where(eq(schema.planBlocks.id, id)));
 }
 
 export async function removeBlock(id: number) {
-  await requireUser();
-  const db = await getDb();
-  await db.delete(schema.planBlocks).where(eq(schema.planBlocks.id, id));
-  revalidatePath("/", "layout");
-  requestSync();
+  await mutateSchedule((db) => db.delete(schema.planBlocks).where(eq(schema.planBlocks.id, id)));
 }
 
 /** Deletes every suggestion you haven't accepted. Accepted blocks stay. */
@@ -82,9 +57,4 @@ export async function clearSuggestions() {
   const db = await getDb();
   await db.delete(schema.planBlocks).where(eq(schema.planBlocks.status, "proposed"));
   revalidatePath("/", "layout");
-  requestSync();
-}
-
-export async function acceptBlockForm(id: number) {
-  await acceptBlock(id);
 }

@@ -22,16 +22,15 @@ import {
   Sun,
   Wrench,
 } from "lucide-react";
-import { ClashNotice } from "@/components/clash-notice";
+import { CalendarNotices } from "@/components/clash-notice";
 import { ClearSuggestions } from "@/components/clear-suggestions";
-import { fmtMin, Stat, Timeline, type PlanAdvice } from "@/components/day-timeline";
-import { FeedbackCheck } from "@/components/feedback-check";
+import { fmtMin, TargetStats, Timeline } from "@/components/day-timeline";
+import { FeedbackCheck, TaskCheck } from "@/components/check";
 import { PlanButton } from "@/components/plan-button";
 import { Sheet } from "@/components/sheet";
 import { Submit } from "@/components/submit";
-import { TaskCheck } from "@/components/task-check";
 import { TaskForm } from "@/components/task-form";
-import { buttonClass, Field, Notice, Pill, STATUS_COLORS, statusLabel } from "@/components/ui";
+import { buttonClass, Field, Pill, STATUS_COLORS, statusLabel } from "@/components/ui";
 import { quickAddAppUpdate, quickAddCarousel, quickAddReel } from "@/app/actions/clients";
 import { addFeedback } from "@/app/actions/feedback";
 import { importPromptFiles } from "@/app/actions/prompts";
@@ -40,8 +39,8 @@ import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { KIND_COLORS } from "@/lib/kinds";
 import { nowAndNext } from "@/lib/now-next";
-import { getSettings } from "@/lib/settings";
-import { toHHMM, WEEKDAYS } from "@/lib/time";
+import { getPlanAdvice, getSettings } from "@/lib/settings";
+import { fmtDate, toHHMM, WEEKDAYS } from "@/lib/time";
 import { countSuggestions, getWeek, nowMinutesIn, todayIn } from "@/lib/week";
 
 export const metadata = { title: "Home" };
@@ -105,7 +104,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const settings = await getSettings();
   const today = todayIn(settings.timezone);
   const now = nowMinutesIn(settings.timezone);
-  const [{ days, calendarError, googleConnected }, tasks, clients, reels, carousels, updates, feedback, adviceRow, suggestions, promptCount] =
+  const [{ days, calendarError, googleConnected }, tasks, clients, reels, carousels, updates, feedback, advice, suggestions, promptCount] =
     await Promise.all([
       getWeek(today, 7),
       db.select().from(schema.tasks).where(eq(schema.tasks.done, false)).orderBy(asc(schema.tasks.due), desc(schema.tasks.priority)),
@@ -114,15 +113,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       db.select().from(schema.carousels).where(ne(schema.carousels.status, "posted")).orderBy(desc(schema.carousels.updatedAt)),
       db.select().from(schema.appUpdates).orderBy(desc(schema.appUpdates.date), desc(schema.appUpdates.id)),
       db.select().from(schema.clientFeedback).where(eq(schema.clientFeedback.status, "open")).orderBy(desc(schema.clientFeedback.createdAt)),
-      db.select().from(schema.settings).where(eq(schema.settings.key, "planAdvice")),
+      getPlanAdvice(),
       countSuggestions(),
       db.select({ id: schema.prompts.id }).from(schema.prompts),
     ]);
 
   const day = days[0];
   const { current, next, leaveBy } = nowAndNext(day, now, settings.travel);
-  const advice = adviceRow[0]?.value as PlanAdvice | undefined;
-  const target = advice?.dailyTargets.find((t) => t.date === today);
+    const target = advice?.dailyTargets.find((t) => t.date === today);
   const client = (id: number) => clients.find((c) => c.id === id);
   const activeClientIds = new Set(clients.map((c) => c.id));
   const visible = <T extends { clientId: number }>(rows: T[]) => rows.filter((r) => activeClientIds.has(r.clientId));
@@ -152,7 +150,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const hour = Math.floor(now / 60);
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const dateLabel = new Date(`${today}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  const dateLabel = fmtDate(today, { weekday: "long", day: "numeric", month: "long" });
 
   // ── Widgets ────────────────────────────────────────────────
   const nowNext = (
@@ -347,11 +345,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     <Widget title="Recommended today" icon={Sparkles} color="var(--indigo)">
       {target ? (
         <>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <Stat label="Study" value={fmtMin(target.studyMin)} color="var(--purple)" />
-            <Stat label="Projects" value={fmtMin(target.projectMin)} color="var(--blue)" />
-            <Stat label="Gym" value={target.gymMin ? fmtMin(target.gymMin) : "Rest"} color="var(--orange)" />
-          </div>
+          <TargetStats target={target} />
           {target.note && <p className="mt-3 text-[13px] text-label-2">{target.note}</p>}
         </>
       ) : (
@@ -618,13 +612,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? "/" : `/?tab=${key}`, icon: <Icon size={15} /> }))}
       />
 
-      {!googleConnected && (
-        <Notice tone="orange">
-          Google isn&apos;t connected. <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link>
-        </Notice>
-      )}
-      {calendarError && <Notice tone="red">Couldn&apos;t load Google Calendar: {calendarError}</Notice>}
-      <ClashNotice days={days} />
+      <CalendarNotices
+        days={days}
+        googleConnected={googleConnected}
+        calendarError={calendarError}
+        notConnected={<>Google isn&apos;t connected. <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link></>}
+      />
 
       <Slide group="home-tab" index={TABS.findIndex((t) => t.key === tab)} className="grid grid-flow-row-dense gap-4 md:grid-cols-2 xl:grid-cols-3">
         {tab === "overview" && (

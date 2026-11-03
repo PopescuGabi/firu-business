@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireApiUser, UnauthorizedError } from "@/lib/auth";
+import { notSignedIn } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { ensureSectionFolder, startResumableUpload } from "@/lib/google/drive";
 
@@ -12,12 +12,8 @@ const body = z.object({
 });
 
 export async function POST(req: Request) {
-  try {
-    await requireApiUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return Response.json({ error: "Not signed in" }, { status: 401 });
-    throw e;
-  }
+  const denied = await notSignedIn();
+  if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
   try {

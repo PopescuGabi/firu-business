@@ -1,33 +1,31 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { BookOpen, Dumbbell, Pencil, Plus, Trash2 } from "lucide-react";
 import { Sheet } from "@/components/sheet";
-import { ConfirmButton, Submit } from "@/components/submit";
-import { buttonClass, Card, Empty, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
+import { DeleteFooter, Submit } from "@/components/submit";
+import { buttonClass, Card, Empty, Field, List, PageHeader, Row, Section } from "@/components/ui";
 import { addGymDay, addTutoring, deleteGymDay, deleteTutoring, saveGymDay, saveSchoolDay, updateTutoring } from "@/app/actions/school";
 import { syncIfStale } from "@/lib/calendar-sync";
 import { getDb, schema } from "@/lib/db";
 import { formatExercises } from "@/lib/gym";
-import { getSettings } from "@/lib/settings";
-import { schoolPeriods, toHHMM, weekdayOf, WEEKDAYS } from "@/lib/time";
+import { getPlanAdvice, getSettings } from "@/lib/settings";
+import { fmtDate, schoolPeriods, toHHMM, weekdayOf, WEEKDAYS } from "@/lib/time";
 import { getSchool, todayIn } from "@/lib/week";
 
 export const metadata = { title: "School" };
-
-type PlanAdvice = { dailyTargets: { date: string; studyMin: number; projectMin: number; gymMin: number; note: string }[] };
 
 export default async function SchoolPage() {
   await syncIfStale(); // pick up edits made in Google Calendar first
   const db = await getDb();
   const settings = await getSettings();
   const today = todayIn(settings.timezone);
-  const [{ days: schoolDays, classes }, gym, adviceRow, tutoring] = await Promise.all([
+  const [{ days: schoolDays, classes }, gym, advice, tutoring] = await Promise.all([
     getSchool(),
     db.select().from(schema.gymDays),
-    db.select().from(schema.settings).where(eq(schema.settings.key, "planAdvice")),
+    getPlanAdvice(),
     db.select().from(schema.tutoring).orderBy(asc(schema.tutoring.weekday), asc(schema.tutoring.start)),
   ]);
-  const targets = (adviceRow[0]?.value as PlanAdvice | undefined)?.dailyTargets ?? [];
+  const targets = advice?.dailyTargets ?? [];
   const freeGymDays = [1, 2, 3, 4, 5, 6, 7].filter((d) => !gym.some((g) => g.weekday === d));
 
   return (
@@ -107,11 +105,9 @@ export default async function SchoolPage() {
                 </div>
                 <Sheet title={`${t.subject} tutoring`} trigger={<Pencil size={15} />} triggerLabel={`Edit ${t.subject} tutoring`} triggerClassName="cursor-pointer rounded-full p-2 text-label-2 hover:bg-fill">
                   <TutoringForm action={updateTutoring.bind(null, t.id)} today={today} session={t} />
-                  <form action={deleteTutoring.bind(null, t.id)} className="mt-3 border-t border-separator pt-3">
-                    <ConfirmButton message={`Remove ${t.subject} tutoring?`}>
-                      <Trash2 size={15} /> Remove tutoring
-                    </ConfirmButton>
-                  </form>
+                  <DeleteFooter action={deleteTutoring.bind(null, t.id)} message={`Remove ${t.subject} tutoring?`}>
+                    <Trash2 size={15} /> Remove tutoring
+                  </DeleteFooter>
                 </Sheet>
               </Row>
             ))}
@@ -154,11 +150,9 @@ export default async function SchoolPage() {
                         triggerClassName="cursor-pointer rounded-full p-2 text-label-2 hover:bg-fill"
                       >
                         <GymForm action={saveGymDay.bind(null, g.weekday)} gym={g} />
-                        <form action={deleteGymDay.bind(null, g.weekday)} className="mt-3 border-t border-separator pt-3">
-                          <ConfirmButton message={`Remove ${WEEKDAYS[g.weekday - 1]} from your gym days?`}>
-                            <Trash2 size={15} /> Remove gym day
-                          </ConfirmButton>
-                        </form>
+                        <DeleteFooter action={deleteGymDay.bind(null, g.weekday)} message={`Remove ${WEEKDAYS[g.weekday - 1]} from your gym days?`}>
+                          <Trash2 size={15} /> Remove gym day
+                        </DeleteFooter>
                       </Sheet>
                     </div>
                     <ul className="px-4 pt-1 pb-3 text-[14px]">
@@ -251,7 +245,7 @@ function GymForm({
   );
 }
 
-const shortDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const shortDate = (d: string) => fmtDate(d, { day: "numeric", month: "short" });
 
 function TutoringForm({
   action,

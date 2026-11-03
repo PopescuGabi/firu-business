@@ -83,11 +83,6 @@ export async function getWeek(weekStart: string, numDays = 7) {
     }
   }
 
-  const acceptedIds = new Set(blocks.map((b) => b.gcalEventId).filter(Boolean));
-  // Tutoring added to Google shows once, as tutoring (repeat instances have ids like "<id>_20261106T130000Z").
-  const tutoringIds = tutoring.map((t) => t.gcalEventId).filter((x): x is string => Boolean(x));
-  const isTutoringEvent = (id: string) => tutoringIds.some((t) => id === t || id.startsWith(`${t}_`));
-
   const views: DayView[] = dates.map((date) => {
     const weekday = weekdayOf(date);
     const sd = schoolDays.find((d) => d.weekday === weekday);
@@ -97,7 +92,6 @@ export async function getWeek(weekStart: string, numDays = 7) {
     const allDay: CalendarEvent[] = [];
     for (const e of events) {
       if (mirrored.has(e.id) || (e.recurringEventId && mirrored.has(e.recurringEventId)) || e.description.includes(SYNC_MARK)) continue;
-      if (acceptedIds.has(e.id) || isTutoringEvent(e.id)) continue; // older events: shown as a plan block / tutoring instead
       if (e.allDay) {
         if (e.start <= date && date < e.end) allDay.push(e);
         continue;

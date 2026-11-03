@@ -45,3 +45,12 @@ export function ConfirmButton({
     </button>
   );
 }
+
+/** The delete (or archive) button at the bottom of an edit sheet, with a confirmation. */
+export function DeleteFooter({ action, message, children }: { action: (fd: FormData) => void | Promise<void>; message: string; children: React.ReactNode }) {
+  return (
+    <form action={action} className="mt-3 border-t border-separator pt-3">
+      <ConfirmButton message={message}>{children}</ConfirmButton>
+    </form>
+  );
+}

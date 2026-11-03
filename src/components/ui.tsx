@@ -76,15 +76,6 @@ export function buttonClass(variant: ButtonVariant = "filled", size: "sm" | "md"
   );
 }
 
-export function Button({
-  variant = "filled",
-  size = "md",
-  className,
-  ...props
-}: ComponentProps<"button"> & { variant?: ButtonVariant; size?: "sm" | "md" | "lg" }) {
-  return <button className={clsx(buttonClass(variant, size), className)} {...props} />;
-}
-
 export const STATUS_COLORS: Record<string, string> = {
   idea: "var(--label-2)",
   scripting: "var(--purple)",

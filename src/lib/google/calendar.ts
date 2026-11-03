@@ -86,25 +86,6 @@ export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: stri
   return results.flat();
 }
 
-export async function createEvent(
-  calendarId: string,
-  ev: { title: string; description: string; start: string; end: string; timeZone: string; recurrence?: string[] },
-) {
-  const res = await googleFetch(`${API}/calendars/${encodeURIComponent(calendarId)}/events`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      summary: ev.title,
-      description: ev.description,
-      start: { dateTime: ev.start, timeZone: ev.timeZone },
-      end: { dateTime: ev.end, timeZone: ev.timeZone },
-      recurrence: ev.recurrence,
-      source: { title: "Personal Hub", url: process.env.APP_URL },
-    }),
-  });
-  return ((await res.json()) as { id: string }).id;
-}
-
 export async function deleteEvent(calendarId: string, eventId: string) {
   await googleFetch(`${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`, {
     method: "DELETE",

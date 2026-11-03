@@ -1,6 +1,7 @@
 import "server-only";
+import { eq } from "drizzle-orm";
 import { getDb, schema } from "./db";
-import { DEFAULT_SETTINGS, type AppSettings } from "./settings-defaults";
+import { DEFAULT_SETTINGS, type AppSettings, type PlanAdvice } from "./settings-defaults";
 
 export async function getSettings(): Promise<AppSettings> {
   const db = await getDb();
@@ -19,4 +20,10 @@ export async function saveSettings(patch: Partial<AppSettings>) {
       .values({ key, value })
       .onConflictDoUpdate({ target: schema.settings.key, set: { value } });
   }
+}
+
+export async function getPlanAdvice(): Promise<PlanAdvice | undefined> {
+  const db = await getDb();
+  const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, "planAdvice"));
+  return row?.value as PlanAdvice | undefined;
 }

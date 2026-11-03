@@ -1,10 +1,33 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { TriangleAlert } from "lucide-react";
 import { WEEKDAYS } from "@/lib/time";
 import type { DayView } from "@/lib/week";
+import { Notice } from "./ui";
+
+/** The notices above a schedule: Google not connected (with this page's own wording), a Calendar error, travel clashes. */
+export function CalendarNotices({
+  days,
+  googleConnected,
+  calendarError,
+  notConnected,
+}: {
+  days: DayView[];
+  googleConnected: boolean;
+  calendarError: string | null;
+  notConnected: ReactNode;
+}) {
+  return (
+    <>
+      {!googleConnected && <Notice tone="orange">{notConnected}</Notice>}
+      {calendarError && <Notice tone="red">Couldn&apos;t load Google Calendar: {calendarError}</Notice>}
+      <ClashNotice days={days} />
+    </>
+  );
+}
 
 /** Lists fixed sessions that don't leave enough travel time between them. */
-export function ClashNotice({ days }: { days: DayView[] }) {
+function ClashNotice({ days }: { days: DayView[] }) {
   const clashes = days.flatMap((d) => d.clashes.map((c) => ({ ...c, date: d.date, weekday: d.weekday })));
   if (!clashes.length) return null;
   return (

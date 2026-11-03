@@ -1,6 +1,6 @@
 import { and, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { requireApiUser, UnauthorizedError } from "@/lib/auth";
+import { notSignedIn } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { assertWithinLimit, claude, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
 import { buildPlanPrompt, PLAN_SCHEMA, PLAN_SYSTEM, planOutput, type PlanOutput } from "@/lib/ai/plan";
@@ -19,12 +19,8 @@ const body = z.object({
 });
 
 export async function POST(req: Request) {
-  try {
-    await requireApiUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return Response.json({ error: "Not signed in" }, { status: 401 });
-    throw e;
-  }
+  const denied = await notSignedIn();
+  if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
   const { mode, days: numDays } = parsed.data;

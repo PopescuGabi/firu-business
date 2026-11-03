@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
-import { requireApiUser, UnauthorizedError } from "@/lib/auth";
+import { notSignedIn } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { assertWithinLimit, claude, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
 import { carouselProposal, carouselTool, EDITOR_SYSTEM, reelProposal, reelTool, renderPrompts } from "@/lib/ai/editor";
@@ -17,12 +17,8 @@ const body = z.object({
 });
 
 export async function POST(req: Request) {
-  try {
-    await requireApiUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return Response.json({ error: "Not signed in" }, { status: 401 });
-    throw e;
-  }
+  const denied = await notSignedIn();
+  if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
   const { targetType, targetId, message, promptIds } = parsed.data;

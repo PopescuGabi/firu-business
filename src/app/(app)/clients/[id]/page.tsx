@@ -8,7 +8,7 @@ import { DriveFiles } from "@/components/drive-files";
 import { DriveFolderButton } from "@/components/drive-folder-button";
 import { Sheet } from "@/components/sheet";
 import { SlidePreview } from "@/components/slide-preview";
-import { ConfirmButton, Submit } from "@/components/submit";
+import { DeleteFooter, Submit } from "@/components/submit";
 import { buttonClass, Card, Empty, Field, PageHeader, Pill, STATUS_COLORS, statusLabel } from "@/components/ui";
 import {
   createAppUpdate,
@@ -64,11 +64,9 @@ export default async function ClientPage({
             <Sheet title="Edit client" trigger={<Pencil size={16} />} triggerLabel="Edit client" triggerClassName={buttonClass("gray") + " !px-3"}>
               <ClientForm action={updateClient.bind(null, id)} client={client} submitLabel="Save" />
               {!client.archived && (
-                <form action={setClientArchived.bind(null, id, true)} className="mt-3 border-t border-separator pt-3">
-                  <ConfirmButton message={`Archive ${client.name}? You can restore it from the Clients page.`}>
-                    <Archive size={15} /> Archive client
-                  </ConfirmButton>
-                </form>
+                <DeleteFooter action={setClientArchived.bind(null, id, true)} message={`Archive ${client.name}? You can restore it from the Clients page.`}>
+                  <Archive size={15} /> Archive client
+                </DeleteFooter>
               )}
             </Sheet>
           </>
@@ -161,11 +159,9 @@ async function AppTab({ clientId, appName, googleConnected }: { clientId: number
                   {u.date && <span className="text-[13px] text-label-2">{u.date}</span>}
                   <Sheet title="Edit update" trigger={<Pencil size={15} />} triggerLabel={`Edit ${u.title}`} triggerClassName="cursor-pointer rounded-full p-1.5 text-label-2 hover:bg-fill">
                     <UpdateForm action={editAppUpdate.bind(null, u.id)} update={u} submitLabel="Save" />
-                    <form action={deleteAppUpdate.bind(null, u.id)} className="mt-3 border-t border-separator pt-3">
-                      <ConfirmButton message="Delete this update? Its Drive files stay in Drive.">
-                        <Trash2 size={15} /> Delete update
-                      </ConfirmButton>
-                    </form>
+                    <DeleteFooter action={deleteAppUpdate.bind(null, u.id)} message="Delete this update? Its Drive files stay in Drive.">
+                      <Trash2 size={15} /> Delete update
+                    </DeleteFooter>
                   </Sheet>
                 </div>
                 {u.notes && <p className="mt-2 text-[14px] whitespace-pre-line text-label-2">{u.notes}</p>}

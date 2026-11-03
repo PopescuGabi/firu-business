@@ -22,19 +22,25 @@ async function deleteItemFeedback(targetType: string, targetId: number) {
     .where(and(eq(schema.clientFeedback.targetType, targetType), eq(schema.clientFeedback.targetId, targetId)));
 }
 
+/** A deleted reel or carousel takes its Claude chat and client feedback with it. */
+async function deleteItemExtras(targetType: "reel" | "carousel", targetId: number) {
+  const db = await getDb();
+  await db.delete(schema.aiMessages).where(and(eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)));
+  await deleteItemFeedback(targetType, targetId);
+}
+
+const clientFromForm = (fd: FormData) => ({
+  name: name.parse(fd.get("name")),
+  description: String(fd.get("description") ?? "").slice(0, 1000),
+  appName: String(fd.get("appName") ?? "").slice(0, 200),
+  color: color.parse(fd.get("color")),
+});
+
 // ── Clients ────────────────────────────────────────────────
 export async function createClient(fd: FormData) {
   await requireUser();
   const db = await getDb();
-  const [c] = await db
-    .insert(schema.clients)
-    .values({
-      name: name.parse(fd.get("name")),
-      description: String(fd.get("description") ?? "").slice(0, 1000),
-      appName: String(fd.get("appName") ?? "").slice(0, 200),
-      color: color.parse(fd.get("color")),
-    })
-    .returning();
+  const [c] = await db.insert(schema.clients).values(clientFromForm(fd)).returning();
   revalidatePath("/", "layout");
   redirect(`/clients/${c.id}`);
 }
@@ -42,15 +48,7 @@ export async function createClient(fd: FormData) {
 export async function updateClient(id: number, fd: FormData) {
   await requireUser();
   const db = await getDb();
-  await db
-    .update(schema.clients)
-    .set({
-      name: name.parse(fd.get("name")),
-      description: String(fd.get("description") ?? "").slice(0, 1000),
-      appName: String(fd.get("appName") ?? "").slice(0, 200),
-      color: color.parse(fd.get("color")),
-    })
-    .where(eq(schema.clients.id, id));
+  await db.update(schema.clients).set(clientFromForm(fd)).where(eq(schema.clients.id, id));
   revalidatePath("/", "layout");
 }
 
@@ -143,8 +141,7 @@ export async function deleteReel(id: number) {
   await requireUser();
   const db = await getDb();
   const [r] = await db.delete(schema.reels).where(eq(schema.reels.id, id)).returning();
-  await db.delete(schema.aiMessages).where(and(eq(schema.aiMessages.targetType, "reel"), eq(schema.aiMessages.targetId, id)));
-  await deleteItemFeedback("reel", id);
+  await deleteItemExtras("reel", id);
   redirect(`/clients/${r.clientId}?tab=reels`);
 }
 
@@ -199,8 +196,7 @@ export async function deleteCarousel(id: number) {
   await requireUser();
   const db = await getDb();
   const [c] = await db.delete(schema.carousels).where(eq(schema.carousels.id, id)).returning();
-  await db.delete(schema.aiMessages).where(and(eq(schema.aiMessages.targetType, "carousel"), eq(schema.aiMessages.targetId, id)));
-  await deleteItemFeedback("carousel", id);
+  await deleteItemExtras("carousel", id);
   redirect(`/clients/${c.clientId}?tab=carousels`);
 }
 

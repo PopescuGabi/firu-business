@@ -1,7 +1,7 @@
 import { asc } from "drizzle-orm";
 import { BookText, Pencil, Plus, Trash2 } from "lucide-react";
 import { Sheet } from "@/components/sheet";
-import { ConfirmButton, Submit } from "@/components/submit";
+import { DeleteFooter, Submit } from "@/components/submit";
 import { buttonClass, Card, Empty, Field, PageHeader, Section } from "@/components/ui";
 import { createPrompt, deletePrompt, updatePrompt } from "@/app/actions/prompts";
 import { getDb, schema } from "@/lib/db";
@@ -78,11 +78,9 @@ export default async function PromptsPage() {
                       <h3 className="text-[17px] font-semibold">{p.name}</h3>
                       <Sheet title="Edit prompt" trigger={<Pencil size={15} />} triggerLabel={`Edit ${p.name}`} triggerClassName="cursor-pointer rounded-full p-1.5 text-label-2 hover:bg-fill">
                         <PromptForm action={updatePrompt.bind(null, p.id)} prompt={p} submitLabel="Save" />
-                        <form action={deletePrompt.bind(null, p.id)} className="mt-3 border-t border-separator pt-3">
-                          <ConfirmButton message={`Delete “${p.name}”?`}>
-                            <Trash2 size={15} /> Delete prompt
-                          </ConfirmButton>
-                        </form>
+                        <DeleteFooter action={deletePrompt.bind(null, p.id)} message={`Delete “${p.name}”?`}>
+                          <Trash2 size={15} /> Delete prompt
+                        </DeleteFooter>
                       </Sheet>
                     </div>
                     <p className="mt-2 line-clamp-5 font-mono text-[12px] whitespace-pre-wrap text-label-2">{p.body}</p>

@@ -11,8 +11,6 @@ export const reelProposal = z.object({
   caption: z.string().optional(),
   notes: z.string().optional(),
 });
-export type ReelProposal = z.infer<typeof reelProposal>;
-
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const carouselProposal = z.object({
   summary: z.string(),
@@ -32,8 +30,6 @@ export const carouselProposal = z.object({
     })
     .optional(),
 });
-export type CarouselProposal = z.infer<typeof carouselProposal>;
-
 const str = (description: string) => ({ type: "string", description });
 
 export const reelTool: Anthropic.Beta.BetaTool = {
