@@ -14,6 +14,11 @@
     radial-gradient(45% 45% at 12% 92%, rgba(255, 234, 198, 0.55), transparent 70%),
     linear-gradient(180deg, #f4f2f7, #ebe9f0);
   --bg-elevated: rgba(250, 250, 252, 0.9);
+  /* Liquid glass for things that float over the page (sheets, menus): see-through, a bright top
+     edge and a soft sheen, like light catching the rim of a glass pane. */
+  --float: rgba(255, 255, 255, 0.5);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 38%);
   --card: rgba(255, 255, 255, 0.64);
   --card-solid: #ffffff;
   --card-2: rgba(255, 255, 255, 0.45);
@@ -60,6 +65,9 @@
       radial-gradient(45% 45% at 12% 92%, rgba(255, 196, 120, 0.08), transparent 70%),
       linear-gradient(180deg, #0f0e14, #0a090d);
     --bg-elevated: rgba(30, 29, 37, 0.9);
+    --float: rgba(40, 38, 52, 0.5);
+    --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0) 38%);
     --card: rgba(255, 255, 255, 0.055);
     --card-solid: #1b1a21;
     --card-2: rgba(255, 255, 255, 0.04);
@@ -167,7 +175,6 @@ body::before {
 .material {
   background: var(--material);
   backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 /* Frosted surfaces. Cards skip backdrop-filter (the backdrop behind them is static, so it would look
@@ -175,22 +182,20 @@ body::before {
 .glass {
   background: var(--card);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-edge), var(--shadow);
 }
 .chrome {
   background: var(--chrome);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-edge), var(--shadow);
   backdrop-filter: saturate(170%) blur(24px);
-  -webkit-backdrop-filter: saturate(170%) blur(24px);
 }
 
 /* Right-click menu, like a macOS context menu. */
 .ctx-menu {
-  background: var(--bg-elevated);
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.3);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: var(--glass-sheen), var(--float);
+  box-shadow: var(--glass-edge), 0 10px 36px rgba(0, 0, 0, 0.25);
+  backdrop-filter: saturate(190%) blur(28px);
   animation: ctx-in 0.12s ease-out;
 }
 @keyframes ctx-in {
@@ -235,19 +240,19 @@ dialog.sheet {
   margin: auto;
   border: 1px solid var(--glass-border);
   padding: 0;
-  background: var(--bg-elevated);
-  backdrop-filter: saturate(170%) blur(30px);
-  -webkit-backdrop-filter: saturate(170%) blur(30px);
+  background: var(--glass-sheen), var(--float);
+  backdrop-filter: saturate(190%) blur(36px);
   color: var(--label);
   border-radius: 24px;
   text-align: left; /* sheets opened from a centered header (e.g. a calendar date) shouldn't inherit it */
   width: min(560px, calc(100vw - 24px));
   max-height: calc(100dvh - 48px);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--glass-edge), 0 24px 80px rgba(0, 0, 0, 0.3);
 }
+/* Light dim only, so the page's colours still shine through the glass. */
 dialog.sheet::backdrop {
-  background: rgba(10, 8, 20, 0.3);
-  backdrop-filter: blur(6px);
+  background: rgba(10, 8, 20, 0.16);
+  backdrop-filter: blur(2px);
 }
 dialog.sheet[open] {
   animation: sheet-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
