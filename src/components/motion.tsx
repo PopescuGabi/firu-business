@@ -90,8 +90,8 @@ export function SegmentedLinks({
       {pill && (
         <span
           aria-hidden
-          className="absolute top-1 bottom-1 rounded-full bg-ink shadow-apple transition-[left,width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          style={{ left: pill.left, width: pill.width }}
+          className="absolute top-1 bottom-1 rounded-full transition-[left,width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{ left: pill.left, width: pill.width, background: "var(--orb)", boxShadow: "var(--glow)" }}
         />
       )}
       {items.map((it) => (
@@ -106,8 +106,8 @@ export function SegmentedLinks({
           onClick={() => setPending(it.key)}
           className={clsx(
             "relative z-[1] flex h-9 items-center gap-1.5 rounded-full px-4 text-[14px] font-medium transition-colors duration-300",
-            current === it.key ? "font-semibold text-on-ink" : "text-label-2 hover:text-label",
-            !pill && current === it.key && "bg-ink shadow-apple",
+            current === it.key ? "font-semibold text-white" : "text-label-2 hover:text-label",
+            !pill && current === it.key && "orb-btn-on",
           )}
         >
           {it.icon} {it.label}

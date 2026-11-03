@@ -59,4 +59,4 @@ export function photoBackdrop(url: string) {
 
 /** CSS that swaps the backdrop colours (a <style> after globals.css). */
 export const backdropCss = ({ light, dark }: { light: string; dark: string }) =>
-  light ? `:root{--backdrop:${light}}@media (prefers-color-scheme: dark){:root{--backdrop:${dark}}}` : "";
+  light ? `:root{--backdrop:${light}}:root[data-theme="dark"]{--backdrop:${dark}}` : "";

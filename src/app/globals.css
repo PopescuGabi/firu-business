@@ -1,109 +1,116 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /*
- * Apple system colours (iOS / macOS HIG) on soft frosted glass, light + dark.
- * Surfaces (--card) are translucent over a fixed, blurred-colour backdrop; floating chrome
- * (rail, dock, sheets) also blurs what scrolls under it.
+ * "Night": graphite / porcelain smoked glass with an electric-blue glow, in light and dark.
+ * Light or dark is decided before the first paint by the script in app/layout.tsx (Auto follows
+ * the Mac) and set as html[data-theme]. Surfaces (--card) are translucent over a fixed backdrop;
+ * floating chrome (rail, dock, sheets) also blurs what scrolls under it.
  */
 :root {
-  --bg: #efedf3;
+  --bg: #eceef2;
   --backdrop: var(--backdrop-default); /* a picked background (Settings) replaces this */
   --backdrop-default:
-    radial-gradient(60% 55% at 8% 4%, rgba(190, 176, 255, 0.55), transparent 70%),
-    radial-gradient(50% 50% at 92% 10%, rgba(255, 212, 186, 0.6), transparent 70%),
-    radial-gradient(55% 55% at 78% 96%, rgba(166, 226, 214, 0.5), transparent 70%),
-    radial-gradient(45% 45% at 12% 92%, rgba(255, 234, 198, 0.55), transparent 70%),
-    linear-gradient(180deg, #f4f2f7, #ebe9f0);
+    radial-gradient(55% 45% at 10% 0%, rgba(47, 123, 255, 0.16), transparent 70%),
+    radial-gradient(45% 45% at 96% 12%, rgba(120, 168, 255, 0.14), transparent 70%),
+    radial-gradient(60% 60% at 78% 100%, rgba(150, 160, 190, 0.24), transparent 72%),
+    linear-gradient(180deg, #f4f5f8, #e5e7ec);
   --bg-elevated: rgba(250, 250, 252, 0.9);
   /* Liquid glass for things that float over the page (sheets, menus): see-through, a bright top
      edge and a soft sheen, like light catching the rim of a glass pane. */
-  --float: rgba(255, 255, 255, 0.5);
-  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
-  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 38%);
-  --card: rgba(255, 255, 255, 0.64);
+  --float: rgba(255, 255, 255, 0.55);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 38%);
+  --card: rgba(255, 255, 255, 0.72);
   --card-solid: #ffffff;
-  --card-2: rgba(255, 255, 255, 0.45);
-  --glass-border: rgba(255, 255, 255, 0.8);
-  --chrome: rgba(255, 255, 255, 0.55);
-  --label: #0e0e12;
-  --label-2: rgba(40, 40, 52, 0.6);
-  --label-3: rgba(40, 40, 52, 0.3);
-  --separator: rgba(40, 40, 60, 0.1);
-  --fill: rgba(120, 120, 140, 0.1);
-  --fill-2: rgba(120, 120, 140, 0.17);
+  --card-2: rgba(255, 255, 255, 0.5);
+  --well: rgba(236, 238, 243, 0.85); /* inner panels inside a card (lists, stats) */
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --chrome: rgba(255, 255, 255, 0.6);
+  --label: #0f1115;
+  --label-2: rgba(30, 34, 44, 0.58);
+  --label-3: rgba(30, 34, 44, 0.3);
+  --separator: rgba(20, 24, 40, 0.08);
+  --fill: rgba(110, 118, 140, 0.1);
+  --fill-2: rgba(110, 118, 140, 0.17);
   --segment: #ffffff;
   --material: rgba(255, 255, 255, 0.6);
-  --ink: #111116;
+  --ink: #15171c;
   --on-ink: #ffffff;
-  --rail: #111116;
-  --rail-icon: rgba(255, 255, 255, 0.62);
-  --rail-active: #e6e0ff;
-  --accent: #7462f0;
-  --accent-soft: #e9e4ff;
-  --hero: linear-gradient(120deg, #ddd6ff 0%, #e9e2ff 45%, #f4ecff 100%);
-  --mint: linear-gradient(135deg, #5fcfae 0%, #2f9f86 100%);
-  --blue: #007aff;
-  --green: #34c759;
+  --rail: #17181d;
+  --rail-icon: rgba(255, 255, 255, 0.6);
+  --rail-active: #2f7bff;
+  --accent: #2f7bff;
+  --accent-soft: rgba(47, 123, 255, 0.12);
+  /* The electric-blue glow: active orbs, the liquid fill, focus. */
+  --glow-color: #2f7bff;
+  --orb: radial-gradient(circle at 35% 28%, #8cc8ff 0%, #3d8bff 45%, #1f5fe6 100%);
+  --glow: 0 0 0 1px rgba(90, 160, 255, 0.55), 0 6px 22px rgba(47, 123, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --hero: linear-gradient(135deg, rgba(47, 123, 255, 0.16) 0%, rgba(47, 123, 255, 0.05) 55%, rgba(255, 255, 255, 0.2) 100%);
+  --mint: linear-gradient(140deg, #4a98ff 0%, #2f7bff 45%, #1c58d6 100%);
+  --blue: #2f7bff;
+  --green: #30c25a;
   --orange: #ff9500;
   --red: #ff3b30;
-  --purple: #af52de;
+  --purple: #a35bea;
   --pink: #ff2d55;
-  --teal: #30b0c7;
+  --teal: #22b3c9;
   --indigo: #5856d6;
   --yellow: #ffcc00;
-  --shadow: 0 1px 1px rgba(20, 16, 40, 0.03), 0 8px 28px rgba(20, 16, 40, 0.06);
-  --shadow-lift: 0 2px 4px rgba(20, 16, 40, 0.04), 0 18px 44px rgba(20, 16, 40, 0.12);
+  --shadow: 0 1px 1px rgba(16, 20, 40, 0.03), 0 8px 28px rgba(16, 20, 40, 0.07);
+  --shadow-lift: 0 2px 4px rgba(16, 20, 40, 0.04), 0 18px 44px rgba(16, 20, 40, 0.13);
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0d0c11;
-    --backdrop-default:
-      radial-gradient(60% 55% at 8% 4%, rgba(118, 96, 255, 0.24), transparent 70%),
-      radial-gradient(50% 50% at 92% 10%, rgba(255, 140, 92, 0.13), transparent 70%),
-      radial-gradient(55% 55% at 78% 96%, rgba(48, 186, 160, 0.15), transparent 70%),
-      radial-gradient(45% 45% at 12% 92%, rgba(255, 196, 120, 0.08), transparent 70%),
-      linear-gradient(180deg, #0f0e14, #0a090d);
-    --bg-elevated: rgba(30, 29, 37, 0.9);
-    --float: rgba(40, 38, 52, 0.5);
-    --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-    --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0) 38%);
-    --card: rgba(255, 255, 255, 0.055);
-    --card-solid: #1b1a21;
-    --card-2: rgba(255, 255, 255, 0.04);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --chrome: rgba(36, 34, 44, 0.6);
-    --label: #f5f5f7;
-    --label-2: rgba(235, 235, 245, 0.6);
-    --label-3: rgba(235, 235, 245, 0.3);
-    --separator: rgba(255, 255, 255, 0.08);
-    --fill: rgba(255, 255, 255, 0.07);
-    --fill-2: rgba(255, 255, 255, 0.12);
-    --segment: rgba(255, 255, 255, 0.16);
-    --material: rgba(30, 29, 37, 0.62);
-    --ink: #f5f5f7;
-    --on-ink: #111116;
-    --rail: rgba(255, 255, 255, 0.06);
-    --rail-icon: rgba(255, 255, 255, 0.55);
-    --rail-active: #ffffff;
-    --accent: #9d90ff;
-    --accent-soft: rgba(157, 144, 255, 0.18);
-    --hero: linear-gradient(120deg, rgba(126, 104, 255, 0.42) 0%, rgba(150, 120, 255, 0.24) 50%, rgba(255, 160, 210, 0.16) 100%);
-    --mint: linear-gradient(135deg, #3fb894 0%, #1f7a66 100%);
-    --blue: #0a84ff;
-    --green: #30d158;
-    --orange: #ff9f0a;
-    --red: #ff453a;
-    --purple: #bf5af2;
-    --pink: #ff375f;
-    --teal: #40c8e0;
-    --indigo: #5e5ce6;
-    --yellow: #ffd60a;
-    --shadow: 0 1px 1px rgba(0, 0, 0, 0.2), 0 10px 30px rgba(0, 0, 0, 0.35);
-    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.25), 0 20px 48px rgba(0, 0, 0, 0.5);
-    color-scheme: dark;
-  }
+:root[data-theme="dark"] {
+  --bg: #0f1013;
+  --backdrop-default:
+    radial-gradient(55% 45% at 10% 0%, rgba(47, 123, 255, 0.24), transparent 70%),
+    radial-gradient(45% 45% at 100% 18%, rgba(80, 120, 210, 0.12), transparent 70%),
+    radial-gradient(60% 60% at 72% 100%, rgba(40, 62, 120, 0.28), transparent 72%),
+    linear-gradient(180deg, #131418, #0b0c0f);
+  --bg-elevated: rgba(28, 29, 34, 0.92);
+  --float: rgba(30, 31, 37, 0.55);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 38%);
+  --card: rgba(30, 31, 37, 0.74);
+  --card-solid: #1c1d22;
+  --card-2: rgba(38, 39, 45, 0.6);
+  --well: rgba(44, 45, 52, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --chrome: rgba(28, 29, 34, 0.66);
+  --label: #f4f5f7;
+  --label-2: rgba(232, 234, 242, 0.58);
+  --label-3: rgba(232, 234, 242, 0.3);
+  --separator: rgba(255, 255, 255, 0.07);
+  --fill: rgba(255, 255, 255, 0.06);
+  --fill-2: rgba(255, 255, 255, 0.11);
+  --segment: rgba(255, 255, 255, 0.14);
+  --material: rgba(28, 29, 34, 0.62);
+  --ink: #f4f5f7;
+  --on-ink: #111216;
+  --rail: rgba(24, 25, 30, 0.85);
+  --rail-icon: rgba(255, 255, 255, 0.55);
+  --rail-active: #3b8cff;
+  --accent: #4b97ff;
+  --accent-soft: rgba(75, 151, 255, 0.17);
+  --glow-color: #3b8cff;
+  --glow: 0 0 0 1px rgba(110, 170, 255, 0.5), 0 6px 26px rgba(59, 140, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  --hero: linear-gradient(135deg, rgba(59, 140, 255, 0.24) 0%, rgba(59, 140, 255, 0.06) 55%, rgba(30, 31, 37, 0.4) 100%);
+  --mint: linear-gradient(140deg, #4b97ff 0%, #2f7bff 45%, #1a4fc4 100%);
+  --blue: #3b8cff;
+  --green: #32d15d;
+  --orange: #ff9f0a;
+  --red: #ff453a;
+  --purple: #bf5af2;
+  --pink: #ff375f;
+  --teal: #40c8e0;
+  --indigo: #5e5ce6;
+  --yellow: #ffd60a;
+  --shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 10px 30px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.3), 0 20px 48px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -111,6 +118,7 @@
   --color-elevated: var(--bg-elevated);
   --color-card: var(--card);
   --color-card-2: var(--card-2);
+  --color-well: var(--well);
   --color-label: var(--label);
   --color-label-2: var(--label-2);
   --color-label-3: var(--label-3);
@@ -205,20 +213,180 @@ body::before {
     0 0 1px color-mix(in srgb, var(--bg) 70%, transparent),
     0 0 14px color-mix(in srgb, var(--bg) 70%, transparent);
 }
-@media (prefers-color-scheme: dark) {
-  [data-bg="photo"] {
-    --card: rgba(24, 23, 31, 0.45);
-  }
+[data-theme="dark"] [data-bg="photo"] {
+  --card: rgba(24, 25, 30, 0.48);
 }
 
 /* Background choices in Settings: each swatch carries its light and dark look. */
 .swatch {
   background: var(--sw-light, var(--backdrop-default));
 }
-@media (prefers-color-scheme: dark) {
-  .swatch {
-    background: var(--sw-dark, var(--backdrop-default));
-  }
+[data-theme="dark"] .swatch {
+  background: var(--sw-dark, var(--backdrop-default));
+}
+
+/* ── Night pieces ─────────────────────────────────────────────────────────── */
+
+/* A round notch cut out of a card's top-right corner; .notch-slot holds the button that sits in it. */
+.notch {
+  --notch-r: 27px;
+  --notch-at: 26px;
+  -webkit-mask: radial-gradient(circle var(--notch-r) at calc(100% - var(--notch-at)) var(--notch-at), transparent calc(var(--notch-r) - 0.5px), #000 var(--notch-r));
+  mask: radial-gradient(circle var(--notch-r) at calc(100% - var(--notch-at)) var(--notch-at), transparent calc(var(--notch-r) - 0.5px), #000 var(--notch-r));
+}
+.notch-slot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+}
+
+/* Round glass buttons that light up into a blue orb (hover, or .orb-btn-on). */
+.orb-btn {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--label-2);
+  background: var(--card);
+  box-shadow: var(--glass-edge), var(--shadow);
+  border: 1px solid var(--glass-border);
+  transition:
+    background 0.3s,
+    color 0.3s,
+    box-shadow 0.3s,
+    transform 0.2s;
+}
+.orb-btn:hover,
+.orb-btn-on {
+  color: #fff;
+  background: var(--orb);
+  border-color: transparent;
+  box-shadow: var(--glow);
+}
+.orb-btn:active {
+  transform: scale(0.92);
+}
+/* A soft round well for an icon at the start of a card. */
+.orb-well {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--orb);
+  box-shadow: var(--glow);
+}
+/* A coloured tile (the blue stat) gets the glow too. */
+.glow-surface {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 10px 30px color-mix(in srgb, var(--glow-color) 35%, transparent);
+}
+
+/* Route timeline: filled dot (here) → blue ring (next) → plain ring (later), joined by a line. */
+.route {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.route-stop {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  align-items: start;
+  gap: 10px;
+}
+.route-stop:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 16px;
+  bottom: -14px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(var(--glow-color), color-mix(in srgb, var(--glow-color) 30%, var(--label-3)));
+}
+.route-mark {
+  margin-top: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid var(--label-3);
+  background: var(--card-solid);
+}
+.route-stop[data-state="here"] .route-mark {
+  border: 0;
+  background: var(--orb);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--glow-color) 22%, transparent), 0 0 14px color-mix(in srgb, var(--glow-color) 60%, transparent);
+}
+.route-stop[data-state="next"] .route-mark {
+  border-color: var(--glow-color);
+}
+
+/* Sub-menu items hang off one line with little elbows, like a file tree. */
+.tree {
+  position: relative;
+  margin-left: 10px;
+  padding-left: 12px;
+}
+.tree::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -6px;
+  bottom: 16px;
+  width: 1.5px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--glow-color) 55%, var(--label-3));
+}
+.tree > li {
+  position: relative;
+}
+.tree > li::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 10px;
+  height: 1.5px;
+  background: color-mix(in srgb, var(--glow-color) 55%, var(--label-3));
+}
+
+/* Stat chips, like the ones laid over the map. */
+.chip {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 0 11px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label);
+  background: var(--well);
+  box-shadow: var(--glass-edge);
+}
+.chip[data-tone="orange"] {
+  color: var(--orange);
+  background: color-mix(in srgb, var(--orange) 14%, var(--well));
+}
+.chip[data-tone="red"] {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 14%, var(--well));
+}
+.chip[data-tone="blue"] {
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* Right-click menu, like a macOS context menu. */
@@ -380,7 +548,9 @@ dialog.sheet[open] {
 @media (hover: hover) {
   .tile:hover {
     transform: translateY(-3px);
-    box-shadow: var(--shadow-lift);
+  }
+  .tile:hover > .glass {
+    box-shadow: var(--glass-edge), var(--shadow-lift);
   }
 }
 @keyframes tile-in {

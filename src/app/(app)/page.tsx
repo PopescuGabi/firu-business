@@ -12,12 +12,14 @@ import {
   Clapperboard,
   Dumbbell,
   FileUp,
+  Footprints,
   GalleryHorizontalEnd,
   Hourglass,
   LayoutGrid,
   Mail,
   ListTodo,
   MessageSquareText,
+  Navigation,
   Plus,
   Settings,
   Smartphone,
@@ -28,6 +30,7 @@ import {
 import { CalendarNotices } from "@/components/clash-notice";
 import { ClearSuggestions } from "@/components/clear-suggestions";
 import { fmtMin, TargetStats, Timeline } from "@/components/day-timeline";
+import { TypeIn } from "@/components/type-in";
 import { FeedbackCheck, TaskCheck } from "@/components/check";
 import { PlanButton } from "@/components/plan-button";
 import { MailToTask } from "@/components/mail-actions";
@@ -35,7 +38,7 @@ import { Sheet } from "@/components/sheet";
 import { Submit } from "@/components/submit";
 import { TaskForm } from "@/components/task-form";
 import { CountUp } from "@/components/count-up";
-import { Bento, buttonClass, Field, Pill, spanStyle, STATUS_COLORS, statusLabel, type Span } from "@/components/ui";
+import { Bento, buttonClass, Chip, Field, Pill, RouteTimeline, spanStyle, STATUS_COLORS, statusLabel, type Span } from "@/components/ui";
 import { quickAddAppUpdate, quickAddCarousel, quickAddReel } from "@/app/actions/clients";
 import { addFeedback } from "@/app/actions/feedback";
 import { importPromptFiles } from "@/app/actions/prompts";
@@ -65,11 +68,24 @@ const daysSince = (d: Date) => Math.max(0, Math.floor((Date.now() - d.getTime())
 
 type Placed = { span: Span; i: number };
 
-/** A bento tile: frosted card that fades in after the ones before it and lifts on hover. */
-function Tile({ span, i, className, style, children }: Placed & { className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+/**
+ * A bento tile: frosted card that fades in after the ones before it and lifts on hover.
+ * With `corner`, that button sits in a round notch cut out of the top-right corner.
+ */
+function Tile({
+  span,
+  i,
+  className,
+  surface,
+  surfaceClass,
+  corner,
+  children,
+}: Placed & { className?: string; surface?: React.CSSProperties; surfaceClass?: string; corner?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className={clsx("tile glass relative flex min-w-0 flex-col rounded-[24px] p-4 @container", className)} style={{ ...spanStyle(span, i), ...style }}>
-      {children}
+    <section className="tile relative flex min-w-0 flex-col rounded-[24px] @container" style={spanStyle(span, i)}>
+      <div aria-hidden className={clsx("glass absolute inset-0 rounded-[24px]", corner && "notch", surfaceClass)} style={surface} />
+      <div className={clsx("relative flex min-h-0 flex-1 flex-col p-4", className)}>{children}</div>
+      {corner && <div className="notch-slot">{corner}</div>}
     </section>
   );
 }
@@ -90,12 +106,11 @@ function Widget({
   children: React.ReactNode;
 }) {
   return (
-    <Tile {...placed}>
-      <header className="mb-3 flex items-center gap-2">
+    <Tile {...placed} corner={href && <RoundLink href={href} label={`Open ${title}`} />}>
+      <header className={clsx("mb-3 flex items-center gap-2", href && "pr-10")}>
         <Icon size={16} className="text-label-2" />
         <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</h2>
         {action}
-        {href && <RoundLink href={href} label={`Open ${title}`} />}
       </header>
       <div className="min-h-0 flex-1">{children}</div>
     </Tile>
@@ -107,7 +122,7 @@ function RoundLink({ href, label }: { href: string; label: string }) {
     <Link
       href={href}
       aria-label={label}
-      className="grid size-8 shrink-0 place-items-center rounded-full bg-card-solid/70 text-label-2 shadow-[0_0_0_1px_var(--separator)] transition hover:bg-ink hover:text-on-ink"
+      className="orb-btn"
     >
       <ArrowUpRight size={15} />
     </Link>
@@ -125,14 +140,19 @@ function Stat({
   ...placed
 }: Placed & { label: string; value: number; sub: React.ReactNode; icon: React.ComponentType<{ size?: number }>; href: string; accent?: boolean }) {
   return (
-    <Tile {...placed} className={clsx("justify-between gap-3", accent && "border-transparent text-white")} style={accent ? { background: "var(--mint)" } : undefined}>
-      <Link href={href} className="absolute inset-0 rounded-[24px]" aria-label={`${label}: ${value}`} />
-      <div className="flex items-start justify-between gap-2">
-        <p className={clsx("text-[13px] font-medium", accent ? "text-white/85" : "text-label-2")}>{label}</p>
-        <span className={clsx("grid size-8 shrink-0 place-items-center rounded-full", accent ? "bg-white/20" : "bg-fill")}>
+    <Tile
+      {...placed}
+      className={clsx("justify-between gap-3", accent && "text-white")}
+      surfaceClass={accent ? "border-transparent glow-surface" : undefined}
+      surface={accent ? { background: "var(--mint)" } : undefined}
+      corner={
+        <Link href={href} aria-label={`Open ${label}`} className={clsx("orb-btn", accent && "orb-btn-on")}>
           <Icon size={15} />
-        </span>
-      </div>
+        </Link>
+      }
+    >
+      <Link href={href} className="absolute inset-0 rounded-[24px]" aria-label={`${label}: ${value}`} />
+      <p className={clsx("pr-10 text-[13px] font-medium", accent ? "text-white/85" : "text-label-2")}>{label}</p>
       <div>
         <p className="text-[34px] leading-none font-bold tracking-tight">
           <CountUp value={value} />
@@ -153,26 +173,6 @@ function busyMinutes(d: DayView) {
   return m;
 }
 
-/** Decorative bloom for the banner (soft petals, like the reference's flower). */
-function Bloom() {
-  return (
-    <svg aria-hidden viewBox="0 0 200 200" className="pointer-events-none absolute -top-12 -right-12 size-44 opacity-90 @[480px]:size-56">
-      <defs>
-        <radialGradient id="petal" cx="50%" cy="30%" r="80%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-          <stop offset="55%" stopColor="#b9a8ff" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#7a63f0" stopOpacity="0.55" />
-        </radialGradient>
-      </defs>
-      <g transform="translate(100 100)">
-        {Array.from({ length: 10 }, (_, k) => (
-          <ellipse key={k} rx="26" ry="70" fill="url(#petal)" transform={`rotate(${k * 36}) translate(0 -38)`} />
-        ))}
-        <circle r="22" fill="#fff" fillOpacity="0.7" />
-      </g>
-    </svg>
-  );
-}
 
 function EmptyLine({ children }: { children: React.ReactNode }) {
   return <p className="py-2 text-[14px] text-label-2">{children}</p>;
@@ -493,36 +493,44 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Tile>
   );
 
-  // The lavender banner: what's on now and next, and the main action.
+  // The banner: where you are, what's next and when to leave, as a little route.
   const hero = (p: Placed) => (
-    <Tile {...p} className="overflow-hidden border-transparent !p-5" style={{ background: "var(--hero)" }}>
-      <Bloom />
-      <div className="relative flex h-full flex-col">
-        <p className="text-[13px] font-semibold text-label-2">{current ? "Now" : "Right now"}</p>
-        <p className="mt-0.5 max-w-[80%] text-[26px] leading-tight font-bold tracking-tight">{current ? current.title : "Free time"}</p>
-        {current && <p className="text-[13px] text-label-2">until {clock(current.end)}</p>}
-        <div className="mt-4 max-w-[85%]">
-          <p className="text-[13px] font-semibold text-label-2">Next</p>
-          {next ? (
-            <p className="text-[15px] font-medium">
-              {next.title} · {clock(next.start)}
-              {next.start - now <= 180 && <span className="text-label-2"> · in {fmtMin(next.start - now)}</span>}
-            </p>
-          ) : (
-            <p className="text-[15px] font-medium">Nothing else today</p>
-          )}
-          {leaveBy != null && (
-            <p className={clsx("mt-0.5 text-[13px] font-semibold", leaveBy - now <= 15 ? "text-red" : "text-orange")}>
-              {leaveBy <= now ? "Leave now" : `Leave by ${clock(leaveBy)}`}
-            </p>
-          )}
+    <Tile {...p} className="!p-5" surface={{ background: "var(--hero)" }} surfaceClass="border-transparent">
+      <div className="flex items-center gap-3">
+        <span className="orb-well">
+          <Navigation size={17} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[12px] font-semibold text-label-2">{current ? "Now" : "Right now"}</p>
+          <p className="truncate text-[22px] leading-tight font-bold tracking-tight">
+            <TypeIn text={current ? current.title : "Free time"} />
+          </p>
         </div>
-        <div className="mt-auto flex flex-wrap items-end gap-2 pt-5">
-          <PlanButton claudeConfigured={claudeConfigured} />
-          <Link href="/today" className={buttonClass("gray")}>
-            Open today
-          </Link>
+      </div>
+      <div className="mt-5 grid items-center gap-x-6 gap-y-4 @[380px]:grid-cols-[auto_1fr]">
+        <div>
+          <p className="text-[12px] text-label-2">{next ? "Next in" : "Next"}</p>
+          <p className="text-[38px] leading-none font-light tracking-tight tabular-nums">{next ? <CountUp value={Math.max(0, next.start - now)} minutes /> : "—"}</p>
         </div>
+        <RouteTimeline
+          stops={[
+            { title: current ? current.title : "You", sub: current ? `until ${clock(current.end)}` : "free now" },
+            next ? { title: next.title, sub: `${clock(next.start)}${next.place !== "any" && next.place !== "online" ? ` · ${next.place}` : ""}` } : { title: "Nothing else today" },
+          ]}
+        />
+      </div>
+      {leaveBy != null && (
+        <div className="mt-3">
+          <Chip icon={<Footprints size={13} />} tone={leaveBy - now <= 15 ? "red" : "orange"}>
+            {leaveBy <= now ? "Leave now" : `Leave by ${clock(leaveBy)}`}
+          </Chip>
+        </div>
+      )}
+      <div className="mt-auto flex flex-wrap items-end gap-2 pt-5">
+        <PlanButton claudeConfigured={claudeConfigured} />
+        <Link href="/today" className={buttonClass("gray")}>
+          Open today
+        </Link>
       </div>
     </Tile>
   );

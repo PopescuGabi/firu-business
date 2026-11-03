@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { isBackground } from "@/lib/backgrounds";
+import { isTheme } from "@/lib/theme";
 import { getDb, schema } from "@/lib/db";
 import { getSettings, saveSettings } from "@/lib/settings";
 
@@ -14,6 +15,12 @@ export async function chooseBackground(key: string) {
   if (!isBackground(key)) throw new Error("Unknown background");
   await saveSettings(user.id, { background: key });
   revalidatePath("/", "layout");
+}
+
+export async function chooseTheme(theme: string) {
+  const user = await requireUser();
+  if (!isTheme(theme)) throw new Error("Unknown theme");
+  await saveSettings(user.id, { theme });
 }
 
 /** Saves (or replaces) this person's background photo and switches to it. */

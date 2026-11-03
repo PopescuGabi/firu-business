@@ -265,7 +265,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       triggerLabel={`Add an event on ${WEEKDAYS[d.weekday - 1]} ${Number(d.date.slice(8))}`}
                       triggerClassName={clsx(
                         "mx-auto mt-0.5 grid size-8 cursor-pointer place-items-center rounded-full text-[17px] font-semibold transition hover:bg-fill",
-                        d.date === today && "bg-red text-white hover:bg-red",
+                        d.date === today && "orb-btn-on hover:opacity-90",
                       )}
                     >
                       <EventForm {...formProps} defaultDate={d.date} />
@@ -274,7 +274,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     <p
                       className={clsx(
                         "mx-auto mt-0.5 grid size-8 place-items-center rounded-full text-[17px] font-semibold",
-                        d.date === today && "bg-red text-white",
+                        d.date === today && "orb-btn-on",
                       )}
                     >
                       {Number(d.date.slice(8))}
@@ -410,8 +410,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       );
                     })}
                     {d.date === today && now >= firstHour * 60 && now <= lastHour * 60 && (
-                      <div className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-red" style={{ top: top(now) }}>
-                        <span className="absolute -top-1 -left-1 size-2.5 rounded-full bg-red" />
+                      <div className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-accent shadow-[0_0_8px_var(--glow-color)]" style={{ top: top(now) }}>
+                        <span className="absolute -top-1 -left-1 size-2.5 rounded-full" style={{ background: "var(--orb)", boxShadow: "var(--glow)" }} />
                       </div>
                     )}
                   </div>

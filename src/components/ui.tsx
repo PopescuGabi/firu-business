@@ -99,7 +99,7 @@ export const segmentGroupClass = "inline-flex rounded-full bg-fill";
 export function segmentClass(on: boolean) {
   return clsx(
     "cursor-pointer rounded-full font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40",
-    on ? "bg-ink font-semibold text-on-ink" : "text-label-2 hover:text-label",
+    on ? "orb-btn-on font-semibold" : "text-label-2 hover:text-label",
   );
 }
 
@@ -159,5 +159,34 @@ export function Notice({ tone = "blue", children }: { tone?: "blue" | "orange" |
     >
       {children}
     </div>
+  );
+}
+
+export type Stop = { title: ReactNode; sub?: ReactNode; state?: "here" | "next" | "later" };
+
+/** Stops joined by a line, like a route: a filled dot where you are, rings for what's next. */
+export function RouteTimeline({ stops, className }: { stops: Stop[]; className?: string }) {
+  return (
+    <ol className={clsx("route", className)}>
+      {stops.map((s, k) => (
+        <li key={k} className="route-stop" data-state={s.state ?? (k === 0 ? "here" : k === 1 ? "next" : "later")}>
+          <span className="route-mark" aria-hidden />
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-medium">{s.title}</p>
+            {s.sub && <p className="truncate text-[12px] text-label-2">{s.sub}</p>}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** A small rounded stat chip (icon + value), like the ones laid over the map. */
+export function Chip({ icon, children, tone, className }: { icon?: ReactNode; children: ReactNode; tone?: "orange" | "red" | "blue"; className?: string }) {
+  return (
+    <span className={clsx("chip", className)} data-tone={tone}>
+      {icon}
+      {children}
+    </span>
   );
 }

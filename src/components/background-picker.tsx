@@ -2,9 +2,10 @@
 import { useRef, useState, useTransition } from "react";
 import clsx from "clsx";
 import { Check, ImagePlus, Monitor, Trash2 } from "lucide-react";
-import { chooseBackground, removeBackgroundPhoto, uploadBackground } from "@/app/actions/background";
+import { chooseBackground, chooseTheme, removeBackgroundPhoto, uploadBackground } from "@/app/actions/background";
 import { BACKGROUNDS } from "@/lib/backgrounds";
-import { buttonClass } from "./ui";
+import { applyTheme, THEMES, type ThemePref } from "@/lib/theme";
+import { buttonClass, segmentClass, segmentGroupClass } from "./ui";
 
 const LONGEST_SIDE = 2560;
 
@@ -22,7 +23,8 @@ async function shrink(file: File): Promise<Blob> {
 
 type FilePicker = (opts: { startIn?: string; types?: { description: string; accept: Record<string, string[]> }[] }) => Promise<{ getFile(): Promise<File> }[]>;
 
-export function BackgroundPicker({ current, photoUrl }: { current: string; photoUrl: string | null }) {
+export function BackgroundPicker({ current, photoUrl, theme }: { current: string; photoUrl: string | null; theme: ThemePref }) {
+  const [mode, setMode] = useState(theme);
   const input = useRef<HTMLInputElement>(null);
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
@@ -65,8 +67,24 @@ export function BackgroundPicker({ current, photoUrl }: { current: string; photo
     }
   };
 
+  const pickTheme = (t: ThemePref) => {
+    setMode(t);
+    applyTheme(t); // straight away; saving follows
+    void chooseTheme(t);
+  };
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-[15px] font-medium">Theme</span>
+        <div role="radiogroup" aria-label="Theme" className={clsx(segmentGroupClass, "p-1")}>
+          {THEMES.map((t) => (
+            <button key={t.key} type="button" role="radio" aria-checked={mode === t.key} onClick={() => pickTheme(t.key)} className={clsx("h-8 px-4 text-[14px]", segmentClass(mode === t.key))}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div role="radiogroup" aria-label="Background" className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
         {BACKGROUNDS.map((b) => (
           <Swatch key={b.key} label={b.label} on={active === b.key} onClick={() => pick(b.key)} style={b.light ? ({ "--sw-light": b.light, "--sw-dark": b.dark } as React.CSSProperties) : undefined} />

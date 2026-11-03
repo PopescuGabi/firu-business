@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS = {
   travel: {} as Record<string, number>,
   // App background: a built-in (lib/backgrounds.ts) or "photo" (your upload).
   background: "default",
+  // Light, dark, or "auto" (follows the device).
+  theme: "auto" as "auto" | "light" | "dark",
 };
 
 export type AppSettings = typeof DEFAULT_SETTINGS;
