@@ -11,13 +11,14 @@ type Section = "App" | "Reels" | "Carousels";
 /** Uploads straight from the browser to Google Drive (resumable), then links the file here. */
 export async function uploadToDrive(
   file: Blob & { name?: string },
-  opts: { clientId: number; section: Section; name?: string; onProgress?: (pct: number) => void },
+  opts: ({ clientId: number; section: Section } | { portfolio: true }) & { name?: string; onProgress?: (pct: number) => void },
 ) {
   const name = opts.name ?? file.name ?? "file";
+  const where = "portfolio" in opts ? { portfolio: true } : { clientId: opts.clientId, section: opts.section };
   const res = await fetch("/api/drive/upload-session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId: opts.clientId, section: opts.section, name, mimeType: file.type, size: file.size }),
+    body: JSON.stringify({ ...where, name, mimeType: file.type, size: file.size }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Could not start upload");

@@ -38,6 +38,8 @@ export async function proxy(req: NextRequest) {
   }
 
   if (PUBLIC.some((p) => pathname === p)) return NextResponse.next();
+  // Public portfolio pages (they check the share token and only show items marked public).
+  if (pathname.startsWith("/share/")) return NextResponse.next();
   // Google Search Console ownership file (public/googleXXXX.html).
   if (/^\/google[0-9a-f]+\.html$/.test(pathname)) return NextResponse.next();
 

@@ -27,10 +27,14 @@ Google shows an "unverified app" screen until the app passes verification for it
 |---|---|---|
 | `openid`, `email`, `profile` | non-sensitive | Confirms the signed-in Google account is the single allowed owner of this private app. |
 | `https://www.googleapis.com/auth/calendar.readonly` | sensitive | The Calendar and Today screens show the user's events from all their calendars, and the week planner reads event times so it can suggest study, gym and project blocks only in free time, including the travel time between places. It needs every calendar the user selects in Settings; `calendar.events.readonly` alone can't list the calendars and their colours, and the user chooses which calendars count. |
-| `https://www.googleapis.com/auth/calendar.events` | sensitive | With calendar sync on (Settings → Calendar sync), the app keeps the user's school classes, gym, tutoring, accepted plan blocks and task due dates in a "Personal Hub" calendar the user created, so they're on their phone, and applies edits the user makes to those events (move, rename, delete) back in the app. Read-only access would make this impossible. The app never edits events it didn't create. |
+| `https://www.googleapis.com/auth/calendar.events` | sensitive | The Calendar page lets the user add, edit and delete events in their own calendars (for example a game from 22:00 to 00:00), including right-click → Delete. With calendar sync on (Settings → Calendar sync), the app also keeps the user's school classes, gym, tutoring, accepted plan blocks and task due dates in a "Personal Hub" calendar the user created, so they're on their phone, and applies edits made there back in the app. The app only changes an event when the user saves, accepts or deletes it in the app, or when it is one of the events the app manages in the "Personal Hub" calendar. Read-only access would make this impossible. |
 | `https://www.googleapis.com/auth/drive.file` | non-sensitive | Saves files the user uploads (footage, screenshots) and exported carousel images into a "Personal Hub" folder the app creates. The narrowest Drive scope; it can't see other files. |
 
 **What breaks with narrower scopes:** without `calendar.readonly` the planner can't see existing commitments (tutoring, events) and would schedule on top of them; without `calendar.events` the user's schedule can't appear in their calendar on their phone.
+
+## Demo video
+
+A finished, edited demo (about 1½ minutes, English captions, real footage of each permission in use) is rendered from the `demo-video` project next to this repo. Upload it to YouTube as **Unlisted** and paste the link in **Data Access → Demo video**.
 
 ## Demo video shot list (2–3 minutes, English)
 

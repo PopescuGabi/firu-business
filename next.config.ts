@@ -10,6 +10,7 @@ const csp = [
   "img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com",
   "font-src 'self' data:",
   "connect-src 'self' https://www.googleapis.com",
+  "frame-src https://drive.google.com", // public portfolio: Drive's video/PDF player
   "frame-ancestors 'none'",
   "form-action 'self' https://accounts.google.com",
   "base-uri 'self'",

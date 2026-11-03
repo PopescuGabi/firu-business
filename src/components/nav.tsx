@@ -4,7 +4,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
-import { BookText, Briefcase, CalendarDays, GraduationCap, House, Plus, Settings, Sun } from "lucide-react";
+import { BookText, Briefcase, CalendarDays, GraduationCap, House, Images, Plus, Settings, Sun } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Home", icon: House },
@@ -12,6 +12,7 @@ const ITEMS = [
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/school", label: "School", icon: GraduationCap },
   { href: "/clients", label: "Clients", icon: Briefcase },
+  { href: "/portfolio", label: "Portfolio", icon: Images },
   { href: "/prompts", label: "Prompts", icon: BookText },
 ];
 
@@ -168,7 +169,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="chrome fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 grid grid-cols-5 gap-1 rounded-full p-1.5 md:hidden"
+      className="chrome fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 grid grid-cols-6 gap-0.5 rounded-full p-1.5 md:hidden"
     >
       <span
         ref={blob}

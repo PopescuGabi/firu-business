@@ -58,6 +58,42 @@ export async function ensureSectionFolder(clientId: number, section: DriveSectio
   return (await findFolder(section, clientFolder)) ?? (await createFolder(section, clientFolder));
 }
 
+/** "Personal Hub/Portfolio": where portfolio uploads go. */
+export async function ensurePortfolioFolder() {
+  const root = await ensureRootFolder();
+  return (await findFolder("Portfolio", root)) ?? (await createFolder("Portfolio", root));
+}
+
+/**
+ * Turns "anyone with the link can view" on or off for a file the app created (drive.file allows this).
+ * Used for portfolio items you mark public, so the share page can show them.
+ */
+export async function setLinkSharing(id: string, on: boolean) {
+  if (on) {
+    await googleFetch(`${API}/files/${id}/permissions?fields=id`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "reader", type: "anyone", allowFileDiscovery: false }),
+    });
+  } else {
+    await googleFetch(`${API}/files/${id}/permissions/anyoneWithLink`, { method: "DELETE" }).catch((err) => {
+      if (!String(err).includes("404")) throw err; // already private
+    });
+  }
+}
+
+/** A small preview image of a Drive file, fetched as you (for the private Portfolio tab). */
+export async function fetchThumbnail(id: string, size = 800) {
+  const meta = (await (await googleFetch(`${API}/files/${id}?fields=thumbnailLink`)).json()) as { thumbnailLink?: string };
+  if (!meta.thumbnailLink) return null;
+  const res = await googleFetch(meta.thumbnailLink.replace(/=s\d+$/, `=s${size}`));
+  return { body: res.body, type: res.headers.get("content-type") ?? "image/jpeg" };
+}
+
+/** Public preview addresses, which work once a file is shared with "anyone with the link". */
+export const publicThumbUrl = (id: string, width = 1200) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${width}`;
+export const publicPreviewUrl = (id: string) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
+
 /**
  * Starts a resumable upload. The browser then sends the file straight to Google,
  * so large reel footage never passes through (or is limited by) this server.

@@ -1,15 +1,18 @@
 import { z } from "zod";
 import { notSignedIn } from "@/lib/auth";
 import { env } from "@/lib/env";
-import { ensureSectionFolder, startResumableUpload } from "@/lib/google/drive";
+import { ensurePortfolioFolder, ensureSectionFolder, startResumableUpload } from "@/lib/google/drive";
 
-const body = z.object({
-  clientId: z.number().int().positive(),
-  section: z.enum(["App", "Reels", "Carousels"]),
+const file = {
   name: z.string().trim().min(1).max(300),
   mimeType: z.string().max(200).default("application/octet-stream"),
   size: z.number().int().min(0).max(50 * 1024 ** 3), // up to 50 GB
-});
+};
+// Either into a client's section folder, or into the Portfolio folder.
+const body = z.union([
+  z.object({ clientId: z.number().int().positive(), section: z.enum(["App", "Reels", "Carousels"]), ...file }),
+  z.object({ portfolio: z.literal(true), ...file }),
+]);
 
 export async function POST(req: Request) {
   const denied = await notSignedIn();
@@ -17,9 +20,10 @@ export async function POST(req: Request) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
   try {
-    const parentId = await ensureSectionFolder(parsed.data.clientId, parsed.data.section);
+    const parentId = "portfolio" in parsed.data ? await ensurePortfolioFolder() : await ensureSectionFolder(parsed.data.clientId, parsed.data.section);
     const uploadUrl = await startResumableUpload({
-      ...parsed.data,
+      name: parsed.data.name,
+      size: parsed.data.size,
       mimeType: parsed.data.mimeType || "application/octet-stream",
       parentId,
       origin: req.headers.get("origin") ?? env.appUrl(),

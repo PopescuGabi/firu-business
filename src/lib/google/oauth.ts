@@ -121,12 +121,12 @@ export class GoogleNotConnectedError extends Error {
   }
 }
 
-/** A valid access token, refreshed when it has expired. */
-export async function getAccessToken(): Promise<string> {
-  if (memo.__hubToken && memo.__hubToken.expiresAt > Date.now()) return memo.__hubToken.value;
+/** A valid access token, refreshed when it has expired (or, with `force`, when Google rejected it early). */
+export async function getAccessToken(force = false): Promise<string> {
+  if (!force && memo.__hubToken && memo.__hubToken.expiresAt > Date.now()) return memo.__hubToken.value;
   const acc = await getGoogleAccount();
   if (!acc?.accessToken) throw new GoogleNotConnectedError();
-  if (acc.expiresAt && acc.expiresAt.getTime() > Date.now()) {
+  if (!force && acc.expiresAt && acc.expiresAt.getTime() > Date.now()) {
     memo.__hubToken = { value: decrypt(acc.accessToken), expiresAt: acc.expiresAt.getTime() };
     return memo.__hubToken.value;
   }
@@ -142,11 +142,13 @@ export async function getAccessToken(): Promise<string> {
 }
 
 export async function googleFetch(url: string, init: RequestInit = {}) {
-  const token = await getAccessToken();
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...init.headers, Authorization: `Bearer ${token}` },
-  });
+  const send = (token: string) => fetch(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+  let res = await send(await getAccessToken());
+  // Google can cancel an access token before it expires: get a fresh one and try once more.
+  if (res.status === 401) {
+    memo.__hubToken = undefined;
+    res = await send(await getAccessToken(true));
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`Google API ${res.status}: ${text.slice(0, 300)}`);

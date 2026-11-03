@@ -59,7 +59,13 @@ export default function PrivacyPage() {
       </p>
 
       <h2>Sharing</h2>
-      <p>Nothing is shared with anyone else, apart from the AI requests described above.</p>
+      <p>
+        Nothing is shared with anyone else, apart from the AI requests described above and the portfolio items you choose
+        to publish. Portfolio items are private by default. When you mark one as public and turn on your public portfolio
+        page, its title, description, client name, date and tags appear on that page (at an address only you hand out),
+        and its files in your Drive get a view-only link so visitors can see them. Making the item private again removes
+        those links; turning the page off hides the page.
+      </p>
 
       <h2>Removing access and deleting data</h2>
       <p>

@@ -234,6 +234,22 @@ export const gymDays = pgTable("gym_days", {
   startTime: text("start_time"), // HH:mm, when timing = fixed
 });
 
+// Work you show off: files live in the "Portfolio" folder in Drive; public items appear on the share page.
+export const portfolioItems = pgTable("portfolio_items", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
+  date: text("date"), // yyyy-mm-dd
+  type: text("type").notNull().default("other"), // see PORTFOLIO_TYPES
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  description: text("description").notNull().default(""),
+  files: jsonb("files").$type<DriveFile[]>().notNull().default([]),
+  coverFileId: text("cover_file_id"),
+  public: boolean("public").notNull().default(false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
 // Which Google Calendar event mirrors which hub item (see lib/calendar-sync).
 export const calendarLinks = pgTable("calendar_links", {
   key: text("key").primaryKey(), // e.g. class:1:0, gym:6, tutoring:3, block:45, task:7
