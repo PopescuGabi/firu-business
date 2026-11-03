@@ -77,7 +77,7 @@ export function Row({ className, ...props }: ComponentProps<"div">) {
 
 type ButtonVariant = "filled" | "tinted" | "plain" | "gray" | "destructive";
 const buttonStyles: Record<ButtonVariant, string> = {
-  filled: "bg-ink text-on-ink hover:opacity-85 active:opacity-95",
+  filled: "liquid text-white", // blue glass; LiquidButton adds the fill (globals.css)
   tinted: "bg-accent-soft text-accent hover:brightness-[0.97]",
   gray: "bg-card-solid/70 text-label shadow-[0_0_0_1px_var(--separator)] hover:bg-card-solid",
   plain: "text-accent hover:bg-fill",

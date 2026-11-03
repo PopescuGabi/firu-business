@@ -362,6 +362,129 @@ body::before {
   background: color-mix(in srgb, var(--glow-color) 55%, var(--label-3));
 }
 
+/* Primary buttons: blue glass. While busy, liquid fills them from the left with a moving wave edge. */
+.liquid {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 72%, #0a1f55 28%), color-mix(in srgb, var(--accent) 52%, #0a1f55 48%));
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, #fff 40%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 4px 16px color-mix(in srgb, var(--glow-color) 30%, transparent);
+  text-shadow: 0 1px 1px rgba(0, 20, 60, 0.25);
+}
+.liquid:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 6px 22px color-mix(in srgb, var(--glow-color) 45%, transparent);
+}
+.liquid-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  width: 0;
+  background: linear-gradient(90deg, #3d8bff, #6db0ff 80%, #9ccfff);
+  pointer-events: none;
+}
+.liquid-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -15px;
+  bottom: 0;
+  width: 16px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='24' viewBox='0 0 16 24'%3E%3Cpath d='M0 0H8C14 4 14 8 8 12C2 16 2 20 8 24H0Z' fill='%239ccfff'/%3E%3C/svg%3E") 0 0 / 16px 24px repeat-y;
+  opacity: 0;
+  animation: liquid-wave 0.7s linear infinite;
+}
+.liquid[data-state="busy"] .liquid-fill {
+  animation: liquid-guess 3s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.liquid[data-state="busy"][data-progress] .liquid-fill {
+  animation: none;
+  width: calc(var(--p, 0) * 100%);
+  transition: width 0.3s ease-out;
+}
+.liquid[data-state="busy"] .liquid-fill::after {
+  opacity: 1;
+}
+.liquid[data-state="done"] .liquid-fill {
+  width: 100%;
+  transition: width 0.35s ease-out;
+}
+.liquid-chip {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  height: calc(100% - 6px);
+  aspect-ratio: 1;
+  margin-left: 6px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.liquid[data-state="done"] .liquid-chip {
+  background: rgba(255, 255, 255, 0.3);
+}
+/* The square, icon-only version fills from the bottom up. */
+.liquid-square .liquid-fill {
+  inset: auto 0 0 0;
+  width: auto;
+  height: 0;
+  background: linear-gradient(0deg, #3d8bff, #6db0ff 80%, #9ccfff);
+}
+.liquid-square .liquid-fill::after {
+  top: -11px;
+  right: 0;
+  left: 0;
+  bottom: auto;
+  width: auto;
+  height: 12px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12' viewBox='0 0 24 12'%3E%3Cpath d='M0 12V6C4 0 8 0 12 6C16 12 20 12 24 6V12Z' fill='%239ccfff'/%3E%3C/svg%3E") 0 0 / 24px 12px repeat-x;
+  animation-name: liquid-wave-x;
+}
+.liquid-square[data-state="busy"] .liquid-fill {
+  animation-name: liquid-guess-up;
+}
+.liquid-square[data-state="busy"][data-progress] .liquid-fill {
+  width: auto;
+  height: calc(var(--p, 0) * 100%);
+  transition: height 0.3s ease-out;
+}
+.liquid-square[data-state="done"] .liquid-fill {
+  width: auto;
+  height: 100%;
+  transition: height 0.35s ease-out;
+}
+@keyframes liquid-guess {
+  from {
+    width: 0;
+  }
+  to {
+    width: 88%;
+  }
+}
+@keyframes liquid-guess-up {
+  from {
+    height: 0;
+  }
+  to {
+    height: 88%;
+  }
+}
+@keyframes liquid-wave {
+  to {
+    background-position: 0 24px;
+  }
+}
+@keyframes liquid-wave-x {
+  to {
+    background-position: 24px 0;
+  }
+}
+
 /* Stat chips, like the ones laid over the map. */
 .chip {
   display: inline-flex;
@@ -684,4 +807,11 @@ button {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* A liquid button stays bright while it works (it's disabled only so it can't be pressed twice). */
+.liquid[data-state="busy"]:disabled,
+.liquid[data-state="done"]:disabled {
+  opacity: 1;
+  cursor: progress;
 }

@@ -2,6 +2,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { ListTodo, Send } from "lucide-react";
 import { mailToTask, replyToMail, type MailState } from "@/app/actions/email";
+import { LiquidButton } from "./liquid-button";
 import { buttonClass, Field } from "./ui";
 
 /** Reply in the same thread. Nothing is sent until you press Send. */
@@ -18,9 +19,7 @@ export function ReplyForm({ id, to }: { id: string; to: string }) {
       </Field>
       <div className="flex items-center justify-end gap-3">
         {state && <span className={state.ok ? "text-[13px] text-green" : "text-[13px] text-red"}>{state.message}</span>}
-        <button className={buttonClass("filled")} disabled={sending}>
-          <Send size={15} /> {sending ? "Sending…" : "Send"}
-        </button>
+        <LiquidButton disabled={sending} state={sending ? "busy" : state?.ok ? "done" : "idle"} label="Send" busyLabel="Sending…" doneLabel="Sent" chip icon={<Send size={15} />} />
       </div>
     </form>
   );
@@ -32,14 +31,17 @@ export function MailToTask({ id, subject, compact }: { id: string; subject: stri
   if (compact) {
     return (
       <form action={make}>
-        <button
-          className="grid size-8 cursor-pointer place-items-center rounded-full bg-accent-soft text-accent transition hover:bg-ink hover:text-on-ink disabled:opacity-50"
+        <LiquidButton
+          square
+          size="sm"
+          className="!h-8"
           aria-label={`Make a task from “${subject}”`}
           title={state?.message ?? "Make a task"}
           disabled={making || state?.ok}
-        >
-          <ListTodo size={15} />
-        </button>
+          state={making ? "busy" : state?.ok ? "done" : "idle"}
+          icon={<ListTodo size={15} />}
+          label=""
+        />
       </form>
     );
   }

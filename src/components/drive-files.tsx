@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { ExternalLink, FileText, Film, Image as ImageIcon, Paperclip, X } from "lucide-react";
 import { attachFile, detachFile } from "@/app/actions/clients";
 import type { DriveFile } from "@/lib/db/schema";
+import { LiquidButton } from "./liquid-button";
 import { buttonClass } from "./ui";
 
 type Target = "appUpdate" | "reel" | "carousel";
@@ -107,10 +108,17 @@ export function DriveFiles({
       {googleConnected ? (
         <>
           <input ref={input} type="file" multiple hidden onChange={(e) => onPick(e.target.files)} />
-          <button type="button" className={buttonClass("tinted", "sm")} disabled={!!progress} onClick={() => input.current?.click()}>
-            <Paperclip size={14} />
-            {progress ? `Uploading ${progress}` : "Upload to Drive"}
-          </button>
+          <LiquidButton
+            type="button"
+            size="sm"
+            disabled={!!progress}
+            state={progress ? "busy" : "idle"}
+            progress={progress ? Number(progress.match(/(\d+)%/)?.[1] ?? 0) / 100 : undefined}
+            onClick={() => input.current?.click()}
+            icon={<Paperclip size={14} />}
+            label="Upload to Drive"
+            busyLabel={`Uploading ${progress ?? ""}`}
+          />
         </>
       ) : (
         <p className="text-[13px] text-label-2">Connect Google in Settings to upload files to Drive.</p>

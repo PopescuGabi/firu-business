@@ -2,7 +2,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Copy, Globe, Lock, RefreshCw, Trash2, UploadCloud } from "lucide-react";
+import { ArrowDown, Check, Copy, Globe, Lock, RefreshCw, Trash2, UploadCloud } from "lucide-react";
 import {
   attachPortfolioFile,
   createPortfolioItem,
@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/portfolio";
 import { PORTFOLIO_TYPES } from "@/lib/portfolio-types";
 import { uploadToDrive } from "./drive-files";
+import { LiquidButton } from "./liquid-button";
 import { buttonClass, Field } from "./ui";
 
 type Client = { id: number; name: string };
@@ -102,10 +103,16 @@ function DropZone({ files, onFiles, disabled }: { files: File[]; onFiles: (f: Fi
 }
 
 /** Uploads files one by one into Drive and links each to the item. */
-async function uploadAll(id: number, files: File[], onStatus: (s: string) => void) {
+async function uploadAll(id: number, files: File[], onStatus: (s: string) => void, onProgress: (p: number) => void = () => {}) {
   for (const [i, f] of files.entries()) {
     const label = files.length > 1 ? `${i + 1}/${files.length} · ` : "";
-    const up = await uploadToDrive(f, { portfolio: true, onProgress: (p) => onStatus(`Uploading ${label}${f.name} · ${p}%`) });
+    const up = await uploadToDrive(f, {
+      portfolio: true,
+      onProgress: (p) => {
+        onStatus(`Uploading ${label}${f.name} · ${p}%`);
+        onProgress((i + p / 100) / files.length);
+      },
+    });
     onStatus(`Saving ${label}${f.name}…`);
     await attachPortfolioFile(id, up.id);
   }
@@ -116,6 +123,7 @@ export function NewPortfolioItem({ clients }: { clients: Client[] }) {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | undefined>(undefined);
   const busy = status !== null;
   return (
     <form
@@ -127,7 +135,7 @@ export function NewPortfolioItem({ clients }: { clients: Client[] }) {
         setStatus("Saving…");
         try {
           const id = await createPortfolioItem(new FormData(e.currentTarget));
-          await uploadAll(id, files, setStatus);
+          await uploadAll(id, files, setStatus, setProgress);
           router.push(`/portfolio/${id}`);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Something went wrong");
@@ -140,9 +148,15 @@ export function NewPortfolioItem({ clients }: { clients: Client[] }) {
       {error && <p role="alert" className="px-1 text-[13px] text-red">{error}</p>}
       <div className="flex items-center justify-end gap-3">
         {status && <span className="truncate text-[13px] text-label-2">{status}</span>}
-        <button className={buttonClass("filled")} disabled={busy}>
-          {busy ? "Working…" : files.length ? "Add and upload" : "Add to portfolio"}
-        </button>
+        <LiquidButton
+          disabled={busy}
+          state={busy ? "busy" : "idle"}
+          progress={files.length ? progress : undefined}
+          label={files.length ? "Add and upload" : "Add to portfolio"}
+          busyLabel={files.length ? "Uploading" : "Saving…"}
+          chip
+          icon={<ArrowDown size={16} />}
+        />
       </div>
     </form>
   );

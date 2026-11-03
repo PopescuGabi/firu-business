@@ -2,11 +2,13 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Sparkles } from "lucide-react";
+import { LiquidButton } from "./liquid-button";
 import { buttonClass } from "./ui";
 
 export function PlanButton({ claudeConfigured, label = "Plan my week" }: { claudeConfigured: boolean; label?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [, start] = useTransition();
 
@@ -26,6 +28,8 @@ export function PlanButton({ claudeConfigured, label = "Plan my week" }: { claud
           ? `${data.created} suggestion${data.created === 1 ? "" : "s"} added. Accept the ones you want.`
           : "No free time left to plan.",
       );
+      setDone(true);
+      window.setTimeout(() => setDone(false), 1800);
       start(() => router.refresh());
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Planning failed");
@@ -42,15 +46,16 @@ export function PlanButton({ claudeConfigured, label = "Plan my week" }: { claud
             Basic plan
           </button>
         )}
-        <button
-          className={buttonClass("filled")}
+        <LiquidButton
           disabled={busy || !claudeConfigured}
           title={claudeConfigured ? undefined : "Add your Anthropic API key to use AI planning"}
           onClick={() => run("ai")}
-        >
-          <Sparkles size={16} className={busy ? "animate-pulse" : ""} />
-          {busy ? "Planning…" : label}
-        </button>
+          state={busy ? "busy" : done ? "done" : "idle"}
+          icon={<Sparkles size={16} />}
+          label={label}
+          busyLabel="Planning…"
+          doneLabel="Planned"
+        />
       </div>
       {msg && (
         <p role="status" className="max-w-xs text-right text-[12px] text-label-2">

@@ -5,6 +5,7 @@ import { Check, ImagePlus, Monitor, Trash2 } from "lucide-react";
 import { chooseBackground, chooseTheme, removeBackgroundPhoto, uploadBackground } from "@/app/actions/background";
 import { BACKGROUNDS } from "@/lib/backgrounds";
 import { applyTheme, THEMES, type ThemePref } from "@/lib/theme";
+import { LiquidButton } from "./liquid-button";
 import { buttonClass, segmentClass, segmentGroupClass } from "./ui";
 
 const LONGEST_SIDE = 2560;
@@ -100,9 +101,15 @@ export function BackgroundPicker({ current, photoUrl, theme }: { current: string
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={pending} className={buttonClass("filled")} onClick={() => input.current?.click()}>
-          <ImagePlus size={15} /> {photoUrl ? "Upload a new photo" : "Upload a photo"}
-        </button>
+        <LiquidButton
+          type="button"
+          disabled={pending}
+          state={pending && picked === "photo" ? "busy" : "idle"}
+          onClick={() => input.current?.click()}
+          icon={<ImagePlus size={15} />}
+          label={photoUrl ? "Upload a new photo" : "Upload a photo"}
+          busyLabel="Uploading…"
+        />
         <button type="button" disabled={pending} className={buttonClass("gray")} onClick={pickWallpaper}>
           <Monitor size={15} /> Use my wallpaper
         </button>
