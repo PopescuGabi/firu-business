@@ -58,6 +58,16 @@ const truncated = (now: string, before: string) => {
   return Boolean(u && (!b || u < b));
 };
 
+/** Runs `fn` over `items`, at most `n` at a time. */
+async function pool<T>(items: T[], n: number, fn: (item: T) => Promise<void>) {
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, async () => {
+      while (next < items.length) await fn(items[next++]);
+    }),
+  );
+}
+
 const isGone = (err: unknown) => err instanceof Error && /Google API (404|410)/.test(err.message);
 
 async function setSetting(key: string, value: unknown) {
@@ -278,13 +288,22 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
     // 2. Push: make the calendar match the hub.
     const desired = await loadHub(tz);
     const links = new Map((await db.select().from(schema.calendarLinks)).map((l) => [l.key, l]));
-    for (const d of desired) {
+    // Our events without a link (a run cut off between writing an event and saving its link): reuse or remove them.
+    const linkedIds = new Set([...links.values()].map((l) => l.eventId));
+    const strays = (await changedEvents(cal.id)).filter(
+      (e) => e.status !== "cancelled" && !e.recurringEventId && !linkedIds.has(e.id) && (e.description ?? "").includes(MARK),
+    );
+    await pool(desired, 5, async (d) => {
       const sig = signature(d, toLocal);
       const link = links.get(d.key);
       let ev: RawEvent | null = null;
       if (!link) {
-        ev = await insertEvent(cal.id, bodyOf(d));
-        result.created++;
+        const i = strays.findIndex((e) => sameSignature(signature(e, toLocal), sig));
+        if (i >= 0) ev = strays.splice(i, 1)[0];
+        else {
+          ev = await insertEvent(cal.id, bodyOf(d));
+          result.created++;
+        }
       } else if (!sameSignature(sig, link.written as Signature)) {
         try {
           const body = bodyOf(d);
@@ -313,6 +332,10 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
           .onConflictDoUpdate({ target: schema.calendarLinks.key, set: row });
       }
       links.delete(d.key);
+    });
+    for (const e of strays) {
+      await deleteEvent(cal.id, e.id);
+      result.deleted++;
     }
 
     // 3. Items gone from the hub: remove their events.

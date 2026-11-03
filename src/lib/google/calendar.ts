@@ -149,15 +149,14 @@ export async function patchEvent(calendarId: string, eventId: string, body: Even
   return res.json();
 }
 
-/** Events changed since `updatedMin` (including deleted ones), as series masters, not instances. */
-export async function changedEvents(calendarId: string, updatedMin: string): Promise<RawEvent[]> {
+/** Events changed since `updatedMin` (including deleted ones), or every event without it; series masters, not instances. */
+export async function changedEvents(calendarId: string, updatedMin?: string): Promise<RawEvent[]> {
   const out: RawEvent[] = [];
   let pageToken = "";
   do {
     const url = new URL(eventsUrl(calendarId));
     url.search = new URLSearchParams({
-      updatedMin,
-      showDeleted: "true",
+      ...(updatedMin ? { updatedMin, showDeleted: "true" } : {}),
       singleEvents: "false",
       maxResults: "250",
       ...(pageToken ? { pageToken } : {}),
