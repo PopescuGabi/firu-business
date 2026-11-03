@@ -17,8 +17,9 @@ const migrationsFolder = path.join(process.cwd(), "drizzle");
 async function connect(): Promise<Db> {
   const url = process.env.DATABASE_URL;
   if (url) {
-    // Supabase transaction pooler does not support prepared statements.
-    const client = postgres(url, { prepare: false, max: 5 });
+    // Supabase's transaction pooler supports neither prepared statements nor pipelining
+    // (several queries in flight on one connection hang), so extra queries wait for a free connection.
+    const client = postgres(url, { prepare: false, max: 5, max_pipeline: 1, onnotice: () => {} });
     const db = drizzlePg(client, { schema });
     await migratePg(db, { migrationsFolder });
     await seed(db);
