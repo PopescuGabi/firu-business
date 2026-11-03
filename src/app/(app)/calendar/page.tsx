@@ -1,13 +1,18 @@
+import { TZDate } from "@date-fns/tz";
+import { format } from "date-fns";
 import Link from "next/link";
-import { Check, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { ClearSuggestions } from "@/components/clear-suggestions";
 import { ClashNotice } from "@/components/clash-notice";
+import { EventForm, type EditableEvent } from "@/components/event-form";
 import { Sheet } from "@/components/sheet";
 import { acceptBlockForm, removeBlock } from "@/app/actions/tasks";
 import { PlanButton } from "@/components/plan-button";
 import { buttonClass, Notice, PageHeader } from "@/components/ui";
 import { env } from "@/lib/env";
+import { listCalendars, type CalendarEvent } from "@/lib/google/calendar";
+import { HUB_CALENDAR_NAME } from "@/lib/calendar-sync";
 import { KIND_COLORS } from "@/lib/kinds";
 import { getSettings } from "@/lib/settings";
 import { addDays, mondayOf, toHHMM, toMin, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/time";
@@ -17,7 +22,26 @@ export const metadata = { title: "Calendar" };
 
 const HOUR_PX = 52;
 
-type Ev = { key: string; start: number; end: number; title: string; color: string; sub?: string; reason?: string; block?: { id: number; accepted: boolean } };
+type Ev = {
+  key: string;
+  start: number;
+  end: number;
+  title: string;
+  color: string;
+  sub?: string;
+  reason?: string;
+  block?: { id: number; accepted: boolean };
+  edit?: EditableEvent;
+};
+
+/** A Google event as the edit form needs it (local date and times). */
+function editable(e: CalendarEvent, tz: string): EditableEvent {
+  const local = (iso: string) => new TZDate(iso, tz);
+  const base = { id: e.id, calendarId: e.calendarId, seriesId: e.recurringEventId, title: e.title, location: e.location, notes: e.description };
+  if (e.allDay) return { ...base, allDay: true, date: e.start, endDate: addDays(e.end, -1), start: "", end: "" };
+  const s = local(e.start);
+  return { ...base, allDay: false, date: format(s, "yyyy-MM-dd"), endDate: format(s, "yyyy-MM-dd"), start: format(s, "HH:mm"), end: format(local(e.end), "HH:mm") };
+}
 
 /** Side-by-side columns for overlapping events. */
 function layout(events: Ev[]) {
@@ -53,6 +77,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const start = mondayOf(week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : today);
   const { days, calendarError, googleConnected } = await getWeek(start, 7);
   const now = nowMinutesIn(settings.timezone);
+  const writable = googleConnected && !calendarError ? (await listCalendars()).filter((c) => c.writable) : [];
+  const hubCal = writable.find((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase());
+  const formProps = {
+    calendars: writable.map(({ id, name, color }) => ({ id, name, color })),
+    defaultCalendarId: hubCal?.id ?? writable.find((c) => c.primary)?.id ?? writable[0]?.id ?? "primary",
+    places: [...new Set(Object.keys(settings.travel).flatMap((k) => k.split(">")))].filter((p) => p !== "online"),
+  };
 
   const firstHour = Math.floor(toMin(settings.dayStart) / 60);
   const lastHour = Math.ceil(toMin(settings.dayEnd) / 60);
@@ -77,6 +108,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                 <ChevronRight size={18} />
               </Link>
             </div>
+            {writable.length > 0 && (
+              <Sheet title="New event" trigger={<><Plus size={16} /> Event</>} triggerClassName={buttonClass("tinted")}>
+                <EventForm {...formProps} defaultDate={today >= start && today <= end ? today : start} />
+              </Sheet>
+            )}
             <ClearSuggestions count={await countSuggestions()} />
             <PlanButton claudeConfigured={env.claudeConfigured()} />
           </>
@@ -97,24 +133,51 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             {days.map((d) => (
               <div key={d.date} className="border-l border-separator px-2 py-2 text-center">
                 <p className="text-[11px] font-semibold text-label-2 uppercase">{WEEKDAYS_SHORT[d.weekday - 1]}</p>
-                <p
-                  className={clsx(
-                    "mx-auto mt-0.5 grid size-8 place-items-center rounded-full text-[17px] font-semibold",
-                    d.date === today && "bg-red text-white",
-                  )}
-                >
-                  {Number(d.date.slice(8))}
-                </p>
+                {writable.length > 0 ? (
+                  <Sheet
+                    title={`New event · ${WEEKDAYS[d.weekday - 1]} ${Number(d.date.slice(8))}`}
+                    trigger={Number(d.date.slice(8))}
+                    triggerLabel={`Add an event on ${WEEKDAYS[d.weekday - 1]} ${Number(d.date.slice(8))}`}
+                    triggerClassName={clsx(
+                      "mx-auto mt-0.5 grid size-8 cursor-pointer place-items-center rounded-full text-[17px] font-semibold transition hover:bg-fill",
+                      d.date === today && "bg-red text-white hover:bg-red",
+                    )}
+                  >
+                    <EventForm {...formProps} defaultDate={d.date} />
+                  </Sheet>
+                ) : (
+                  <p
+                    className={clsx(
+                      "mx-auto mt-0.5 grid size-8 place-items-center rounded-full text-[17px] font-semibold",
+                      d.date === today && "bg-red text-white",
+                    )}
+                  >
+                    {Number(d.date.slice(8))}
+                  </p>
+                )}
                 {d.gym && !d.gymFixed && (
                   <p className="mt-1 truncate rounded px-1 text-[11px] font-medium text-orange" style={{ background: "color-mix(in srgb, var(--orange) 15%, transparent)" }} title={`Gym day: ${d.gym.title}`}>
                     Gym · {d.gym.title}
                   </p>
                 )}
-                {d.allDay.map((e) => (
-                  <p key={e.id} className="mt-1 truncate rounded px-1 text-[11px] text-white" style={{ background: e.color }}>
-                    {e.title}
-                  </p>
-                ))}
+                {d.allDay.map((e) =>
+                  e.writable ? (
+                    <Sheet
+                      key={e.id}
+                      title="Event"
+                      trigger={e.title}
+                      triggerLabel={`${e.title}, all day`}
+                      triggerClassName="mt-1 block w-full cursor-pointer truncate rounded px-1 text-left text-[11px] text-white hover:brightness-110"
+                      triggerStyle={{ background: e.color }}
+                    >
+                      <EventForm {...formProps} defaultDate={d.date} event={editable(e, settings.timezone)} />
+                    </Sheet>
+                  ) : (
+                    <p key={e.id} className="mt-1 truncate rounded px-1 text-[11px] text-white" style={{ background: e.color }}>
+                      {e.title}
+                    </p>
+                  ),
+                )}
               </div>
             ))}
           </div>
@@ -129,7 +192,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             {days.map((d) => {
               const evs: Ev[] = [
                 ...d.school.map((c, i) => ({ key: `s${i}`, start: c.start, end: c.end, title: c.subject, color: KIND_COLORS.school })),
-                ...d.events.map((e) => ({ key: e.id, start: e.startMin, end: e.endMin, title: e.title, color: e.color, sub: e.calendarName })),
+                ...d.events.map((e) => ({
+                  key: e.id,
+                  start: e.startMin,
+                  end: e.endMin,
+                  title: e.title,
+                  color: e.color,
+                  sub: e.calendarName,
+                  edit: e.writable ? editable(e, settings.timezone) : undefined,
+                })),
                 ...(d.gymFixed && d.gym ? [{ key: "gym", start: d.gymFixed.start, end: d.gymFixed.end, title: `Gym · ${d.gym.title}`, color: KIND_COLORS.gym }] : []),
                 ...d.tutoring.map((t) => ({ key: `t${t.id}`, start: toMin(t.start), end: toMin(t.end), title: `Tutoring · ${t.subject}`, color: KIND_COLORS.tutoring })),
                 ...d.blocks.map((b) => ({
@@ -166,6 +237,20 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         {h > 30 && <span className="block truncate text-label-2">{toHHMM(e.start)}–{toHHMM(e.end)}</span>}
                       </>
                     );
+                    if (e.edit) {
+                      return (
+                        <Sheet
+                          key={e.key}
+                          title="Event"
+                          trigger={body}
+                          triggerLabel={`${e.title}, ${toHHMM(e.start)}–${toHHMM(e.end)}`}
+                          triggerClassName={clsx(cls, "cursor-pointer hover:brightness-110")}
+                          triggerStyle={style}
+                        >
+                          <EventForm {...formProps} defaultDate={d.date} event={e.edit} />
+                        </Sheet>
+                      );
+                    }
                     if (!e.block) {
                       return (
                         <div key={e.key} className={cls} style={style} title={`${toHHMM(e.start)}–${toHHMM(e.end)} ${e.title}`}>
@@ -222,6 +307,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           </span>
         ))}
         <span>Dashed = suggestion: tap it to accept or delete</span>
+        {writable.length > 0 && <span>Tap a date to add an event, or an event to edit it</span>}
       </p>
     </>
   );

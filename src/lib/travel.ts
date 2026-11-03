@@ -68,3 +68,11 @@ export function fixedClashes(items: PlacedItem[], table: TravelTable, label: (p:
   }
   return out;
 }
+
+/** The travel-table place an event's location names (case-insensitive), if any. */
+export function knownPlace(location: string, table: TravelTable): string | null {
+  const want = location.trim().toLowerCase();
+  if (!want) return null;
+  const places = new Set(Object.keys(table).flatMap((k) => k.split(">")));
+  return [...places].find((p) => p.toLowerCase() === want) ?? null;
+}

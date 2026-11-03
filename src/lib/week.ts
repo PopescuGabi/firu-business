@@ -3,6 +3,7 @@ import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { syncIfStale } from "./calendar-sync";
+import { MARK as SYNC_MARK } from "./calendar-sync/model";
 import { getDb, schema } from "./db";
 import { getSettings } from "./settings";
 import { listEvents, type CalendarEvent } from "./google/calendar";
@@ -10,9 +11,9 @@ import { getGoogleAccount } from "./google/oauth";
 import { addDays, schoolPeriods, toMin, weekdayOf, type Interval } from "./time";
 import { occursOn } from "./tutoring";
 import { placeOf, type DayContext } from "./planner";
-import { fixedClashes, travelTime, type Clash, type PlacedItem } from "./travel";
+import { fixedClashes, knownPlace, travelTime, type Clash, type PlacedItem } from "./travel";
 
-export type DayEvent = CalendarEvent & { date: string; startMin: number; endMin: number };
+export type DayEvent = CalendarEvent & { date: string; startMin: number; endMin: number; place: string | null };
 export type ClassSlot = Interval & { subject: string };
 export type DayView = {
   date: string;
@@ -95,7 +96,7 @@ export async function getWeek(weekStart: string, numDays = 7) {
     const timed: DayEvent[] = [];
     const allDay: CalendarEvent[] = [];
     for (const e of events) {
-      if (mirrored.has(e.id) || (e.recurringEventId && mirrored.has(e.recurringEventId))) continue;
+      if (mirrored.has(e.id) || (e.recurringEventId && mirrored.has(e.recurringEventId)) || e.description.includes(SYNC_MARK)) continue;
       if (acceptedIds.has(e.id) || isTutoringEvent(e.id)) continue; // older events: shown as a plan block / tutoring instead
       if (e.allDay) {
         if (e.start <= date && date < e.end) allDay.push(e);
@@ -111,6 +112,7 @@ export async function getWeek(weekStart: string, numDays = 7) {
         date,
         startMin: sDate < date ? 0 : s.getHours() * 60 + s.getMinutes(),
         endMin: eDate > date ? 24 * 60 : en.getHours() * 60 + en.getMinutes(),
+        place: knownPlace(e.location, settings.travel),
       });
     }
     const gymDay = gym.find((g) => g.weekday === weekday) ?? null;
@@ -126,6 +128,7 @@ export async function getWeek(weekStart: string, numDays = 7) {
     const fixed: PlacedItem[] = [
       ...(periods.length ? [{ start: periods[0].start, end: periods[periods.length - 1].end, place: "school", title: "School" }] : []),
       ...(gymFixed && gymDay ? [{ ...gymFixed, place: "gym", title: `Gym (${gymDay.title})` }] : []),
+      ...timed.filter((e) => e.place).map((e) => ({ start: e.startMin, end: e.endMin, place: e.place!, title: e.title })),
       ...dayTutoring.map((t) => ({ start: toMin(t.start), end: toMin(t.end), place: t.place, title: `${t.subject} tutoring` })),
       ...blocks
         .filter((b) => b.date === date && b.status === "accepted")
@@ -156,7 +159,7 @@ export function toPlannerDays(days: DayView[], study: Map<string, DayContext["st
     if (d.school.length) {
       busy.push({ start: d.school[0].start, end: schoolEnd!, title: "School", kind: "school", place: "school" });
     }
-    for (const e of d.events) busy.push({ start: e.startMin, end: e.endMin, title: e.title, kind: "calendar", place: "any" });
+    for (const e of d.events) busy.push({ start: e.startMin, end: e.endMin, title: e.title, kind: "calendar", place: e.place ?? "any" });
     if (d.gymFixed && d.gym) busy.push({ ...d.gymFixed, title: `Gym · ${d.gym.title}`, kind: "gym", place: "gym" });
     for (const t of d.tutoring) busy.push({ start: toMin(t.start), end: toMin(t.end), title: `Tutoring · ${t.subject}`, kind: "tutoring", place: t.place });
     for (const b of d.blocks) {

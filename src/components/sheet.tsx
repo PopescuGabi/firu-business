@@ -3,7 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 /**
- * Native <dialog> sheet. Closes itself after a form inside it submits,
+ * Native <dialog> sheet. Closes itself after a form inside it submits (unless marked data-keep-open),
  * on Escape, and when the backdrop is clicked.
  */
 export function Sheet({
@@ -41,7 +41,8 @@ export function Sheet({
         }}
         onSubmit={(e) => {
           const form = e.target as HTMLFormElement;
-          if (form.checkValidity()) setTimeout(() => ref.current?.close(), 0);
+          // Forms marked data-keep-open close the sheet themselves once the server says it worked.
+          if (form.checkValidity() && !form.hasAttribute("data-keep-open")) setTimeout(() => ref.current?.close(), 0);
         }}
       >
         <div className="flex max-h-[inherit] flex-col">

@@ -1,9 +1,10 @@
 import "server-only";
+import { cache } from "react";
 import { googleFetch } from "./oauth";
 
 const API = "https://www.googleapis.com/calendar/v3";
 
-export type CalendarInfo = { id: string; name: string; color: string; primary: boolean };
+export type CalendarInfo = { id: string; name: string; color: string; primary: boolean; writable: boolean };
 export type CalendarEvent = {
   id: string;
   calendarId: string;
@@ -15,20 +16,25 @@ export type CalendarEvent = {
   allDay: boolean;
   htmlLink?: string;
   recurringEventId?: string;
+  location: string;
+  description: string;
+  writable: boolean; // in a calendar you own or can edit
 };
 
-export async function listCalendars(): Promise<CalendarInfo[]> {
+/** Once per request: the week view, forms and sync all need it. */
+export const listCalendars = cache(async (): Promise<CalendarInfo[]> => {
   const res = await googleFetch(`${API}/users/me/calendarList?minAccessRole=reader`);
   const data = (await res.json()) as {
-    items: { id: string; summary: string; backgroundColor?: string; primary?: boolean; selected?: boolean }[];
+    items: { id: string; summary: string; backgroundColor?: string; primary?: boolean; selected?: boolean; accessRole?: string }[];
   };
   return data.items.map((c) => ({
     id: c.id,
     name: c.summary,
     color: c.backgroundColor ?? "#8E8E93",
     primary: Boolean(c.primary),
+    writable: c.accessRole === "owner" || c.accessRole === "writer",
   }));
-}
+});
 
 export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: string[]): Promise<CalendarEvent[]> {
   const calendars = await listCalendars();
@@ -52,6 +58,8 @@ export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: stri
           htmlLink?: string;
           transparency?: string;
           recurringEventId?: string;
+          location?: string;
+          description?: string;
           start: { dateTime?: string; date?: string };
           end: { dateTime?: string; date?: string };
         }[];
@@ -69,6 +77,9 @@ export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: stri
           allDay: !e.start.dateTime,
           htmlLink: e.htmlLink,
           recurringEventId: e.recurringEventId,
+          location: e.location ?? "",
+          description: e.description ?? "",
+          writable: cal.writable,
         }));
     }),
   );
@@ -160,4 +171,10 @@ export async function changedEvents(calendarId: string, updatedMin: string): Pro
 
 export async function getEvent(calendarId: string, eventId: string): Promise<RawEvent> {
   return (await googleFetch(eventsUrl(calendarId, eventId))).json();
+}
+
+/** Moves an event (a whole series when given its id) to another calendar. */
+export async function moveEvent(calendarId: string, eventId: string, destination: string): Promise<RawEvent> {
+  const url = `${eventsUrl(calendarId, eventId)}/move?destination=${encodeURIComponent(destination)}`;
+  return (await googleFetch(url, { method: "POST" })).json();
 }
