@@ -1,9 +1,9 @@
 "use server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getDb, schema } from "@/lib/db";
+import { getDb, schema, type Db } from "@/lib/db";
 import { mutateSchedule } from "@/lib/mutate";
 
 const taskInput = z.object({
@@ -26,35 +26,62 @@ function fromForm(fd: FormData) {
   });
 }
 
+/** A task's client must be one of yours (or none). */
+async function checkClient(db: Db, uid: number, clientId: number | null) {
+  if (clientId === null) return;
+  const [c] = await db
+    .select({ id: schema.clients.id })
+    .from(schema.clients)
+    .where(and(eq(schema.clients.id, clientId), eq(schema.clients.userId, uid)));
+  if (!c) throw new Error("Client not found");
+}
+
 export async function createTask(fd: FormData) {
-  await mutateSchedule((db) => db.insert(schema.tasks).values(fromForm(fd)));
+  await mutateSchedule(async (db, uid) => {
+    const values = fromForm(fd);
+    await checkClient(db, uid, values.clientId);
+    return db.insert(schema.tasks).values({ userId: uid, ...values });
+  });
 }
 
 export async function updateTask(id: number, fd: FormData) {
-  await mutateSchedule((db) => db.update(schema.tasks).set(fromForm(fd)).where(eq(schema.tasks.id, id)));
+  await mutateSchedule(async (db, uid) => {
+    const values = fromForm(fd);
+    await checkClient(db, uid, values.clientId);
+    return db.update(schema.tasks).set(values).where(and(eq(schema.tasks.id, id), eq(schema.tasks.userId, uid)));
+  });
 }
 
 export async function toggleTask(id: number, done: boolean) {
-  await mutateSchedule((db) => db.update(schema.tasks).set({ done }).where(eq(schema.tasks.id, id)));
+  await mutateSchedule((db, uid) =>
+    db.update(schema.tasks).set({ done }).where(and(eq(schema.tasks.id, id), eq(schema.tasks.userId, uid))),
+  );
 }
 
 export async function deleteTask(id: number) {
-  await mutateSchedule((db) => db.delete(schema.tasks).where(eq(schema.tasks.id, id)));
+  await mutateSchedule((db, uid) => db.delete(schema.tasks).where(and(eq(schema.tasks.id, id), eq(schema.tasks.userId, uid))));
 }
 
 /** Accepting a block puts it in the Personal Hub calendar (when calendar sync is on). */
 export async function acceptBlock(id: number) {
-  await mutateSchedule((db) => db.update(schema.planBlocks).set({ status: "accepted" }).where(eq(schema.planBlocks.id, id)));
+  await mutateSchedule((db, uid) =>
+    db
+      .update(schema.planBlocks)
+      .set({ status: "accepted" })
+      .where(and(eq(schema.planBlocks.id, id), eq(schema.planBlocks.userId, uid))),
+  );
 }
 
 export async function removeBlock(id: number) {
-  await mutateSchedule((db) => db.delete(schema.planBlocks).where(eq(schema.planBlocks.id, id)));
+  await mutateSchedule((db, uid) =>
+    db.delete(schema.planBlocks).where(and(eq(schema.planBlocks.id, id), eq(schema.planBlocks.userId, uid))),
+  );
 }
 
 /** Deletes every suggestion you haven't accepted. Accepted blocks stay. */
 export async function clearSuggestions() {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  await db.delete(schema.planBlocks).where(eq(schema.planBlocks.status, "proposed"));
+  await db.delete(schema.planBlocks).where(and(eq(schema.planBlocks.userId, user.id), eq(schema.planBlocks.status, "proposed")));
   revalidatePath("/", "layout");
 }

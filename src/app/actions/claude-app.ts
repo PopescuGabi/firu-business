@@ -11,17 +11,17 @@ const target = z.object({ targetType: z.enum(["reel", "carousel"]), targetId: z.
 
 /** Builds the prompt to paste into the Claude app and logs the request in this chat. */
 export async function prepareClaudePrompt(input: { targetType: "reel" | "carousel"; targetId: number; promptIds: number[]; request: string }) {
-  await requireUser();
+  const user = await requireUser();
   const { targetType, targetId } = target.parse(input);
   const request = z.string().trim().min(1).max(20_000).parse(input.request);
   const promptIds = z.array(z.number().int()).max(30).parse(input.promptIds);
-  const context = await loadTargetContext(targetType, targetId);
+  const context = await loadTargetContext(user.id, targetType, targetId);
   if (!context) throw new Error("Not found");
-  const text = buildClaudeAppPrompt({ targetType, context, prompts: await loadPrompts(targetType, promptIds), request });
+  const text = buildClaudeAppPrompt({ targetType, context, prompts: await loadPrompts(user.id, targetType, promptIds), request });
   const db = await getDb();
   const [m] = await db
     .insert(schema.aiMessages)
-    .values({ targetType, targetId, role: "user", content: request })
+    .values({ userId: user.id, targetType, targetId, role: "user", content: request })
     .returning();
   const message: ChatMessage = { id: m.id, role: "user", content: m.content, proposal: null, applied: false };
   return { text, message };
@@ -29,9 +29,11 @@ export async function prepareClaudePrompt(input: { targetType: "reel" | "carouse
 
 /** Reads a reply pasted from the Claude app; edits become an "Apply changes" card. */
 export async function importClaudeReply(input: { targetType: "reel" | "carousel"; targetId: number; reply: string }) {
-  await requireUser();
+  const user = await requireUser();
   const { targetType, targetId } = target.parse(input);
   const reply = z.string().trim().min(1).max(200_000).parse(input.reply);
+  // The chat belongs to one of your own reels/carousels.
+  if (!(await loadTargetContext(user.id, targetType, targetId))) throw new Error("Not found");
   const json = extractJson(reply);
   let proposal: unknown = null;
   if (json) {
@@ -47,7 +49,7 @@ export async function importClaudeReply(input: { targetType: "reel" | "carousel"
   const db = await getDb();
   const [m] = await db
     .insert(schema.aiMessages)
-    .values({ targetType, targetId, role: "assistant", content, proposal })
+    .values({ userId: user.id, targetType, targetId, role: "assistant", content, proposal })
     .returning();
   const message: ChatMessage = { id: m.id, role: "assistant", content: m.content, proposal: m.proposal, applied: false };
   return { message };

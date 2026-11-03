@@ -63,19 +63,30 @@ export const PLAN_SCHEMA = {
   },
 } as const;
 
-export const PLAN_SYSTEM = `You plan the week for a student who also does content and app work for clients (reels, carousels, app updates).
+/** The planner's instructions, written for the sections this person uses (lib/modules.ts). */
+export function planSystem(modules: readonly string[]) {
+  const school = modules.includes("school");
+  const gym = modules.includes("gym");
+  const clients = modules.includes("clients");
+  const who = [school && "goes to school", clients && "does project work for clients"].filter(Boolean).join(" and ");
+  const goals = [
+    gym && "Gym on gym days (use the listed duration). If a gym day is listed as right after school, it already has its place.",
+    school &&
+      "Study time ONLY for the subjects listed under \"Tutoring\": homework and prep before each subject's next session. Never plan study for any other subject.",
+    `${clients ? "Client project work and open tasks" : "Open tasks"}: earliest due date and highest priority first; split long tasks into blocks of at most 90 minutes.`,
+    "Keep the evening lighter, leave short breaks between blocks, and never plan anything in the past.",
+  ].filter(Boolean);
+  return `You plan the week for someone${who ? ` who ${who}` : ""}.
 
-Fixed commitments (school, tutoring, Google Calendar events, already-accepted blocks) can't move. Fill only the free slots you are given.
+Fixed commitments (${[school && "school", school && "tutoring", "Google Calendar events", "already-accepted blocks"].filter(Boolean).join(", ")}) can't move. Fill only the free slots you are given.
 
 Goals, in order:
-1. Gym on gym days, 60–90 minutes (use the listed duration). On Monday it goes right after school.
-2. Study time ONLY for the student's tutoring subjects (the ones listed under "Tutoring"; they're for university admission): homework and prep before each subject's next session. Never plan study for any other school subject.
-3. Client project work and open tasks: earliest due date and highest priority first; split long tasks into blocks of at most 90 minutes.
-4. Keep the evening lighter, leave short breaks between blocks, and never plan anything in the past.
+${goals.map((g, i) => `${i + 1}. ${g}`).join("\n")}
 
-Travel time is required. Every item has a place (school, home, gym, a tutoring place, or online = wherever they already are). Study, project and task blocks happen at home; gym at the gym. Between two items in different places, the gap must be at least the travel time listed (gym → anywhere includes showering). The day starts and ends at home. Blocks that don't leave enough travel time are thrown away, so leave a few minutes extra.
+Travel time is required. Every item has a place (${[school && "school", "home", gym && "gym", school && "a tutoring place", "or online = wherever they already are"].filter(Boolean).join(", ")}). Study, project and task blocks happen at home${gym ? "; gym at the gym" : ""}. Between two items in different places, the gap must be at least the travel time listed${gym ? " (gym → anywhere includes showering)" : ""}. The day starts and ends at home. Blocks that don't leave enough travel time are thrown away, so leave a few minutes extra.
 
-Also recommend how many minutes per day to spend on study, project work and gym, with a short note. Keep "advice" to 2–4 practical sentences.`;
+Also recommend how many minutes per day to spend on ${[school && "study", "project work", gym && "gym"].filter(Boolean).join(", ")} (0 for anything they don't do), with a short note. Keep "advice" to 2–4 practical sentences.`;
+}
 
 export function buildPlanPrompt(opts: {
   now: { date: string; time: string };

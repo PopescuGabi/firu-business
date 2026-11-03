@@ -1,23 +1,25 @@
 import "server-only";
 import { and, asc, eq } from "drizzle-orm";
 import { getDb, schema } from "./db";
-import { env } from "./env";
+import { claudeAvailable } from "./ai/claude";
 import { getGoogleAccount } from "./google/oauth";
 import type { ChatMessage } from "@/components/claude-panel";
 
-export async function getEditorData(targetType: "reel" | "carousel", targetId: number) {
+export async function getEditorData(uid: number, targetType: "reel" | "carousel", targetId: number) {
   const db = await getDb();
-  const [messages, prompts, account] = await Promise.all([
+  const [messages, prompts, account, claudeConfigured] = await Promise.all([
     db
       .select()
       .from(schema.aiMessages)
-      .where(and(eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)))
+      .where(and(eq(schema.aiMessages.userId, uid), eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)))
       .orderBy(asc(schema.aiMessages.id)),
     db
       .select({ id: schema.prompts.id, name: schema.prompts.name, category: schema.prompts.category })
       .from(schema.prompts)
+      .where(eq(schema.prompts.userId, uid))
       .orderBy(asc(schema.prompts.name)),
-    getGoogleAccount(),
+    getGoogleAccount(uid),
+    claudeAvailable(uid),
   ]);
   return {
     messages: messages.map<ChatMessage>((m) => ({
@@ -28,7 +30,7 @@ export async function getEditorData(targetType: "reel" | "carousel", targetId: n
       applied: m.applied,
     })),
     prompts,
-    claudeConfigured: env.claudeConfigured(),
+    claudeConfigured,
     googleConnected: Boolean(account?.accessToken),
   };
 }

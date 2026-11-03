@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { googleFetch } from "./oauth";
+import { calendarMemo, googleFetch } from "./oauth";
 
 const API = "https://www.googleapis.com/calendar/v3";
 
@@ -22,23 +22,23 @@ export type CalendarEvent = {
 };
 
 const CALENDARS_TTL_MS = 2 * 60_000;
-const memo = globalThis as unknown as { __hubCalendars?: { at: number; list: Promise<CalendarInfo[]> } };
+type CalendarsHit = { at: number; list: Promise<CalendarInfo[]> };
 
 /**
  * Your calendars rarely change, so the list is reused for two minutes (and once per request):
  * the week view, forms and sync all need it, and it saves a Google round trip on every page.
  */
-export const listCalendars = cache(async (): Promise<CalendarInfo[]> => {
-  const hit = memo.__hubCalendars;
+export const listCalendars = cache(async (uid: number): Promise<CalendarInfo[]> => {
+  const hit = calendarMemo.get(uid) as CalendarsHit | undefined;
   if (hit && Date.now() - hit.at < CALENDARS_TTL_MS) return hit.list;
-  const list = fetchCalendars();
-  memo.__hubCalendars = { at: Date.now(), list };
-  list.catch(() => (memo.__hubCalendars = undefined));
+  const list = fetchCalendars(uid);
+  calendarMemo.set(uid, { at: Date.now(), list });
+  list.catch(() => calendarMemo.delete(uid));
   return list;
 });
 
-async function fetchCalendars(): Promise<CalendarInfo[]> {
-  const res = await googleFetch(`${API}/users/me/calendarList?minAccessRole=reader`);
+async function fetchCalendars(uid: number): Promise<CalendarInfo[]> {
+  const res = await googleFetch(uid, `${API}/users/me/calendarList?minAccessRole=reader`);
   const data = (await res.json()) as {
     items: { id: string; summary: string; backgroundColor?: string; primary?: boolean; selected?: boolean; accessRole?: string }[];
   };
@@ -51,8 +51,8 @@ async function fetchCalendars(): Promise<CalendarInfo[]> {
   }));
 }
 
-export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: string[]): Promise<CalendarEvent[]> {
-  const calendars = await listCalendars();
+export async function listEvents(uid: number, timeMin: Date, timeMax: Date, calendarIds: string[]): Promise<CalendarEvent[]> {
+  const calendars = await listCalendars(uid);
   const wanted = calendarIds.length ? calendars.filter((c) => calendarIds.includes(c.id)) : calendars;
   const results = await Promise.all(
     wanted.map(async (cal) => {
@@ -64,7 +64,7 @@ export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: stri
         orderBy: "startTime",
         maxResults: "250",
       }).toString();
-      const res = await googleFetch(url.toString());
+      const res = await googleFetch(uid, url.toString());
       const data = (await res.json()) as {
         items: {
           id: string;
@@ -101,8 +101,8 @@ export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: stri
   return results.flat();
 }
 
-export async function deleteEvent(calendarId: string, eventId: string) {
-  await googleFetch(`${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`, {
+export async function deleteEvent(uid: number, calendarId: string, eventId: string) {
+  await googleFetch(uid, `${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`, {
     method: "DELETE",
   }).catch((err: Error) => {
     if (!err.message.includes("410") && !err.message.includes("404")) throw err;
@@ -127,8 +127,8 @@ export type EventBody = Omit<RawEvent, "id" | "status" | "updated" | "recurringE
 const eventsUrl = (calendarId: string, eventId?: string) =>
   `${API}/calendars/${encodeURIComponent(calendarId)}/events${eventId ? `/${encodeURIComponent(eventId)}` : ""}`;
 
-export async function insertEvent(calendarId: string, body: EventBody): Promise<RawEvent> {
-  const res = await googleFetch(eventsUrl(calendarId), {
+export async function insertEvent(uid: number, calendarId: string, body: EventBody): Promise<RawEvent> {
+  const res = await googleFetch(uid, eventsUrl(calendarId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -136,8 +136,8 @@ export async function insertEvent(calendarId: string, body: EventBody): Promise<
   return res.json();
 }
 
-export async function patchEvent(calendarId: string, eventId: string, body: EventBody): Promise<RawEvent> {
-  const res = await googleFetch(eventsUrl(calendarId, eventId), {
+export async function patchEvent(uid: number, calendarId: string, eventId: string, body: EventBody): Promise<RawEvent> {
+  const res = await googleFetch(uid, eventsUrl(calendarId, eventId), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -146,7 +146,7 @@ export async function patchEvent(calendarId: string, eventId: string, body: Even
 }
 
 /** Events changed since `updatedMin` (including deleted ones), or every event without it; series masters, not instances. */
-export async function changedEvents(calendarId: string, updatedMin?: string): Promise<RawEvent[]> {
+export async function changedEvents(uid: number, calendarId: string, updatedMin?: string): Promise<RawEvent[]> {
   const out: RawEvent[] = [];
   let pageToken = "";
   do {
@@ -157,19 +157,19 @@ export async function changedEvents(calendarId: string, updatedMin?: string): Pr
       maxResults: "250",
       ...(pageToken ? { pageToken } : {}),
     }).toString();
-    const data = (await (await googleFetch(url.toString())).json()) as { items: RawEvent[]; nextPageToken?: string };
+    const data = (await (await googleFetch(uid, url.toString())).json()) as { items: RawEvent[]; nextPageToken?: string };
     out.push(...data.items);
     pageToken = data.nextPageToken ?? "";
   } while (pageToken);
   return out;
 }
 
-export async function getEvent(calendarId: string, eventId: string): Promise<RawEvent> {
-  return (await googleFetch(eventsUrl(calendarId, eventId))).json();
+export async function getEvent(uid: number, calendarId: string, eventId: string): Promise<RawEvent> {
+  return (await googleFetch(uid, eventsUrl(calendarId, eventId))).json();
 }
 
 /** Moves an event (a whole series when given its id) to another calendar. */
-export async function moveEvent(calendarId: string, eventId: string, destination: string): Promise<RawEvent> {
+export async function moveEvent(uid: number, calendarId: string, eventId: string, destination: string): Promise<RawEvent> {
   const url = `${eventsUrl(calendarId, eventId)}/move?destination=${encodeURIComponent(destination)}`;
-  return (await googleFetch(url, { method: "POST" })).json();
+  return (await googleFetch(uid, url, { method: "POST" })).json();
 }

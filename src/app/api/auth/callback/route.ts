@@ -3,11 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/session";
 import { exchangeCode, saveGoogleAccount } from "@/lib/google/oauth";
+import { canJoin, signInUser } from "@/lib/users";
 
 function fail(reason: string) {
   const res = NextResponse.redirect(`${env.appUrl()}/login?error=${reason}`);
   res.cookies.delete({ name: "oauth_state", path: "/api/auth" });
   res.cookies.delete({ name: "oauth_verifier", path: "/api/auth" });
+  res.cookies.delete({ name: "oauth_next", path: "/api/auth" });
   return res;
 }
 
@@ -28,14 +30,17 @@ export async function GET(req: NextRequest) {
   }
   try {
     const { tokens, profile } = await exchangeCode(code, verifier);
-    if (!profile.email_verified || profile.email.toLowerCase() !== env.allowedEmail()) {
-      return fail("not_allowed");
-    }
-    await saveGoogleAccount(tokens, profile);
-    const res = NextResponse.redirect(`${env.appUrl()}/`);
-    res.cookies.set(SESSION_COOKIE, await createSessionToken(profile.email, env.sessionSecret()), sessionCookieOptions);
+    if (!profile.email_verified) return fail("not_allowed");
+    // Invite only: the owner, or someone the owner invited.
+    if (!(await canJoin(profile.email))) return fail("not_invited");
+    const user = await signInUser(profile);
+    await saveGoogleAccount(user.id, tokens, profile);
+    const next = req.cookies.get("oauth_next")?.value === "/email" ? "/email" : "/";
+    const res = NextResponse.redirect(`${env.appUrl()}${user.onboarded ? next : "/onboarding"}`);
+    res.cookies.set(SESSION_COOKIE, await createSessionToken({ uid: user.id, email: user.email }, env.sessionSecret()), sessionCookieOptions);
     res.cookies.delete({ name: "oauth_state", path: "/api/auth" });
     res.cookies.delete({ name: "oauth_verifier", path: "/api/auth" });
+    res.cookies.delete({ name: "oauth_next", path: "/api/auth" });
     return res;
   } catch (err) {
     console.error("OAuth callback failed", err);

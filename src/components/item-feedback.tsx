@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { MessageSquareText, Trash2 } from "lucide-react";
 import { addFeedback, deleteFeedback } from "@/app/actions/feedback";
+import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { FeedbackCheck } from "./check";
 import { Submit } from "./submit";
@@ -8,11 +9,18 @@ import { Card } from "./ui";
 
 /** Client feedback for one reel / carousel: what they said and whether it's handled. */
 export async function ItemFeedback({ targetType, targetId }: { targetType: "reel" | "carousel"; targetId: number }) {
+  const user = await requireUser();
   const db = await getDb();
   const notes = await db
     .select()
     .from(schema.clientFeedback)
-    .where(and(eq(schema.clientFeedback.targetType, targetType), eq(schema.clientFeedback.targetId, targetId)))
+    .where(
+      and(
+        eq(schema.clientFeedback.userId, user.id),
+        eq(schema.clientFeedback.targetType, targetType),
+        eq(schema.clientFeedback.targetId, targetId),
+      ),
+    )
     .orderBy(eq(schema.clientFeedback.status, "done"), desc(schema.clientFeedback.createdAt));
   return (
     <Card className="mt-6 p-4">

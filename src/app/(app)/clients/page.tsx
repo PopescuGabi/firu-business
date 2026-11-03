@@ -1,22 +1,24 @@
 import Link from "next/link";
-import { asc, count } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 import { Briefcase, Plus } from "lucide-react";
 import { ClientForm } from "@/components/client-form";
 import { Sheet } from "@/components/sheet";
 import { buttonClass, Card, Empty, List, PageHeader, Row, Section } from "@/components/ui";
 import { createClient, setClientArchived } from "@/app/actions/clients";
+import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 
 export const metadata = { title: "Clients" };
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
+  const user = await requireModule("clients");
   const db = await getDb();
   const { new: openNew } = await searchParams;
   const [clients, reels, carousels, updates] = await Promise.all([
-    db.select().from(schema.clients).orderBy(asc(schema.clients.name)),
-    db.select({ clientId: schema.reels.clientId, n: count() }).from(schema.reels).groupBy(schema.reels.clientId),
-    db.select({ clientId: schema.carousels.clientId, n: count() }).from(schema.carousels).groupBy(schema.carousels.clientId),
-    db.select({ clientId: schema.appUpdates.clientId, n: count() }).from(schema.appUpdates).groupBy(schema.appUpdates.clientId),
+    db.select().from(schema.clients).where(eq(schema.clients.userId, user.id)).orderBy(asc(schema.clients.name)),
+    db.select({ clientId: schema.reels.clientId, n: count() }).from(schema.reels).where(eq(schema.reels.userId, user.id)).groupBy(schema.reels.clientId),
+    db.select({ clientId: schema.carousels.clientId, n: count() }).from(schema.carousels).where(eq(schema.carousels.userId, user.id)).groupBy(schema.carousels.clientId),
+    db.select({ clientId: schema.appUpdates.clientId, n: count() }).from(schema.appUpdates).where(eq(schema.appUpdates.userId, user.id)).groupBy(schema.appUpdates.clientId),
   ]);
   const n = (list: { clientId: number; n: number }[], id: number) => list.find((x) => x.clientId === id)?.n ?? 0;
   const active = clients.filter((c) => !c.archived);

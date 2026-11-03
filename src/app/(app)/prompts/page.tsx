@@ -1,9 +1,10 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { BookText, Pencil, Plus, Trash2 } from "lucide-react";
 import { Sheet } from "@/components/sheet";
 import { DeleteFooter, Submit } from "@/components/submit";
 import { buttonClass, Card, Empty, Field, PageHeader, Section } from "@/components/ui";
 import { createPrompt, deletePrompt, updatePrompt } from "@/app/actions/prompts";
+import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 
 export const metadata = { title: "Prompts" };
@@ -39,7 +40,7 @@ function PromptForm({
           </select>
         </Field>
       </div>
-      <Field label="Prompt" hint="Paste it exactly as you gave it to Claude on your PC.">
+      <Field label="Prompt" hint="Paste it exactly as you would give it to Claude.">
         <textarea name="body" required rows={14} defaultValue={prompt?.body} className="field font-mono text-[13px]" />
       </Field>
       <Submit className="self-end">{submitLabel}</Submit>
@@ -48,8 +49,9 @@ function PromptForm({
 }
 
 export default async function PromptsPage() {
+  const user = await requireModule("prompts");
   const db = await getDb();
-  const prompts = await db.select().from(schema.prompts).orderBy(asc(schema.prompts.name));
+  const prompts = await db.select().from(schema.prompts).where(eq(schema.prompts.userId, user.id)).orderBy(asc(schema.prompts.name));
   return (
     <div className="mx-auto max-w-[1100px]">
       <PageHeader
@@ -63,7 +65,7 @@ export default async function PromptsPage() {
       />
       {prompts.length === 0 ? (
         <Empty icon={<BookText size={36} />} title="Add the prompts from your PC">
-          Paste each prompt you gave Claude on your Windows PC. The reel and carousel editors use them automatically, and you can switch each one on or off per chat.
+          Paste the instructions you usually give Claude. The reel and carousel editors use them automatically, and you can switch each one on or off per chat.
         </Empty>
       ) : (
         CATEGORIES.map((cat) => {

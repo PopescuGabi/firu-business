@@ -41,7 +41,7 @@ export function ClaudePanel<T>({
   const [applying, setApplying] = useState<number | null>(null);
   const relevant = prompts.filter((p) => p.category === targetType || p.category === "general");
   const [selected, setSelected] = useState<number[]>(relevant.map((p) => p.id));
-  // "app" = copy a prompt into the Claude app (covered by the Max plan); "api" = Opus runs inside the site.
+  // "app" = copy a prompt into the Claude app (covered by a Claude subscription); "api" = Opus runs inside the site.
   const [mode, setMode] = useState<"app" | "api">(claudeConfigured ? "api" : "app");
   const [request, setRequest] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
@@ -191,7 +191,7 @@ export function ClaudePanel<T>({
             <p className="mt-1 text-[13px] text-label-2">
               {mode === "api"
                 ? "Opus proposes changes and you apply them with one tap."
-                : "Copy a prompt into the Claude app (your Max plan), paste the reply back, then apply it with one tap."}
+                : "Copy a prompt into the Claude app (your Claude subscription), paste the reply back, then apply it with one tap."}
             </p>
             <div className="mt-4 flex flex-col items-center gap-2">
               {suggestions.map((s) => (

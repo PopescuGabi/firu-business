@@ -15,18 +15,36 @@ const color = z.string().regex(/^#[0-9a-fA-F]{6}$/).catch("#007AFF");
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().catch(null);
 const newId = () => crypto.randomUUID().slice(0, 8);
 
-async function deleteItemFeedback(targetType: string, targetId: number) {
+async function deleteItemFeedback(uid: number, targetType: string, targetId: number) {
   const db = await getDb();
   await db
     .delete(schema.clientFeedback)
-    .where(and(eq(schema.clientFeedback.targetType, targetType), eq(schema.clientFeedback.targetId, targetId)));
+    .where(
+      and(
+        eq(schema.clientFeedback.userId, uid),
+        eq(schema.clientFeedback.targetType, targetType),
+        eq(schema.clientFeedback.targetId, targetId),
+      ),
+    );
 }
 
 /** A deleted reel or carousel takes its Claude chat and client feedback with it. */
-async function deleteItemExtras(targetType: "reel" | "carousel", targetId: number) {
+async function deleteItemExtras(uid: number, targetType: "reel" | "carousel", targetId: number) {
   const db = await getDb();
-  await db.delete(schema.aiMessages).where(and(eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)));
-  await deleteItemFeedback(targetType, targetId);
+  await db
+    .delete(schema.aiMessages)
+    .where(and(eq(schema.aiMessages.userId, uid), eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)));
+  await deleteItemFeedback(uid, targetType, targetId);
+}
+
+/** New items can only go under one of your own clients. */
+async function assertOwnClient(uid: number, clientId: number) {
+  const db = await getDb();
+  const [c] = await db
+    .select({ id: schema.clients.id })
+    .from(schema.clients)
+    .where(and(eq(schema.clients.id, clientId), eq(schema.clients.userId, uid)));
+  if (!c) throw new Error("Client not found");
 }
 
 const clientFromForm = (fd: FormData) => ({
@@ -38,24 +56,24 @@ const clientFromForm = (fd: FormData) => ({
 
 // ── Clients ────────────────────────────────────────────────
 export async function createClient(fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  const [c] = await db.insert(schema.clients).values(clientFromForm(fd)).returning();
+  const [c] = await db.insert(schema.clients).values({ userId: user.id, ...clientFromForm(fd) }).returning();
   revalidatePath("/", "layout");
   redirect(`/clients/${c.id}`);
 }
 
 export async function updateClient(id: number, fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  await db.update(schema.clients).set(clientFromForm(fd)).where(eq(schema.clients.id, id));
+  await db.update(schema.clients).set(clientFromForm(fd)).where(and(eq(schema.clients.id, id), eq(schema.clients.userId, user.id)));
   revalidatePath("/", "layout");
 }
 
 export async function setClientArchived(id: number, archived: boolean) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  await db.update(schema.clients).set({ archived }).where(eq(schema.clients.id, id));
+  await db.update(schema.clients).set({ archived }).where(and(eq(schema.clients.id, id), eq(schema.clients.userId, user.id)));
   revalidatePath("/", "layout");
   if (archived) redirect("/clients");
 }
@@ -78,38 +96,44 @@ const updateFromForm = (fd: FormData) =>
   });
 
 export async function createAppUpdate(clientId: number, fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
+  await assertOwnClient(user.id, clientId);
   const db = await getDb();
-  await db.insert(schema.appUpdates).values({ clientId, ...updateFromForm(fd) });
+  await db.insert(schema.appUpdates).values({ userId: user.id, clientId, ...updateFromForm(fd) });
   revalidatePath(`/clients/${clientId}`);
 }
 
 export async function editAppUpdate(id: number, fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
   const [u] = await db
     .update(schema.appUpdates)
     .set({ ...updateFromForm(fd), updatedAt: new Date() })
-    .where(eq(schema.appUpdates.id, id))
+    .where(and(eq(schema.appUpdates.id, id), eq(schema.appUpdates.userId, user.id)))
     .returning();
+  if (!u) throw new Error("Not found");
   revalidatePath(`/clients/${u.clientId}`);
 }
 
 export async function deleteAppUpdate(id: number) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  const [u] = await db.delete(schema.appUpdates).where(eq(schema.appUpdates.id, id)).returning();
-  await deleteItemFeedback("appUpdate", id);
+  const [u] = await db
+    .delete(schema.appUpdates)
+    .where(and(eq(schema.appUpdates.id, id), eq(schema.appUpdates.userId, user.id)))
+    .returning();
+  await deleteItemFeedback(user.id, "appUpdate", id);
   if (u) revalidatePath(`/clients/${u.clientId}`);
 }
 
 // ── Reels ──────────────────────────────────────────────────
 export async function createReel(clientId: number, fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
+  await assertOwnClient(user.id, clientId);
   const db = await getDb();
   const [r] = await db
     .insert(schema.reels)
-    .values({ clientId, title: name.parse(fd.get("title")), postDate: date.parse(fd.get("postDate") || null) })
+    .values({ userId: user.id, clientId, title: name.parse(fd.get("title")), postDate: date.parse(fd.get("postDate") || null) })
     .returning();
   revalidatePath(`/clients/${clientId}`);
   redirect(`/clients/${clientId}/reels/${r.id}`);
@@ -126,32 +150,39 @@ const reelPatch = z.object({
 });
 
 export async function saveReel(id: number, patch: z.input<typeof reelPatch>) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
   const [r] = await db
     .update(schema.reels)
     .set({ ...reelPatch.parse(patch), updatedAt: new Date() })
-    .where(eq(schema.reels.id, id))
+    .where(and(eq(schema.reels.id, id), eq(schema.reels.userId, user.id)))
     .returning();
+  if (!r) throw new Error("Not found");
   revalidatePath(`/clients/${r.clientId}`);
   return r;
 }
 
 export async function deleteReel(id: number) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  const [r] = await db.delete(schema.reels).where(eq(schema.reels.id, id)).returning();
-  await deleteItemExtras("reel", id);
+  const [r] = await db
+    .delete(schema.reels)
+    .where(and(eq(schema.reels.id, id), eq(schema.reels.userId, user.id)))
+    .returning();
+  if (!r) throw new Error("Not found");
+  await deleteItemExtras(user.id, "reel", id);
   redirect(`/clients/${r.clientId}?tab=reels`);
 }
 
 // ── Carousels ──────────────────────────────────────────────
 export async function createCarousel(clientId: number, fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
+  await assertOwnClient(user.id, clientId);
   const db = await getDb();
   const [c] = await db
     .insert(schema.carousels)
     .values({
+      userId: user.id,
       clientId,
       title: name.parse(fd.get("title")),
       theme: DEFAULT_THEME,
@@ -181,30 +212,38 @@ const carouselPatch = z.object({
 });
 
 export async function saveCarousel(id: number, patch: z.input<typeof carouselPatch>) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
   const [c] = await db
     .update(schema.carousels)
     .set({ ...carouselPatch.parse(patch), updatedAt: new Date() })
-    .where(eq(schema.carousels.id, id))
+    .where(and(eq(schema.carousels.id, id), eq(schema.carousels.userId, user.id)))
     .returning();
+  if (!c) throw new Error("Not found");
   revalidatePath(`/clients/${c.clientId}`);
   return c;
 }
 
 export async function deleteCarousel(id: number) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  const [c] = await db.delete(schema.carousels).where(eq(schema.carousels.id, id)).returning();
-  await deleteItemExtras("carousel", id);
+  const [c] = await db
+    .delete(schema.carousels)
+    .where(and(eq(schema.carousels.id, id), eq(schema.carousels.userId, user.id)))
+    .returning();
+  if (!c) throw new Error("Not found");
+  await deleteItemExtras(user.id, "carousel", id);
   redirect(`/clients/${c.clientId}?tab=carousels`);
 }
 
 // ── Claude proposals ───────────────────────────────────────
 export async function applyProposal(messageId: number) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
-  const [m] = await db.select().from(schema.aiMessages).where(eq(schema.aiMessages.id, messageId));
+  const [m] = await db
+    .select()
+    .from(schema.aiMessages)
+    .where(and(eq(schema.aiMessages.id, messageId), eq(schema.aiMessages.userId, user.id)));
   if (!m?.proposal) throw new Error("Nothing to apply");
 
   let result;
@@ -213,7 +252,11 @@ export async function applyProposal(messageId: number) {
     result = await saveReel(m.targetId, fields);
   } else {
     const p = carouselProposal.parse(m.proposal);
-    const [current] = await db.select().from(schema.carousels).where(eq(schema.carousels.id, m.targetId));
+    const [current] = await db
+      .select()
+      .from(schema.carousels)
+      .where(and(eq(schema.carousels.id, m.targetId), eq(schema.carousels.userId, user.id)));
+    if (!current) throw new Error("Not found");
     const slides: Slide[] | undefined = p.slides?.map((s, i) => ({
       id: current.slides[i]?.id ?? newId(),
       heading: s.heading,
@@ -227,16 +270,19 @@ export async function applyProposal(messageId: number) {
       theme: p.theme ? { ...current.theme, ...p.theme } : undefined,
     });
   }
-  await db.update(schema.aiMessages).set({ applied: true }).where(eq(schema.aiMessages.id, messageId));
+  await db
+    .update(schema.aiMessages)
+    .set({ applied: true })
+    .where(and(eq(schema.aiMessages.id, messageId), eq(schema.aiMessages.userId, user.id)));
   return result;
 }
 
 export async function clearChat(targetType: "reel" | "carousel", targetId: number) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
   await db
     .delete(schema.aiMessages)
-    .where(and(eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)));
+    .where(and(eq(schema.aiMessages.userId, user.id), eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)));
 }
 
 // ── Drive files ────────────────────────────────────────────
@@ -245,9 +291,9 @@ const tableFor = (t: FileTarget) =>
   t === "appUpdate" ? schema.appUpdates : t === "reel" ? schema.reels : schema.carousels;
 
 export async function attachFile(target: FileTarget, id: number, fileId: string) {
-  await requireUser();
+  const user = await requireUser();
   if (!/^[\w-]{10,200}$/.test(fileId)) throw new Error("Invalid file id");
-  const meta = await getFileMeta(fileId);
+  const meta = await getFileMeta(user.id, fileId);
   const file: DriveFile = {
     id: meta.id,
     name: meta.name,
@@ -257,31 +303,31 @@ export async function attachFile(target: FileTarget, id: number, fileId: string)
   };
   const db = await getDb();
   const table = tableFor(target);
-  const [row] = await db.select().from(table).where(eq(table.id, id));
+  const [row] = await db.select().from(table).where(and(eq(table.id, id), eq(table.userId, user.id)));
   if (!row) throw new Error("Not found");
   const files = [...row.files.filter((f) => f.id !== file.id), file];
-  await db.update(table).set({ files }).where(eq(table.id, id));
+  await db.update(table).set({ files }).where(and(eq(table.id, id), eq(table.userId, user.id)));
   revalidatePath(`/clients/${row.clientId}`, "layout");
   return files;
 }
 
 /** Removes the link only; the file stays in your Google Drive. */
 export async function detachFile(target: FileTarget, id: number, fileId: string) {
-  await requireUser();
+  const user = await requireUser();
   const db = await getDb();
   const table = tableFor(target);
-  const [row] = await db.select().from(table).where(eq(table.id, id));
+  const [row] = await db.select().from(table).where(and(eq(table.id, id), eq(table.userId, user.id)));
   if (!row) return [];
   const files = row.files.filter((f) => f.id !== fileId);
-  await db.update(table).set({ files }).where(eq(table.id, id));
+  await db.update(table).set({ files }).where(and(eq(table.id, id), eq(table.userId, user.id)));
   revalidatePath(`/clients/${row.clientId}`, "layout");
   return files;
 }
 
 export async function createClientFolder(clientId: number) {
-  await requireUser();
+  const user = await requireUser();
   const { ensureClientFolder, folderUrl } = await import("@/lib/google/drive");
-  const id = await ensureClientFolder(clientId);
+  const id = await ensureClientFolder(user.id, clientId);
   revalidatePath(`/clients/${clientId}`);
   return folderUrl(id);
 }

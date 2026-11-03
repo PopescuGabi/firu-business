@@ -10,6 +10,7 @@ import { listEvents, type CalendarEvent } from "./google/calendar";
 import { getGoogleAccount } from "./google/oauth";
 import { addDays, schoolPeriods, toMin, weekdayOf, type Interval } from "./time";
 import { occursOn } from "./tutoring";
+import { modulesOf } from "./users";
 import { placeOf, type DayContext } from "./planner";
 import { fixedClashes, knownPlace, travelTime, type Clash, type PlacedItem } from "./travel";
 
@@ -40,36 +41,46 @@ export function nowMinutesIn(tz: string) {
   return d.getHours() * 60 + d.getMinutes();
 }
 
-export async function getSchool() {
+export async function getSchool(uid: number) {
   const db = await getDb();
   const [days, classes] = await Promise.all([
-    db.select().from(schema.schoolDays),
-    db.select().from(schema.schoolClasses).orderBy(asc(schema.schoolClasses.period)),
+    db.select().from(schema.schoolDays).where(eq(schema.schoolDays.userId, uid)),
+    db.select().from(schema.schoolClasses).where(eq(schema.schoolClasses.userId, uid)).orderBy(asc(schema.schoolClasses.period)),
   ]);
   return { days, classes };
 }
 
-export async function getWeek(weekStart: string, numDays = 7) {
-  await syncIfStale(); // in the background, after the page is sent
+export async function getWeek(uid: number, weekStart: string, numDays = 7) {
+  await syncIfStale(uid); // in the background, after the page is sent
   const db = await getDb();
-  const settings = await getSettings();
+  const settings = await getSettings(uid);
   const tz = settings.timezone;
   const dates = Array.from({ length: numDays }, (_, i) => addDays(weekStart, i));
   const last = dates[dates.length - 1];
 
-  const [{ days: schoolDays, classes }, gym, blocks, account, tutoring] = await Promise.all([
-    getSchool(),
-    db.select().from(schema.gymDays),
+  const [{ days: schoolDays, classes }, gym, blocks, account, tutoring, modules] = await Promise.all([
+    getSchool(uid),
+    db.select().from(schema.gymDays).where(eq(schema.gymDays.userId, uid)),
     db
       .select()
       .from(schema.planBlocks)
-      .where(and(gte(schema.planBlocks.date, weekStart), lte(schema.planBlocks.date, last)))
+      .where(and(eq(schema.planBlocks.userId, uid), gte(schema.planBlocks.date, weekStart), lte(schema.planBlocks.date, last)))
       .orderBy(asc(schema.planBlocks.start)),
-    getGoogleAccount(),
-    db.select().from(schema.tutoring),
+    getGoogleAccount(uid),
+    db.select().from(schema.tutoring).where(eq(schema.tutoring.userId, uid)),
+    modulesOf(uid),
   ]);
+  // Sections turned off keep their data but stay out of the schedule.
+  if (!modules.includes("school")) {
+    schoolDays.length = 0;
+    classes.length = 0;
+    tutoring.length = 0;
+  }
+  if (!modules.includes("gym")) gym.length = 0;
   // Events the hub writes to the Personal Hub calendar (shown as school / gym / tutoring / plans instead).
-  const mirrored = new Set((await db.select({ id: schema.calendarLinks.eventId }).from(schema.calendarLinks)).map((r) => r.id));
+  const mirrored = new Set(
+    (await db.select({ id: schema.calendarLinks.eventId }).from(schema.calendarLinks).where(eq(schema.calendarLinks.userId, uid))).map((r) => r.id),
+  );
 
   let events: CalendarEvent[] = [];
   let calendarError: string | null = null;
@@ -78,7 +89,7 @@ export async function getWeek(weekStart: string, numDays = 7) {
     try {
       const from = new TZDate(`${weekStart}T00:00:00`, tz);
       const to = new TZDate(`${addDays(last, 1)}T00:00:00`, tz);
-      events = await listEvents(from, to, settings.calendarIds);
+      events = await listEvents(uid, from, to, settings.calendarIds);
     } catch (err) {
       calendarError = err instanceof Error ? err.message : "Could not load Google Calendar";
     }
@@ -178,9 +189,12 @@ export function toPlannerDays(days: DayView[], study: Map<string, DayContext["st
 }
 
 /** All suggestions not yet accepted, across every week (what "Clear suggestions" removes). */
-export async function countSuggestions() {
+export async function countSuggestions(uid: number) {
   const db = await getDb();
-  const rows = await db.select({ id: schema.planBlocks.id }).from(schema.planBlocks).where(eq(schema.planBlocks.status, "proposed"));
+  const rows = await db
+    .select({ id: schema.planBlocks.id })
+    .from(schema.planBlocks)
+    .where(and(eq(schema.planBlocks.userId, uid), eq(schema.planBlocks.status, "proposed")));
   return rows.length;
 }
 

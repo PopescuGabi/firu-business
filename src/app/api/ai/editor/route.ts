@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
-import { notSignedIn } from "@/lib/auth";
+import { apiUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { assertWithinLimit, claude, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
 import { carouselProposal, carouselTool, EDITOR_SYSTEM, reelProposal, reelTool, renderPrompts } from "@/lib/ai/editor";
@@ -17,31 +17,32 @@ const body = z.object({
 });
 
 export async function POST(req: Request) {
-  const denied = await notSignedIn();
+  const { user, denied } = await apiUser();
   if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
   const { targetType, targetId, message, promptIds } = parsed.data;
 
   const db = await getDb();
-  const context = await loadTargetContext(targetType, targetId);
+  const context = await loadTargetContext(user.id, targetType, targetId);
   if (!context) return Response.json({ error: `${targetType === "reel" ? "Reel" : "Carousel"} not found` }, { status: 404 });
 
+  let client: Anthropic;
   try {
-    await assertWithinLimit();
-    claude();
+    await assertWithinLimit(user.id);
+    client = await claude(user.id);
   } catch (err) {
     const { message: m, status } = describeAiError(err);
     return Response.json({ error: m }, { status });
   }
 
-  const selected = await loadPrompts(targetType, promptIds);
+  const selected = await loadPrompts(user.id, targetType, promptIds);
 
   const history = (
     await db
       .select()
       .from(schema.aiMessages)
-      .where(and(eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)))
+      .where(and(eq(schema.aiMessages.userId, user.id), eq(schema.aiMessages.targetType, targetType), eq(schema.aiMessages.targetId, targetId)))
       .orderBy(desc(schema.aiMessages.id))
       .limit(20)
   ).reverse();
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
   while (messages.length && messages[0].role !== "user") messages.shift();
   messages.push({ role: "user", content: `${context}\n\n${message}` });
 
-  await db.insert(schema.aiMessages).values({ targetType, targetId, role: "user", content: message });
+  await db.insert(schema.aiMessages).values({ userId: user.id, targetType, targetId, role: "user", content: message });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
       let text = "";
       try {
-        const s = claude().beta.messages.stream({
+        const s = client.beta.messages.stream({
           model: MODEL,
           max_tokens: 64000,
           betas: [FALLBACK_BETA],
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
           send({ type: "text", text: delta });
         });
         const final = await s.finalMessage();
-        await recordUsage(`editor:${targetType}`, final.usage);
+        await recordUsage(user.id, `editor:${targetType}`, final.usage);
 
         if (final.stop_reason === "refusal") {
           send({ type: "error", error: "Claude declined this request. Try rephrasing it." });
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
         const content = text.trim() || (proposal ? (proposal as { summary: string }).summary : "");
         const [saved] = await db
           .insert(schema.aiMessages)
-          .values({ targetType, targetId, role: "assistant", content, proposal })
+          .values({ userId: user.id, targetType, targetId, role: "assistant", content, proposal })
           .returning({ id: schema.aiMessages.id });
         send({ type: "done", id: saved.id, content, proposal });
       } catch (err) {

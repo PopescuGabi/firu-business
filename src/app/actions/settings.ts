@@ -1,13 +1,13 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
+import { requireOwner, requireUser } from "@/lib/auth";
 import { saveSettings } from "@/lib/settings";
 
 const time = z.string().regex(/^\d{2}:\d{2}$/);
 
 export async function savePlannerSettings(fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const tz = String(fd.get("timezone") ?? "");
   try {
     new Intl.DateTimeFormat("en", { timeZone: tz });
@@ -20,7 +20,7 @@ export async function savePlannerSettings(fd: FormData) {
   // The planner's day can't wrap past midnight; late events (e.g. a game until 00:00) still show on the calendar.
   if (dayEnd <= dayStart) throw new Error("The day must end after it starts");
   if (freeDayStart < dayStart || freeDayStart >= dayEnd) throw new Error("Free days must start inside your day");
-  await saveSettings({
+  await saveSettings(user.id, {
     displayName: String(fd.get("displayName") ?? "").trim().slice(0, 40),
     timezone: tz,
     dayStart,
@@ -33,8 +33,8 @@ export async function savePlannerSettings(fd: FormData) {
 }
 
 export async function saveCalendarSettings(fd: FormData) {
-  await requireUser();
-  await saveSettings({
+  const user = await requireUser();
+  await saveSettings(user.id, {
     calendarIds: fd.getAll("calendarIds").map(String).slice(0, 50),
   });
   revalidatePath("/", "layout");
@@ -44,7 +44,7 @@ export type KeyFormState = { ok: boolean; message: string } | null;
 
 /** Local only: saves a pasted key into .env.local. The value is never sent back to the page. */
 export async function saveLocalKey(_prev: KeyFormState, fd: FormData): Promise<KeyFormState> {
-  await requireUser();
+  await requireOwner();
   const { canEditLocalEnv, LOCAL_KEYS, writeLocalEnv } = await import("@/lib/local-env");
   if (!canEditLocalEnv()) return { ok: false, message: "Keys can only be changed here on your Mac." };
   const key = z.enum(["GOOGLE_CLIENT_SECRET", "ANTHROPIC_API_KEY", "SUPABASE_DATABASE_URL"]).parse(fd.get("key"));
@@ -64,7 +64,7 @@ export async function saveLocalKey(_prev: KeyFormState, fd: FormData): Promise<K
 
 /** Travel times table: rows of from / to / minutes. An empty minutes field removes the row. */
 export async function saveTravel(fd: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const from = fd.getAll("from").map((v) => String(v).trim());
   const to = fd.getAll("to").map((v) => String(v).trim());
   const minutes = fd.getAll("minutes").map((v) => String(v).trim());
@@ -74,13 +74,13 @@ export async function saveTravel(fd: FormData) {
     if (!f || !t || f === t || minutes[i] === "" || f.includes(">") || t.includes(">")) return;
     travel[`${f.slice(0, 60)}>${t.slice(0, 60)}`] = z.coerce.number().int().min(0).max(600).parse(minutes[i]);
   });
-  await saveSettings({ travel });
+  await saveSettings(user.id, { travel });
   revalidatePath("/", "layout");
 }
 
 /** Local only: builds .env.vercel for pasting into Vercel. Values are never sent back to the page. */
 export async function createVercelEnvFile(_prev: KeyFormState, fd: FormData): Promise<KeyFormState> {
-  await requireUser();
+  await requireOwner();
   const { canEditLocalEnv, writeVercelEnvFile } = await import("@/lib/local-env");
   if (!canEditLocalEnv()) return { ok: false, message: "Only available on your Mac." };
   const raw = String(fd.get("appUrl") ?? "").trim().replace(/\/+$/, "");
@@ -98,20 +98,20 @@ export type SyncFormState = { ok: boolean; message: string } | null;
 
 /** Turns two-way sync with the "Personal Hub" Google calendar on/off and runs it straight away. */
 export async function saveCalendarSync(_prev: SyncFormState, fd: FormData): Promise<SyncFormState> {
-  await requireUser();
+  const user = await requireUser();
   const calendarSync = fd.get("calendarSync") === "on";
   const schoolYearEnd = z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]).catch("").parse(fd.get("schoolYearEnd") ?? "");
-  await saveSettings({ calendarSync, schoolYearEnd });
+  await saveSettings(user.id, { calendarSync, schoolYearEnd });
   revalidatePath("/", "layout");
   if (!calendarSync) return { ok: true, message: "Sync is off. Events already in the Personal Hub calendar stay there but stop updating." };
   const { runSync } = await import("@/lib/calendar-sync");
-  return runSync();
+  return runSync(user.id);
 }
 
 export async function syncCalendarNow(): Promise<SyncFormState> {
-  await requireUser();
+  const user = await requireUser();
   const { runSync } = await import("@/lib/calendar-sync");
-  const result = await runSync();
+  const result = await runSync(user.id);
   revalidatePath("/", "layout");
   return result;
 }

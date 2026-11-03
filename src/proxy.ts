@@ -47,8 +47,8 @@ export async function proxy(req: NextRequest) {
   const session = secret.length >= 32
     ? await verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value, secret)
     : null;
-  const allowed = process.env.ALLOWED_EMAIL?.trim().toLowerCase();
-  if (session && allowed && session.email.toLowerCase() === allowed) return NextResponse.next();
+  // A valid session; the page or route then checks the account still exists (lib/auth getUser).
+  if (session) return NextResponse.next();
 
   if (isApi) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   const url = req.nextUrl.clone();

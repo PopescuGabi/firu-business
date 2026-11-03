@@ -13,7 +13,8 @@ import { Sheet } from "@/components/sheet";
 import { acceptBlock, removeBlock } from "@/app/actions/tasks";
 import { PlanButton } from "@/components/plan-button";
 import { buttonClass, PageHeader } from "@/components/ui";
-import { env } from "@/lib/env";
+import { claudeAvailable } from "@/lib/ai/claude";
+import { requireUser } from "@/lib/auth";
 import { listCalendars, type CalendarEvent } from "@/lib/google/calendar";
 import { HUB_CALENDAR_NAME } from "@/lib/calendar-sync";
 import { KIND_COLORS } from "@/lib/kinds";
@@ -165,13 +166,14 @@ function layout(events: Ev[]) {
 }
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ week?: string }> }) {
-  const settings = await getSettings();
+  const user = await requireUser();
+  const settings = await getSettings(user.id);
   const today = todayIn(settings.timezone);
   const { week } = await searchParams;
   const start = mondayOf(week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : today);
-  const { days, calendarError, googleConnected } = await getWeek(start, 7);
+  const { days, calendarError, googleConnected } = await getWeek(user.id, start, 7);
   const now = nowMinutesIn(settings.timezone);
-  const writable = googleConnected && !calendarError ? (await listCalendars()).filter((c) => c.writable) : [];
+  const writable = googleConnected && !calendarError ? (await listCalendars(user.id)).filter((c) => c.writable) : [];
   const hubCal = writable.find((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase());
   const formProps = {
     calendars: writable.map(({ id, name, color }) => ({ id, name, color })),
@@ -228,8 +230,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                 <EventForm {...formProps} defaultDate={today >= start && today <= end ? today : start} />
               </Sheet>
             )}
-            <ClearSuggestions count={await countSuggestions()} />
-            <PlanButton claudeConfigured={env.claudeConfigured()} />
+            <ClearSuggestions count={await countSuggestions(user.id)} />
+            <PlanButton claudeConfigured={await claudeAvailable(user.id)} />
           </>
         }
       />

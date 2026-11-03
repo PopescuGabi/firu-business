@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { ChevronLeft, ExternalLink, FileText, Film, Image as ImageIcon, Star, X } from "lucide-react";
 import { detachPortfolioFile, setPortfolioCover, updatePortfolioItem } from "@/app/actions/portfolio";
 import { DeleteItemButton, PortfolioFields, PortfolioUploader, PublicToggle } from "@/components/portfolio";
 import { Submit } from "@/components/submit";
 import { Card, PageHeader, Pill, Section } from "@/components/ui";
+import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 import { coverOf, typeLabel } from "@/lib/portfolio";
 
@@ -16,10 +17,11 @@ const iconFor = (mime: string) => (mime.startsWith("video/") ? Film : mime.start
 export default async function PortfolioItemPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
+  const user = await requireModule("portfolio");
   const db = await getDb();
   const [[item], clients] = await Promise.all([
-    db.select().from(schema.portfolioItems).where(eq(schema.portfolioItems.id, id)),
-    db.select({ id: schema.clients.id, name: schema.clients.name }).from(schema.clients).orderBy(asc(schema.clients.name)),
+    db.select().from(schema.portfolioItems).where(and(eq(schema.portfolioItems.id, id), eq(schema.portfolioItems.userId, user.id))),
+    db.select({ id: schema.clients.id, name: schema.clients.name }).from(schema.clients).where(eq(schema.clients.userId, user.id)).orderBy(asc(schema.clients.name)),
   ]);
   if (!item) notFound();
   const cover = coverOf(item);

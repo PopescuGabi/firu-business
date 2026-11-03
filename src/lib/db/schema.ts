@@ -35,12 +35,49 @@ export type CarouselTheme = {
 
 export type Exercise = { name: string; sets: number };
 
-const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
-const updatedAt = () => timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
+const createdAt = () =>
+  timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
+const updatedAt = () =>
+  timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 
-// Single owner: the Google account the site is locked to.
+export type Role = "owner" | "member";
+
+// One row per person. The owner (ALLOWED_EMAIL) invites everyone else.
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  picture: text("picture"),
+  role: text("role").$type<Role>().notNull().default("member"),
+  modules: jsonb("modules").$type<string[]>().notNull().default([]), // sections they use (lib/modules.ts)
+  onboarded: boolean("onboarded").notNull().default(false),
+  anthropicKey: text("anthropic_key"), // their own Claude key, encrypted
+  shareToken: text("share_token").unique(), // public portfolio address
+  shareEnabled: boolean("share_enabled").notNull().default(false),
+  createdAt: createdAt(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+});
+
+// Emails the owner has invited; only these (and the owner) can sign in.
+export const invites = pgTable("invites", {
+  email: text("email").primaryKey(),
+  invitedAt: timestamp("invited_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+});
+
+/** Whose row this is. Every per-person table has it; deleting a user deletes their rows. */
+const owner = () =>
+  integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" });
+
+// Each person's Google connection. `id` is their user id.
 export const googleAccount = pgTable("google_account", {
-  id: integer("id").primaryKey().default(1),
+  id: integer("id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
   name: text("name"),
   picture: text("picture"),
@@ -52,27 +89,40 @@ export const googleAccount = pgTable("google_account", {
   updatedAt: updatedAt(),
 });
 
-export const settings = pgTable("settings", {
-  key: text("key").primaryKey(),
-  value: jsonb("value").notNull(),
-});
+export const settings = pgTable(
+  "settings",
+  {
+    userId: owner(),
+    key: text("key").notNull(),
+    value: jsonb("value").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
 
-export const clients = pgTable("clients", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description").notNull().default(""),
-  color: text("color").notNull().default("#007AFF"),
-  appName: text("app_name").notNull().default(""),
-  driveFolderId: text("drive_folder_id"),
-  archived: boolean("archived").notNull().default(false),
-  createdAt: createdAt(),
-});
+export const clients = pgTable(
+  "clients",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    color: text("color").notNull().default("#007AFF"),
+    appName: text("app_name").notNull().default(""),
+    driveFolderId: text("drive_folder_id"),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("clients_user_idx").on(t.userId)],
+);
 
 export const appUpdates = pgTable(
   "app_updates",
   {
     id: serial("id").primaryKey(),
-    clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    userId: owner(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
     version: text("version").notNull().default(""),
     title: text("title").notNull(),
     notes: text("notes").notNull().default(""),
@@ -89,7 +139,10 @@ export const reels = pgTable(
   "reels",
   {
     id: serial("id").primaryKey(),
-    clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    userId: owner(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     status: text("status").notNull().default("idea"), // idea | scripting | filming | editing | review | posted
     hook: text("hook").notNull().default(""),
@@ -108,7 +161,10 @@ export const carousels = pgTable(
   "carousels",
   {
     id: serial("id").primaryKey(),
-    clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    userId: owner(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     status: text("status").notNull().default("draft"), // draft | review | approved | posted
     caption: text("caption").notNull().default(""),
@@ -127,7 +183,10 @@ export const clientFeedback = pgTable(
   "client_feedback",
   {
     id: serial("id").primaryKey(),
-    clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    userId: owner(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
     targetType: text("target_type"), // reel | carousel | appUpdate | null (general)
     targetId: integer("target_id"),
     note: text("note").notNull(),
@@ -140,6 +199,7 @@ export const clientFeedback = pgTable(
 
 export const prompts = pgTable("prompts", {
   id: serial("id").primaryKey(),
+  userId: owner(),
   name: text("name").notNull(),
   category: text("category").notNull().default("reel"), // reel | carousel | general
   body: text("body").notNull(),
@@ -152,6 +212,7 @@ export const aiMessages = pgTable(
   "ai_messages",
   {
     id: serial("id").primaryKey(),
+    userId: owner(),
     targetType: text("target_type").notNull(), // reel | carousel
     targetId: integer("target_id").notNull(),
     role: text("role").notNull(), // user | assistant
@@ -165,9 +226,12 @@ export const aiMessages = pgTable(
 
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
+  userId: owner(),
   title: text("title").notNull(),
   notes: text("notes").notNull().default(""),
-  clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
+  clientId: integer("client_id").references(() => clients.id, {
+    onDelete: "set null",
+  }),
   due: text("due"), // yyyy-mm-dd
   estimateMin: integer("estimate_min").notNull().default(30),
   priority: integer("priority").notNull().default(1), // 0 low, 1 normal, 2 high
@@ -180,39 +244,49 @@ export const planBlocks = pgTable(
   "plan_blocks",
   {
     id: serial("id").primaryKey(),
+    userId: owner(),
     date: text("date").notNull(), // yyyy-mm-dd (local)
     start: text("start").notNull(), // HH:mm
     end: text("end").notNull(),
     title: text("title").notNull(),
     kind: text("kind").notNull(), // gym | study | project | task | break
-    taskId: integer("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    taskId: integer("task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
     reason: text("reason").notNull().default(""),
     status: text("status").notNull().default("proposed"), // proposed | accepted
     source: text("source").notNull().default("ai"), // ai | basic
     gcalEventId: text("gcal_event_id"),
     createdAt: createdAt(),
   },
-  (t) => [index("plan_blocks_date_idx").on(t.date)],
+  (t) => [index("plan_blocks_date_idx").on(t.userId, t.date)],
 );
 
-export const schoolDays = pgTable("school_days", {
-  weekday: integer("weekday").primaryKey(), // 1 = Monday … 5 = Friday
-  startTime: text("start_time").notNull(), // HH:mm
-});
+export const schoolDays = pgTable(
+  "school_days",
+  {
+    userId: owner(),
+    weekday: integer("weekday").notNull(), // 1 = Monday … 5 = Friday
+    startTime: text("start_time").notNull(), // HH:mm
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.weekday] })],
+);
 
 export const schoolClasses = pgTable(
   "school_classes",
   {
+    userId: owner(),
     weekday: integer("weekday").notNull(),
     period: integer("period").notNull(), // 0-based
     subject: text("subject").notNull(),
   },
-  (t) => [primaryKey({ columns: [t.weekday, t.period] })],
+  (t) => [primaryKey({ columns: [t.userId, t.weekday, t.period] })],
 );
 
 // Fixed tutoring sessions (repeat weekly or every N weeks from startDate).
 export const tutoring = pgTable("tutoring", {
   id: serial("id").primaryKey(),
+  userId: owner(),
   subject: text("subject").notNull(),
   weekday: integer("weekday").notNull(), // 1 = Monday … 7 = Sunday
   start: text("start").notNull(), // HH:mm
@@ -224,21 +298,29 @@ export const tutoring = pgTable("tutoring", {
   createdAt: createdAt(),
 });
 
-export const gymDays = pgTable("gym_days", {
-  weekday: integer("weekday").primaryKey(), // 1 = Monday … 7 = Sunday
-  title: text("title").notNull(),
-  exercises: jsonb("exercises").$type<Exercise[]>().notNull().default([]),
-  durationMin: integer("duration_min").notNull().default(75),
-  // flexible = the planner picks a time; after_school = right after the last class; fixed = at startTime
-  timing: text("timing").notNull().default("flexible"),
-  startTime: text("start_time"), // HH:mm, when timing = fixed
-});
+export const gymDays = pgTable(
+  "gym_days",
+  {
+    userId: owner(),
+    weekday: integer("weekday").notNull(), // 1 = Monday … 7 = Sunday
+    title: text("title").notNull(),
+    exercises: jsonb("exercises").$type<Exercise[]>().notNull().default([]),
+    durationMin: integer("duration_min").notNull().default(75),
+    // flexible = the planner picks a time; after_school = right after the last class; fixed = at startTime
+    timing: text("timing").notNull().default("flexible"),
+    startTime: text("start_time"), // HH:mm, when timing = fixed
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.weekday] })],
+);
 
 // Work you show off: files live in the "Portfolio" folder in Drive; public items appear on the share page.
 export const portfolioItems = pgTable("portfolio_items", {
   id: serial("id").primaryKey(),
+  userId: owner(),
   title: text("title").notNull(),
-  clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
+  clientId: integer("client_id").references(() => clients.id, {
+    onDelete: "set null",
+  }),
   date: text("date"), // yyyy-mm-dd
   type: text("type").notNull().default("other"), // see PORTFOLIO_TYPES
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
@@ -251,18 +333,24 @@ export const portfolioItems = pgTable("portfolio_items", {
 });
 
 // Which Google Calendar event mirrors which hub item (see lib/calendar-sync).
-export const calendarLinks = pgTable("calendar_links", {
-  key: text("key").primaryKey(), // e.g. class:1:0, gym:6, tutoring:3, block:45, task:7
-  calendarId: text("calendar_id").notNull(),
-  eventId: text("event_id").notNull(),
-  written: jsonb("written").notNull(), // signature of what the hub last wrote or accepted
-  remoteUpdated: text("remote_updated"), // Google's "updated" timestamp after that write
-  updatedAt: updatedAt(),
-});
+export const calendarLinks = pgTable(
+  "calendar_links",
+  {
+    userId: owner(),
+    key: text("key").notNull(), // e.g. class:1:0, gym:6, tutoring:3, block:45, task:7
+    calendarId: text("calendar_id").notNull(),
+    eventId: text("event_id").notNull(),
+    written: jsonb("written").notNull(), // signature of what the hub last wrote or accepted
+    remoteUpdated: text("remote_updated"), // Google's "updated" timestamp after that write
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
 
 // Every Claude call, for rate limiting and spend visibility.
 export const aiUsage = pgTable("ai_usage", {
   id: serial("id").primaryKey(),
+  userId: owner(),
   kind: text("kind").notNull(),
   model: text("model").notNull(),
   inputTokens: integer("input_tokens").notNull().default(0),

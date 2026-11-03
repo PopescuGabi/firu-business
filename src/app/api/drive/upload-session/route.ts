@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { notSignedIn } from "@/lib/auth";
+import { apiUser } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { ensurePortfolioFolder, ensureSectionFolder, startResumableUpload } from "@/lib/google/drive";
 
@@ -15,13 +15,13 @@ const body = z.union([
 ]);
 
 export async function POST(req: Request) {
-  const denied = await notSignedIn();
+  const { user, denied } = await apiUser();
   if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
   try {
-    const parentId = "portfolio" in parsed.data ? await ensurePortfolioFolder() : await ensureSectionFolder(parsed.data.clientId, parsed.data.section);
-    const uploadUrl = await startResumableUpload({
+    const parentId = "portfolio" in parsed.data ? await ensurePortfolioFolder(user.id) : await ensureSectionFolder(user.id, parsed.data.clientId, parsed.data.section);
+    const uploadUrl = await startResumableUpload(user.id, {
       name: parsed.data.name,
       size: parsed.data.size,
       mimeType: parsed.data.mimeType || "application/octet-stream",

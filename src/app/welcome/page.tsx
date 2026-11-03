@@ -1,15 +1,20 @@
 import Link from "next/link";
-import { CalendarDays, Clapperboard, FolderOpen, GraduationCap, Route, ShieldCheck, Sparkles } from "lucide-react";
+import { CalendarDays, Clapperboard, FolderOpen, GraduationCap, LayoutGrid, Mail, Route, ShieldCheck, Sparkles } from "lucide-react";
 import { GoogleButton } from "@/components/google-button";
 import { LogoMark } from "@/components/logo";
 
 export const metadata = {
-  title: { absolute: "Personal Hub: a private organiser for school, gym and client work" },
+  title: { absolute: "Personal Hub: your own organiser, built around how you work" },
   description:
-    "Personal Hub plans your week around school, tutoring, gym and travel time, and keeps client work (app updates, reels, carousels) in one place.",
+    "Personal Hub plans your week around your calendar and travel time, with the sections you need: school, gym, client work, portfolio and email.",
 };
 
 const FEATURES = [
+  {
+    icon: LayoutGrid,
+    title: "Only the sections you need",
+    text: "A student turns on School and Gym; a freelancer turns on clients, portfolio and email. Change it any time.",
+  },
   {
     icon: GraduationCap,
     title: "School, tutoring and gym",
@@ -36,9 +41,14 @@ const FEATURES = [
     text: "App updates, reels and carousels per client, with client feedback notes and what's waiting on review.",
   },
   {
+    icon: Mail,
+    title: "Email, if you want it",
+    text: "Connect Gmail to see unread mail on Home, reply, and turn an email into a task in one click.",
+  },
+  {
     icon: Sparkles,
-    title: "AI editor",
-    text: "Claude can suggest edits to scripts, captions and slides; you review and apply every change yourself.",
+    title: "AI editor and planner",
+    text: "With your own Claude key, Claude suggests edits and week plans; you review and apply every change yourself.",
   },
 ];
 
@@ -49,12 +59,11 @@ export default function WelcomePage() {
         <LogoMark size={72} className="mx-auto" />
         <h1 className="mt-5 text-[34px] leading-tight font-bold tracking-tight sm:text-[44px]">Personal Hub</h1>
         <p className="mx-auto mt-3 max-w-xl text-[17px] text-label-2">
-          A private organiser for a student who also does client work: school, tutoring, gym and projects, planned
-          around real travel time.
+          Your own private organiser: your calendar, tasks and the sections you choose, planned around real travel time.
         </p>
         <div className="mx-auto mt-7 max-w-xs">
           <GoogleButton />
-          <p className="mt-2 text-[12px] text-label-2">Private: only the owner&apos;s Google account can sign in.</p>
+          <p className="mt-2 text-[12px] text-label-2">Invite only: sign in with the Google account you were invited with.</p>
         </div>
       </header>
 
@@ -77,12 +86,16 @@ export default function WelcomePage() {
             <strong>Calendar (read):</strong> shows your events and plans study, gym and project time around them.
           </li>
           <li>
-            <strong>Calendar events (create/delete):</strong> adds only the plan blocks and tutoring sessions you choose,
-            and removes them if you delete them here.
+            <strong>Calendar events (create/edit/delete):</strong> adds, edits or deletes events only when you do so in the
+            app, plus the blocks and sessions you accept.
           </li>
           <li>
             <strong>Drive (files it creates):</strong> saves uploads and exports in its own folder. It can&apos;t see the rest
             of your Drive.
+          </li>
+          <li>
+            <strong>Gmail (only if you connect it):</strong> lists and shows your mail, and sends only the replies you write
+            and send.
           </li>
         </ul>
         <p className="mt-3 text-[15px] text-label-2">

@@ -10,7 +10,8 @@
     "lint": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
-    "copy-to-supabase": "node --experimental-strip-types scripts/copy-to-supabase.ts"
+    "copy-to-supabase": "node --experimental-strip-types scripts/copy-to-supabase.ts",
+    "backup": "node --experimental-strip-types scripts/backup-db.ts"
   },
   "engines": {
     "node": ">=20"

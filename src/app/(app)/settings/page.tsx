@@ -1,18 +1,22 @@
-import { gte, sql } from "drizzle-orm";
-import { CalendarDays, FolderOpen, LogOut, Sparkles } from "lucide-react";
+import { and, eq, gte, sql } from "drizzle-orm";
+import { CalendarDays, FolderOpen, LogOut, Mail, Sparkles } from "lucide-react";
+import { AnthropicKeyForm, DeleteAccountForm, InviteForm, RemoveMember, WithdrawInvite } from "@/components/account-forms";
+import { SectionsForm } from "@/components/sections-form";
 import { CalendarSyncForm } from "@/components/calendar-sync-form";
 import { KeyForm } from "@/components/key-form";
 import { VercelEnvForm } from "@/components/vercel-env-form";
 import { Submit } from "@/components/submit";
 import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
 import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
-import { MODEL } from "@/lib/ai/claude";
+import { claudeAvailable, MODEL } from "@/lib/ai/claude";
+import { requireUser } from "@/lib/auth";
 import { HUB_CALENDAR_NAME, lastSyncInfo } from "@/lib/calendar-sync";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { listCalendars, type CalendarInfo } from "@/lib/google/calendar";
 import { folderUrl } from "@/lib/google/drive";
-import { getGoogleAccount, GOOGLE_SCOPES } from "@/lib/google/oauth";
+import { GMAIL_SCOPES, getGoogleAccount, GOOGLE_SCOPES, hasScope } from "@/lib/google/oauth";
+import { listMembers } from "@/lib/users";
 import { canEditLocalEnv, LOCAL_KEYS, type LocalKey } from "@/lib/local-env";
 import { getSettings } from "@/lib/settings";
 
@@ -23,9 +27,14 @@ const PRICE_IN = 4;
 const PRICE_OUT = 20;
 
 export default async function SettingsPage() {
+  const user = await requireUser();
   const db = await getDb();
-  const settings = await getSettings();
-  const account = await getGoogleAccount();
+  const settings = await getSettings(user.id);
+  const account = await getGoogleAccount(user.id);
+  const claudeOn = await claudeAvailable(user.id);
+  const [me] = await db.select({ key: schema.users.anthropicKey }).from(schema.users).where(eq(schema.users.id, user.id));
+  const gmailOn = GMAIL_SCOPES.every((s) => hasScope(account, s));
+  const members = user.role === "owner" ? await listMembers() : null;
   const connected = Boolean(account?.accessToken);
   const missingScopes = connected ? GOOGLE_SCOPES.filter((s) => s.startsWith("https") && !account?.scope?.includes(s)) : [];
 
@@ -33,13 +42,13 @@ export default async function SettingsPage() {
   let calendarError: string | null = null;
   if (connected) {
     try {
-      calendars = await listCalendars();
+      calendars = await listCalendars(user.id);
     } catch (err) {
       calendarError = err instanceof Error ? err.message : "Could not load calendars";
     }
   }
 
-  const tutoringPlaces = (await db.select({ place: schema.tutoring.place }).from(schema.tutoring)).map((t) => t.place);
+  const tutoringPlaces = (await db.select({ place: schema.tutoring.place }).from(schema.tutoring).where(eq(schema.tutoring.userId, user.id))).map((t) => t.place);
   const places = [...new Set(["school", "home", "gym", "online", ...tutoringPlaces, ...Object.keys(settings.travel).flatMap((k) => k.split(">"))])];
 
   const usage = async (since: Date) => {
@@ -50,7 +59,7 @@ export default async function SettingsPage() {
         output: sql<number>`coalesce(sum(${schema.aiUsage.outputTokens}), 0)::int`,
       })
       .from(schema.aiUsage)
-      .where(gte(schema.aiUsage.createdAt, since));
+      .where(and(eq(schema.aiUsage.userId, user.id), gte(schema.aiUsage.createdAt, since)));
     return { ...r, cost: (r.input * PRICE_IN + r.output * PRICE_OUT) / 1_000_000 };
   };
   const [hour, month] = await Promise.all([usage(new Date(Date.now() - 3600_000)), usage(new Date(Date.now() - 30 * 86400_000))]);
@@ -92,6 +101,22 @@ export default async function SettingsPage() {
               </a>
             </Row>
           )}
+          {user.modules.includes("email") && (
+            <Row>
+              <span className="grid size-8 place-items-center rounded-lg bg-red text-white">
+                <Mail size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">Gmail</p>
+                <p className="text-[13px] text-label-2">{gmailOn ? "Connected: read and send" : "Not connected"}</p>
+              </div>
+              {connected && (
+                <a href="/api/auth/google?gmail=1" className={buttonClass(gmailOn ? "gray" : "filled", "sm")}>
+                  {gmailOn ? "Reconnect" : "Connect Gmail"}
+                </a>
+              )}
+            </Row>
+          )}
           <Row>
             <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-orange to-pink text-white">
               <Sparkles size={17} />
@@ -99,7 +124,9 @@ export default async function SettingsPage() {
             <div className="min-w-0 flex-1">
               <p className="font-medium">Claude</p>
               <p className="text-[13px] text-label-2">
-                {env.claudeConfigured() ? `${MODEL} · max ${env.aiMaxPerHour()} requests/hour` : "Not set up: add ANTHROPIC_API_KEY"}
+                {claudeOn
+                  ? `${MODEL} · max ${env.aiMaxPerHour()} requests/hour${me?.key ? " · your key" : ""}`
+                  : "Copy-paste mode (Claude app). Add your own API key below to use Claude inside the site."}
               </p>
             </div>
           </Row>
@@ -109,7 +136,49 @@ export default async function SettingsPage() {
         )}
       </Section>
 
-      {canEditLocalEnv() && (
+      <Section title="Sections" className="scroll-mt-6" footer="Turned-off sections disappear from the sidebar and Home; their data stays.">
+        <div id="sections">
+          <SectionsForm initial={user.modules} />
+        </div>
+      </Section>
+
+      <Section title="Your Anthropic key">
+        <Card className="p-4">
+          <AnthropicKeyForm isSet={Boolean(me?.key)} />
+        </Card>
+      </Section>
+
+      {members && (
+        <Section title="Members" footer="Personal Hub is invite only: people sign in with the Google account you invite. Each person only sees their own data.">
+          <Card className="flex flex-col gap-4 p-4">
+            <InviteForm />
+            <List className="!shadow-none">
+              {members.users.map((m) => (
+                <Row key={m.id}>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{m.name || m.email}</p>
+                    <p className="truncate text-[13px] text-label-2">
+                      {m.email} · {m.role === "owner" ? "Owner" : m.onboarded ? "Member" : "Invited, setting up"}
+                    </p>
+                  </div>
+                  {m.role !== "owner" && <RemoveMember uid={m.id} email={m.email} />}
+                </Row>
+              ))}
+              {members.pending.map((i) => (
+                <Row key={i.email}>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{i.email}</p>
+                    <p className="text-[13px] text-label-2">Invited, hasn&apos;t signed in yet</p>
+                  </div>
+                  <WithdrawInvite email={i.email} />
+                </Row>
+              ))}
+            </List>
+          </Card>
+        </Section>
+      )}
+
+      {user.role === "owner" && canEditLocalEnv() && (
         <Section title="Keys (this Mac only)" footer="Saved straight into your local config file and never shown again. The Supabase connection string is only used to copy your data online and for the Vercel file; this Mac keeps using its local database.">
           <Card className="space-y-4 p-4">
             {(Object.keys(LOCAL_KEYS) as LocalKey[]).map((k) => (
@@ -196,7 +265,7 @@ export default async function SettingsPage() {
               enabled={settings.calendarSync}
               schoolYearEnd={settings.schoolYearEnd}
               hasCalendar={calendars.some((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase())}
-              lastSync={(await lastSyncInfo()).at}
+              lastSync={(await lastSyncInfo(user.id)).at}
             />
           </Card>
         </Section>
@@ -271,6 +340,14 @@ export default async function SettingsPage() {
           <LogOut size={16} /> Sign out
         </button>
       </form>
+
+      {user.role !== "owner" && (
+        <Section title="Delete account" footer="Deletes everything you stored in Personal Hub and disconnects your Google account. Files in your Google Drive and events in your calendar stay yours.">
+          <Card className="p-4">
+            <DeleteAccountForm email={user.email} />
+          </Card>
+        </Section>
+      )}
     </div>
   );
 }

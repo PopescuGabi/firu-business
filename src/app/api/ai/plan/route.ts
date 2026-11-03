@@ -1,13 +1,12 @@
 import { and, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { notSignedIn } from "@/lib/auth";
+import { apiUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { assertWithinLimit, claude, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
-import { buildPlanPrompt, PLAN_SCHEMA, PLAN_SYSTEM, planOutput, type PlanOutput } from "@/lib/ai/plan";
-import { env } from "@/lib/env";
+import { assertWithinLimit, claude, claudeAvailable, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
+import { buildPlanPrompt, PLAN_SCHEMA, planOutput, planSystem, type PlanOutput } from "@/lib/ai/plan";
 import { basicPlan, validateBlocks, type DayContext, type ProposedBlock } from "@/lib/planner";
 import { nextSessionAfter } from "@/lib/tutoring";
-import { getSettings } from "@/lib/settings";
+import { getSettings, setSetting } from "@/lib/settings";
 import { addDays, toHHMM, toMin } from "@/lib/time";
 import { getWeek, nowMinutesIn, todayIn, toPlannerDays } from "@/lib/week";
 
@@ -19,7 +18,7 @@ const body = z.object({
 });
 
 export async function POST(req: Request) {
-  const denied = await notSignedIn();
+  const { user, denied } = await apiUser();
   if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
@@ -27,17 +26,20 @@ export async function POST(req: Request) {
   const useAi = mode === "ai";
 
   const db = await getDb();
-  const settings = await getSettings();
+  const settings = await getSettings(user.id);
   const today = todayIn(settings.timezone);
   const nowMin = nowMinutesIn(settings.timezone);
   const last = addDays(today, numDays - 1);
 
+  const school = user.modules.includes("school");
+  const gymOn = user.modules.includes("gym");
   const [{ days }, tutoring, gym, openTasks, clients] = await Promise.all([
-    getWeek(today, numDays),
-    db.select().from(schema.tutoring),
-    db.select().from(schema.gymDays),
-    db.select().from(schema.tasks).where(eq(schema.tasks.done, false)),
-    db.select().from(schema.clients),
+    getWeek(user.id, today, numDays),
+    // Turned-off sections don't take part in planning.
+    school ? db.select().from(schema.tutoring).where(eq(schema.tutoring.userId, user.id)) : [],
+    gymOn ? db.select().from(schema.gymDays).where(eq(schema.gymDays.userId, user.id)) : [],
+    db.select().from(schema.tasks).where(and(eq(schema.tasks.userId, user.id), eq(schema.tasks.done, false))),
+    db.select().from(schema.clients).where(eq(schema.clients.userId, user.id)),
   ]);
 
   // Study time only for tutoring subjects: prep for the next session after each day.
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
 
   if (useAi) {
     try {
-      await assertWithinLimit();
+      await assertWithinLimit(user.id);
       const prompt = buildPlanPrompt({
         now: { date: today, time: toHHMM(nowMin) },
         days: plannerDays,
@@ -80,18 +82,18 @@ export async function POST(req: Request) {
         travel: settings.travel,
         gymExercises: new Map(gym.map((g) => [g.weekday, g.exercises.map((e) => `${e.name} ${e.sets}x`).join(", ")])),
       });
-      const final = await claude()
+      const final = await (await claude(user.id))
         .beta.messages.stream({
           model: MODEL,
           max_tokens: 32000,
           betas: [FALLBACK_BETA],
           fallbacks: "default",
           output_config: { effort: "medium", format: { type: "json_schema", schema: PLAN_SCHEMA } },
-          system: PLAN_SYSTEM,
+          system: planSystem(user.modules),
           messages: [{ role: "user", content: prompt }],
         })
         .finalMessage();
-      await recordUsage("plan", final.usage);
+      await recordUsage(user.id, "plan", final.usage);
       if (final.stop_reason === "refusal") throw new Error("Claude declined to plan this week.");
       const text = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
       output = planOutput.parse(JSON.parse(text));
@@ -111,11 +113,12 @@ export async function POST(req: Request) {
   // Proposed (not yet accepted) blocks are replaced by the new plan, only once it succeeded.
   await db
     .delete(schema.planBlocks)
-    .where(and(eq(schema.planBlocks.status, "proposed"), gte(schema.planBlocks.date, today), lte(schema.planBlocks.date, last)));
+    .where(and(eq(schema.planBlocks.userId, user.id), eq(schema.planBlocks.status, "proposed"), gte(schema.planBlocks.date, today), lte(schema.planBlocks.date, last)));
   if (valid.length) {
     await db.insert(schema.planBlocks).values(
       valid.map((b) => ({
         ...b,
+        userId: user.id,
         taskId: b.taskId != null && taskIds.has(b.taskId) ? b.taskId : null,
         source,
         status: "proposed",
@@ -124,10 +127,7 @@ export async function POST(req: Request) {
   }
 
   const advice = { advice: output?.advice ?? "", dailyTargets: output?.dailyTargets ?? [], createdAt: new Date().toISOString(), source };
-  await db
-    .insert(schema.settings)
-    .values({ key: "planAdvice", value: advice })
-    .onConflictDoUpdate({ target: schema.settings.key, set: { value: advice } });
+  await setSetting(user.id, "planAdvice", advice);
 
-  return Response.json({ created: valid.length, dropped: blocks.length - valid.length, source, claudeConfigured: env.claudeConfigured() });
+  return Response.json({ created: valid.length, dropped: blocks.length - valid.length, source, claudeConfigured: await claudeAvailable(user.id) });
 }

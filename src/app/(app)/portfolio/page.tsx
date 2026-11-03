@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import clsx from "clsx";
 import { Globe, Images, Plus, Share2 } from "lucide-react";
 import { NewPortfolioItem, ShareControls } from "@/components/portfolio";
 import { Sheet } from "@/components/sheet";
 import { Bento, buttonClass, Empty, PageHeader, Pill, spanStyle } from "@/components/ui";
+import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getGoogleAccount } from "@/lib/google/oauth";
@@ -15,12 +16,13 @@ export const metadata = { title: "Portfolio" };
 
 export default async function PortfolioPage({ searchParams }: { searchParams: Promise<{ type?: string; tag?: string }> }) {
   const { type, tag } = await searchParams;
+  const user = await requireModule("portfolio");
   const db = await getDb();
   const [items, clients, share, account] = await Promise.all([
-    db.select().from(schema.portfolioItems).orderBy(desc(schema.portfolioItems.date), desc(schema.portfolioItems.id)),
-    db.select().from(schema.clients).where(eq(schema.clients.archived, false)).orderBy(asc(schema.clients.name)),
-    getShare(),
-    getGoogleAccount(),
+    db.select().from(schema.portfolioItems).where(eq(schema.portfolioItems.userId, user.id)).orderBy(desc(schema.portfolioItems.date), desc(schema.portfolioItems.id)),
+    db.select().from(schema.clients).where(and(eq(schema.clients.userId, user.id), eq(schema.clients.archived, false))).orderBy(asc(schema.clients.name)),
+    getShare(user.id),
+    getGoogleAccount(user.id),
   ]);
   const client = (id: number | null) => clients.find((c) => c.id === id);
   const shown = items.filter((i) => (!type || i.type === type) && (!tag || i.tags.includes(tag)));

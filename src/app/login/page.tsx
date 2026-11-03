@@ -8,7 +8,8 @@ import { buttonClass } from "@/components/ui";
 export const metadata = { title: "Sign in" };
 
 const ERRORS: Record<string, string> = {
-  not_allowed: "This Google account isn't allowed to open this site.",
+  not_allowed: "Google couldn't confirm this account's email address.",
+  not_invited: "Personal Hub is invite only. Ask the owner to invite this Google account, then try again.",
   invalid_state: "The sign-in link expired. Please try again.",
   google_denied: "Google sign-in was cancelled.",
   oauth_failed: "Google sign-in failed. Please try again.",
@@ -23,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="w-full max-w-sm text-center">
         <LogoMark size={72} className="mx-auto mb-5" />
         <h1 className="text-[28px] font-bold tracking-tight">Personal Hub</h1>
-        <p className="mt-1 text-[15px] text-label-2">Private. Only you can sign in.</p>
+        <p className="mt-1 text-[15px] text-label-2">Your own private hub. Invite only.</p>
 
         {error && (
           <p role="alert" className="mt-5 rounded-xl bg-red/12 px-4 py-3 text-[14px] text-red">
@@ -34,8 +35,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="mt-8 flex flex-col gap-3">
           <GoogleButton label="Continue with Google" />
           {env.devLoginEnabled() && (
-            <form action="/api/auth/dev" method="post">
-              <button className={buttonClass("gray", "lg") + " w-full"}>Developer sign-in (local only)</button>
+            <form action="/api/auth/dev" method="post" className="flex gap-2">
+              <input name="email" type="email" placeholder="Owner, or an invited email" aria-label="Email to sign in as" className="field" />
+              <button className={buttonClass("gray", "lg") + " shrink-0"}>Dev sign-in</button>
             </form>
           )}
         </div>

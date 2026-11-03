@@ -6,28 +6,36 @@ export default function PrivacyPage() {
   return (
     <LegalPage title="Privacy policy" updated="3 November 2026">
       <p>
-        Personal Hub is a private organiser used by one person, its owner. Only the owner&apos;s Google account can sign in;
-        nobody else can create an account or use it.
+        Personal Hub is a personal organiser. It is invite only: its owner invites people by their Google account, and only
+        those accounts can sign in. Each person has their own private hub; nobody else, including the owner, can see what you
+        store in yours.
       </p>
 
       <h2>Google data it accesses, and why</h2>
       <ul>
         <li>
-          <strong>Basic profile (name, email, picture):</strong> to confirm that the person signing in is the owner.
+          <strong>Basic profile (name, email, picture):</strong> to sign you in, check that your account was invited, and show
+          your name.
         </li>
         <li>
           <strong>Google Calendar, read-only (calendar.readonly):</strong> to show your events and plan study, gym and
           project time around them, and to warn when sessions are too close for the travel between them.
         </li>
         <li>
-          <strong>Google Calendar events (calendar.events):</strong> when you turn on calendar sync, to keep your school
-          classes, gym, tutoring, accepted plan blocks and task due dates in a &ldquo;Personal Hub&rdquo; calendar you create,
-          and to bring the changes you make to those events (moving, renaming, deleting) back into the app. It doesn&apos;t
-          change other events.
+          <strong>Google Calendar events (calendar.events):</strong> to add, edit and delete events when you do so on the
+          Calendar page, and, when you turn on calendar sync, to keep your school classes, gym, tutoring, accepted plan blocks
+          and task due dates in a &ldquo;Personal Hub&rdquo; calendar you create and bring the changes you make to those events
+          back into the app. It never changes an event unless you ask it to, or it is one the app manages in that calendar.
         </li>
         <li>
           <strong>Google Drive, app files only (drive.file):</strong> to create a &ldquo;Personal Hub&rdquo; folder and save the
           files you upload or export there. It can&apos;t see or change any other file in your Drive.
+        </li>
+        <li>
+          <strong>Gmail (gmail.readonly, gmail.send), only if you connect it:</strong> asked for separately, when you turn on
+          the Email section. To list your inbox, show an email you open (as plain text), turn an email into a task, and send
+          the replies you write and send yourself. Emails are read when a page needs them and aren&apos;t stored, apart from
+          the subject and a link in tasks you create from them. The app never sends anything you didn&apos;t write and send.
         </li>
       </ul>
 
@@ -44,18 +52,20 @@ export default function PrivacyPage() {
 
       <h2>AI features</h2>
       <p>
-        When you ask for an AI week plan, the times and titles of your calendar events and your schedule are sent to
-        Anthropic&apos;s Claude API to generate suggestions; when you ask the AI editor for help, the text of that reel or
-        carousel and your saved prompts are sent. This only happens when you request it. Google user data is not used to
+        If you add your own Anthropic API key, then when you ask for an AI week plan the times and titles of your calendar
+        events and your schedule are sent to Anthropic&apos;s Claude API to generate suggestions, and when you ask the AI
+        editor for help the text of that reel or carousel and your saved prompts are sent. This only happens when you request
+        it, and email content is never sent to AI. Google user data is not used to
         develop, improve or train generalised AI or machine-learning models, and Anthropic doesn&apos;t train models on API
         requests by default.
       </p>
 
       <h2>Where data is stored</h2>
       <p>
-        The organiser&apos;s own data (schedule, tasks, clients, reels, carousels, prompts, notes) is stored in the owner&apos;s
-        private database. Google sign-in tokens are encrypted (AES-256-GCM). Files stay in the owner&apos;s Google Drive.
-        Calendar events are read when a page needs them and aren&apos;t stored, except the events this app created itself.
+        What you store in your hub (schedule, tasks, clients, reels, carousels, prompts, notes) is kept in Personal Hub&apos;s
+        database, separated per person. Google sign-in tokens and your Anthropic key are encrypted (AES-256-GCM). Files stay
+        in your own Google Drive. Calendar events and emails are read when a page needs them and aren&apos;t stored, except
+        the events this app created itself.
       </p>
 
       <h2>Sharing</h2>
@@ -73,8 +83,9 @@ export default function PrivacyPage() {
         <a href="https://myaccount.google.com/permissions" className="text-blue">
           myaccount.google.com/permissions
         </a>
-        . Tasks, reels, carousels, app updates, prompts, feedback and plan blocks can be deleted inside the app; anything else
-        is deleted on request via the support email shown on the Google sign-in screen, within 30 days.
+        . Everything you store can be deleted inside the app, and Settings → Delete account removes your account and all of
+        its data at once and disconnects Google. Files in your Drive and events in your calendar stay yours. You can also ask
+        for deletion via the support email shown on the Google sign-in screen; it&apos;s done within 30 days.
       </p>
     </LegalPage>
   );

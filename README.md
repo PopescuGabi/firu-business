@@ -2,7 +2,7 @@
 
 A private organiser for a student who also does client work: Home (Overview · Schedule · Work), Today, a Calendar week view, School (timetable, tutoring, gym split), Clients (App updates, Reels, Carousels, client feedback) with Opus 5.5 as editor, and a Prompt Library.
 
-Only the Google account in `ALLOWED_EMAIL` can sign in. Signing in also connects Google Calendar and Drive.
+Invite only: `ALLOWED_EMAIL` is the owner, who invites others in **Settings → Members**. Each person signs in with their own Google account (which connects their Calendar and Drive), picks the sections they use (School, Gym, Client work, Prompts, Portfolio, Email), and only ever sees their own data. Gmail is connected separately on the Email page; Claude uses each person's own API key (Settings → Your Anthropic key), or the free copy-paste Claude app mode.
 
 ## Running locally (this Mac)
 ```bash

@@ -1,5 +1,5 @@
 "use server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { schema } from "@/lib/db";
@@ -12,7 +12,7 @@ const time = z.string().regex(/^\d{2}:\d{2}$/);
 
 /** One school day: start time + one subject per line. */
 export async function saveSchoolDay(weekday: number, fd: FormData) {
-  await mutateSchedule((db) => {
+  await mutateSchedule((db, uid) => {
     const day = z.number().int().min(1).max(7).parse(weekday);
     const subjects = String(fd.get("subjects") ?? "")
       .split("\n")
@@ -20,18 +20,18 @@ export async function saveSchoolDay(weekday: number, fd: FormData) {
       .filter(Boolean)
       .slice(0, 12);
     return db.transaction(async (tx) => {
-      await tx.delete(schema.schoolClasses).where(eq(schema.schoolClasses.weekday, day));
-      await tx.delete(schema.schoolDays).where(eq(schema.schoolDays.weekday, day));
+      await tx.delete(schema.schoolClasses).where(and(eq(schema.schoolClasses.userId, uid), eq(schema.schoolClasses.weekday, day)));
+      await tx.delete(schema.schoolDays).where(and(eq(schema.schoolDays.userId, uid), eq(schema.schoolDays.weekday, day)));
       if (subjects.length) {
-        await tx.insert(schema.schoolDays).values({ weekday: day, startTime: time.parse(fd.get("startTime")) });
-        await tx.insert(schema.schoolClasses).values(subjects.map((subject, period) => ({ weekday: day, period, subject })));
+        await tx.insert(schema.schoolDays).values({ userId: uid, weekday: day, startTime: time.parse(fd.get("startTime")) });
+        await tx.insert(schema.schoolClasses).values(subjects.map((subject, period) => ({ userId: uid, weekday: day, period, subject })));
       }
     });
   });
 }
 
 export async function saveGymDay(weekday: number, fd: FormData) {
-  await mutateSchedule((db) => {
+  await mutateSchedule((db, uid) => {
     const day = z.number().int().min(1).max(7).parse(weekday);
     const values = {
       title: z.string().trim().min(1).max(100).parse(fd.get("title")),
@@ -41,7 +41,10 @@ export async function saveGymDay(weekday: number, fd: FormData) {
       startTime: null as string | null,
     };
     if (values.timing === "fixed") values.startTime = time.parse(fd.get("startTime"));
-    return db.insert(schema.gymDays).values({ weekday: day, ...values }).onConflictDoUpdate({ target: schema.gymDays.weekday, set: values });
+    return db
+      .insert(schema.gymDays)
+      .values({ userId: uid, weekday: day, ...values })
+      .onConflictDoUpdate({ target: [schema.gymDays.userId, schema.gymDays.weekday], set: values });
   });
 }
 
@@ -51,7 +54,9 @@ export async function addGymDay(fd: FormData) {
 }
 
 export async function deleteGymDay(weekday: number) {
-  await mutateSchedule((db) => db.delete(schema.gymDays).where(eq(schema.gymDays.weekday, weekday)));
+  await mutateSchedule((db, uid) =>
+    db.delete(schema.gymDays).where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, weekday))),
+  );
 }
 
 // ── Tutoring ───────────────────────────────────────────────
@@ -84,13 +89,17 @@ function tutoringFromForm(fd: FormData) {
 }
 
 export async function addTutoring(fd: FormData) {
-  await mutateSchedule((db) => db.insert(schema.tutoring).values(tutoringFromForm(fd)));
+  await mutateSchedule((db, uid) => db.insert(schema.tutoring).values({ userId: uid, ...tutoringFromForm(fd) }));
 }
 
 export async function updateTutoring(id: number, fd: FormData) {
-  await mutateSchedule((db) => db.update(schema.tutoring).set(tutoringFromForm(fd)).where(eq(schema.tutoring.id, id)));
+  await mutateSchedule((db, uid) =>
+    db.update(schema.tutoring).set(tutoringFromForm(fd)).where(and(eq(schema.tutoring.id, id), eq(schema.tutoring.userId, uid))),
+  );
 }
 
 export async function deleteTutoring(id: number) {
-  await mutateSchedule((db) => db.delete(schema.tutoring).where(eq(schema.tutoring.id, id)));
+  await mutateSchedule((db, uid) =>
+    db.delete(schema.tutoring).where(and(eq(schema.tutoring.id, id), eq(schema.tutoring.userId, uid))),
+  );
 }

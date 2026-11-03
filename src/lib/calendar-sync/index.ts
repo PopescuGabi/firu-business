@@ -15,8 +15,9 @@ import {
   type EventBody,
   type RawEvent,
 } from "../google/calendar";
-import { getSettings } from "../settings";
+import { getSetting, getSettings, setSetting } from "../settings";
 import { travelTime } from "../travel";
+import { modulesOf } from "../users";
 import { buildDesired, changeFromRemote, MARK, sameSignature, signature, type DesiredEvent, type HubChange, type Signature } from "./model";
 
 export const HUB_CALENDAR_NAME = "Personal Hub";
@@ -70,54 +71,48 @@ async function pool<T>(items: T[], n: number, fn: (item: T) => Promise<void>) {
 
 const isGone = (err: unknown) => err instanceof Error && /Google API (404|410)/.test(err.message);
 
-async function setSetting(key: string, value: unknown) {
-  const db = await getDb();
-  await db
-    .insert(schema.settings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: schema.settings.key, set: { value } });
-}
-
-async function getSetting<T>(key: string): Promise<T | null> {
-  const db = await getDb();
-  const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, key));
-  return (row?.value as T) ?? null;
-}
-
-/** One sync at a time across every server instance (expires after 90 s if a run dies). */
-async function acquireLock() {
+/** One sync per person at a time, across every server instance (expires after 90 s if a run dies). */
+async function acquireLock(uid: number) {
   const db = await getDb();
   const value = JSON.stringify({ at: new Date().toISOString() });
   const res = (await db.execute(sql`
-    insert into settings (key, value) values ('calendarSyncLock', ${value}::jsonb)
-    on conflict (key) do update set value = excluded.value
+    insert into settings (user_id, key, value) values (${uid}, 'calendarSyncLock', ${value}::jsonb)
+    on conflict (user_id, key) do update set value = excluded.value
     where (settings.value->>'at')::timestamptz < now() - interval '90 seconds'
     returning key`)) as unknown as { rows?: unknown[] } | unknown[];
   const rows = Array.isArray(res) ? res : (res.rows ?? []);
   return rows.length > 0;
 }
 
-async function releaseLock() {
+async function releaseLock(uid: number) {
   const db = await getDb();
-  await db.delete(schema.settings).where(eq(schema.settings.key, "calendarSyncLock"));
+  await db.delete(schema.settings).where(and(eq(schema.settings.userId, uid), eq(schema.settings.key, "calendarSyncLock")));
 }
 
-export async function findHubCalendar() {
-  const calendars = await listCalendars();
+export async function findHubCalendar(uid: number) {
+  const calendars = await listCalendars(uid);
   return calendars.find((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase()) ?? null;
 }
 
-async function loadHub(tz: string) {
+async function loadHub(uid: number, tz: string) {
   const db = await getDb();
-  const settings = await getSettings();
+  const settings = await getSettings(uid);
   const [schoolDays, classes, gym, tutoring, blocks, tasks] = await Promise.all([
-    db.select().from(schema.schoolDays),
-    db.select().from(schema.schoolClasses).orderBy(asc(schema.schoolClasses.period)),
-    db.select().from(schema.gymDays),
-    db.select().from(schema.tutoring),
-    db.select().from(schema.planBlocks).where(eq(schema.planBlocks.status, "accepted")),
-    db.select().from(schema.tasks),
+    db.select().from(schema.schoolDays).where(eq(schema.schoolDays.userId, uid)),
+    db.select().from(schema.schoolClasses).where(eq(schema.schoolClasses.userId, uid)).orderBy(asc(schema.schoolClasses.period)),
+    db.select().from(schema.gymDays).where(eq(schema.gymDays.userId, uid)),
+    db.select().from(schema.tutoring).where(eq(schema.tutoring.userId, uid)),
+    db.select().from(schema.planBlocks).where(and(eq(schema.planBlocks.userId, uid), eq(schema.planBlocks.status, "accepted"))),
+    db.select().from(schema.tasks).where(eq(schema.tasks.userId, uid)),
   ]);
+  // Sections turned off aren't mirrored (their events are removed from the calendar).
+  const modules = await modulesOf(uid);
+  if (!modules.includes("school")) {
+    schoolDays.length = 0;
+    classes.length = 0;
+    tutoring.length = 0;
+  }
+  if (!modules.includes("gym")) gym.length = 0;
   return buildDesired({
     timezone: tz,
     today: format(new TZDate(new Date(), tz), "yyyy-MM-dd"),
@@ -135,93 +130,96 @@ async function loadHub(tz: string) {
 }
 
 /** An event deleted on the phone removes the item in the hub (a task only loses its due date). */
-async function applyDelete(key: string) {
+async function applyDelete(uid: number, key: string) {
   const db = await getDb();
   const [kind, a, b] = key.split(":");
   if (kind === "class") {
     const weekday = Number(a);
     const period = Number(b);
+    const day = and(eq(schema.schoolClasses.userId, uid), eq(schema.schoolClasses.weekday, weekday));
     await db.transaction(async (tx) => {
-      const rows = await tx.select().from(schema.schoolClasses).where(eq(schema.schoolClasses.weekday, weekday)).orderBy(asc(schema.schoolClasses.period));
+      const rows = await tx.select().from(schema.schoolClasses).where(day).orderBy(asc(schema.schoolClasses.period));
       const keep = rows.filter((r) => r.period !== period);
-      await tx.delete(schema.schoolClasses).where(eq(schema.schoolClasses.weekday, weekday));
-      if (keep.length) await tx.insert(schema.schoolClasses).values(keep.map((r, i) => ({ weekday, period: i, subject: r.subject })));
-      else await tx.delete(schema.schoolDays).where(eq(schema.schoolDays.weekday, weekday));
+      await tx.delete(schema.schoolClasses).where(day);
+      if (keep.length) await tx.insert(schema.schoolClasses).values(keep.map((r, i) => ({ userId: uid, weekday, period: i, subject: r.subject })));
+      else await tx.delete(schema.schoolDays).where(and(eq(schema.schoolDays.userId, uid), eq(schema.schoolDays.weekday, weekday)));
     });
   } else if (kind === "gym") {
-    await db.delete(schema.gymDays).where(eq(schema.gymDays.weekday, Number(a)));
+    await db.delete(schema.gymDays).where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, Number(a))));
   } else if (kind === "tutoring") {
-    await db.delete(schema.tutoring).where(eq(schema.tutoring.id, Number(a)));
+    await db.delete(schema.tutoring).where(and(eq(schema.tutoring.userId, uid), eq(schema.tutoring.id, Number(a))));
   } else if (kind === "block") {
-    await db.delete(schema.planBlocks).where(eq(schema.planBlocks.id, Number(a)));
+    await db.delete(schema.planBlocks).where(and(eq(schema.planBlocks.userId, uid), eq(schema.planBlocks.id, Number(a))));
   } else if (kind === "task") {
-    await db.update(schema.tasks).set({ due: null }).where(eq(schema.tasks.id, Number(a)));
+    await db.update(schema.tasks).set({ due: null }).where(and(eq(schema.tasks.userId, uid), eq(schema.tasks.id, Number(a))));
   }
 }
 
 /** Applies a phone edit; returns the item's new key when it moved (a gym day on another weekday). */
-async function applyChange(c: HubChange): Promise<string | void> {
+async function applyChange(uid: number, c: HubChange): Promise<string | void> {
   const db = await getDb();
   if (c.kind === "class") {
     await db
       .update(schema.schoolClasses)
       .set({ subject: c.subject })
-      .where(and(eq(schema.schoolClasses.weekday, c.weekday), eq(schema.schoolClasses.period, c.period)));
+      .where(and(eq(schema.schoolClasses.userId, uid), eq(schema.schoolClasses.weekday, c.weekday), eq(schema.schoolClasses.period, c.period)));
   } else if (c.kind === "gym") {
     let weekday = c.weekday;
     if (c.newWeekday !== c.weekday) {
-      const [taken] = await db.select().from(schema.gymDays).where(eq(schema.gymDays.weekday, c.newWeekday));
+      const [taken] = await db.select().from(schema.gymDays).where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, c.newWeekday)));
       if (!taken) weekday = c.newWeekday;
     }
     await db
       .update(schema.gymDays)
       .set({ weekday, title: c.title, timing: "fixed", startTime: c.startTime, durationMin: c.durationMin })
-      .where(eq(schema.gymDays.weekday, c.weekday));
+      .where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, c.weekday)));
     return `gym:${weekday}`;
   } else if (c.kind === "tutoring") {
     const { id, ...rest } = c;
-    await db.update(schema.tutoring).set(rest).where(eq(schema.tutoring.id, id));
+    await db.update(schema.tutoring).set(rest).where(and(eq(schema.tutoring.userId, uid), eq(schema.tutoring.id, id)));
   } else if (c.kind === "block") {
     const { id, ...rest } = c;
-    await db.update(schema.planBlocks).set(rest).where(eq(schema.planBlocks.id, id));
+    await db.update(schema.planBlocks).set(rest).where(and(eq(schema.planBlocks.userId, uid), eq(schema.planBlocks.id, id)));
   } else if (c.kind === "task") {
-    await db.update(schema.tasks).set({ due: c.due, title: c.title }).where(eq(schema.tasks.id, c.id));
+    await db.update(schema.tasks).set({ due: c.due, title: c.title }).where(and(eq(schema.tasks.userId, uid), eq(schema.tasks.id, c.id)));
   }
 }
 
-export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
-  const settings = await getSettings();
+export async function runSync(uid: number, { waitMs = 0 } = {}): Promise<SyncResult> {
+  const settings = await getSettings(uid);
   if (!settings.calendarSync) return empty("Calendar sync is off.");
   try {
-    await getAccessToken();
+    await getAccessToken(uid);
   } catch {
     return empty("Google isn't connected.");
   }
-  let locked = await acquireLock();
-  for (const until = Date.now() + waitMs; !locked && Date.now() < until; locked = await acquireLock()) {
+  let locked = await acquireLock(uid);
+  for (const until = Date.now() + waitMs; !locked && Date.now() < until; locked = await acquireLock(uid)) {
     await new Promise((r) => setTimeout(r, 500));
   }
   if (!locked) return empty("A sync is already running.", true);
-  await setSetting("calendarSyncTriedAt", new Date().toISOString());
+  await setSetting(uid, "calendarSyncTriedAt", new Date().toISOString());
   const tz = settings.timezone;
   const toLocal = localizer(tz);
   const result = empty("", true);
   try {
-    const cal = await findHubCalendar();
+    const cal = await findHubCalendar(uid);
     if (!cal) return empty(`Create a Google calendar named “${HUB_CALENDAR_NAME}” first.`);
     const db = await getDb();
 
     // Links to another calendar (renamed or re-created): start over in this one.
-    await db.delete(schema.calendarLinks).where(sql`${schema.calendarLinks.calendarId} <> ${cal.id}`);
+    const mine = eq(schema.calendarLinks.userId, uid);
+    const linkKey = (key: string) => and(mine, eq(schema.calendarLinks.key, key));
+    await db.delete(schema.calendarLinks).where(and(mine, sql`${schema.calendarLinks.calendarId} <> ${cal.id}`));
 
     // 1. Pull: apply edits made in Google Calendar (on the phone) to the hub.
     const startedAt = new Date().toISOString();
-    const lastPull = await getSetting<string>("calendarSyncPulledAt");
+    const lastPull = await getSetting<string>(uid, "calendarSyncPulledAt");
     if (lastPull) {
-      const links = await db.select().from(schema.calendarLinks);
+      const links = await db.select().from(schema.calendarLinks).where(mine);
       const byEvent = new Map(links.map((l) => [l.eventId, l]));
       const since = new Date(Date.parse(lastPull) - 2 * 60_000).toISOString();
-      const changed = await changedEvents(cal.id, since);
+      const changed = await changedEvents(uid, cal.id, since);
       // New series that "this and following events" edits create (Google copies our description into them).
       const orphans = changed.filter(
         (e) => e.status !== "cancelled" && !byEvent.has(e.id) && !e.recurringEventId && e.recurrence?.length && (e.description ?? "").includes(MARK),
@@ -241,8 +239,9 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
           const next = orphans.find((o) => o.summary === e.summary) ?? (orphans.length === 1 ? orphans[0] : undefined);
           if (next) {
             orphans.splice(orphans.indexOf(next), 1);
+            // scoped: copies this person's own link row (its userId included)
             await db.insert(schema.calendarLinks).values({ ...link, key: `retired:${link.eventId}`, written: sig, remoteUpdated: e.updated ?? null });
-            await db.update(schema.calendarLinks).set({ eventId: next.id }).where(eq(schema.calendarLinks.key, link.key));
+            await db.update(schema.calendarLinks).set({ eventId: next.id }).where(linkKey(link.key));
             link = { ...link, eventId: next.id };
             e = next;
             sig = signature(e, toLocal);
@@ -251,31 +250,31 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
         let key = link.key;
         if (!sameSignature(sig, link.written as Signature)) {
           const change = changeFromRemote(link.key, e, toLocal);
-          if (change) key = (await applyChange(change)) ?? key;
+          if (change) key = (await applyChange(uid, change)) ?? key;
           result.pulled++;
         }
-        if (key !== link.key) await db.delete(schema.calendarLinks).where(eq(schema.calendarLinks.key, key));
+        if (key !== link.key) await db.delete(schema.calendarLinks).where(linkKey(key));
         await db
           .update(schema.calendarLinks)
           .set({ key, eventId: e.id, written: sig, remoteUpdated: e.updated ?? null, updatedAt: new Date() })
-          .where(eq(schema.calendarLinks.key, link.key));
+          .where(linkKey(link.key));
       }
       // Later class periods first, so renumbering after one delete doesn't shift the next.
       deletes.sort((a, b) => Number(b.split(":")[2] ?? 0) - Number(a.split(":")[2] ?? 0));
       for (const key of deletes) {
-        await applyDelete(key);
-        await db.delete(schema.calendarLinks).where(eq(schema.calendarLinks.key, key));
+        await applyDelete(uid, key);
+        await db.delete(schema.calendarLinks).where(linkKey(key));
         result.pulled++;
       }
     }
-    await setSetting("calendarSyncPulledAt", startedAt);
+    await setSetting(uid, "calendarSyncPulledAt", startedAt);
 
     // 2. Push: make the calendar match the hub.
-    const desired = await loadHub(tz);
-    const links = new Map((await db.select().from(schema.calendarLinks)).map((l) => [l.key, l]));
+    const desired = await loadHub(uid, tz);
+    const links = new Map((await db.select().from(schema.calendarLinks).where(mine)).map((l) => [l.key, l]));
     // Our events without a link (a run cut off between writing an event and saving its link): reuse or remove them.
     const linkedIds = new Set([...links.values()].map((l) => l.eventId));
-    const strays = (await changedEvents(cal.id)).filter(
+    const strays = (await changedEvents(uid, cal.id)).filter(
       (e) => e.status !== "cancelled" && !e.recurringEventId && !linkedIds.has(e.id) && (e.description ?? "").includes(MARK),
     );
     await pool(desired, 5, async (d) => {
@@ -286,7 +285,7 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
         const i = strays.findIndex((e) => sameSignature(signature(e, toLocal), sig));
         if (i >= 0) ev = strays.splice(i, 1)[0];
         else {
-          ev = await insertEvent(cal.id, bodyOf(d));
+          ev = await insertEvent(uid, cal.id, bodyOf(d));
           result.created++;
         }
       } else if (!sameSignature(sig, link.written as Signature)) {
@@ -294,7 +293,7 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
           const body = bodyOf(d);
           if (d.recurrence) {
             // Keep the series' original start date (and its history) when only time or details change.
-            const current = await getEvent(cal.id, link.eventId);
+            const current = await getEvent(uid, cal.id, link.eventId);
             const cur = current.start.dateTime ? toLocal(current.start.dateTime) : null;
             const want = toLocal(d.start.dateTime!);
             if (cur && sig.day === signature({ ...d, start: current.start, end: current.end }, toLocal).day) {
@@ -302,10 +301,10 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
               body.end = { dateTime: `${cur.date}T${toLocal(d.end.dateTime!).hm}:00`, timeZone: tz };
             }
           }
-          ev = await patchEvent(cal.id, link.eventId, body);
+          ev = await patchEvent(uid, cal.id, link.eventId, body);
         } catch (err) {
           if (!isGone(err)) throw err;
-          ev = await insertEvent(cal.id, bodyOf(d));
+          ev = await insertEvent(uid, cal.id, bodyOf(d));
         }
         result.updated++;
       }
@@ -313,27 +312,27 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
         const row = { calendarId: cal.id, eventId: ev.id, written: sig, remoteUpdated: ev.updated ?? null, updatedAt: new Date() };
         await db
           .insert(schema.calendarLinks)
-          .values({ key: d.key, ...row })
-          .onConflictDoUpdate({ target: schema.calendarLinks.key, set: row });
+          .values({ userId: uid, key: d.key, ...row })
+          .onConflictDoUpdate({ target: [schema.calendarLinks.userId, schema.calendarLinks.key], set: row });
       }
       links.delete(d.key);
     });
     for (const e of strays) {
-      await deleteEvent(cal.id, e.id);
+      await deleteEvent(uid, cal.id, e.id);
       result.deleted++;
     }
 
     // 3. Items gone from the hub: remove their events.
     for (const link of links.values()) {
       if (link.key.startsWith("retired:")) continue;
-      await deleteEvent(cal.id, link.eventId).catch((err) => {
+      await deleteEvent(uid, cal.id, link.eventId).catch((err) => {
         if (!isGone(err)) throw err;
       });
-      await db.delete(schema.calendarLinks).where(eq(schema.calendarLinks.key, link.key));
+      await db.delete(schema.calendarLinks).where(linkKey(link.key));
       result.deleted++;
     }
 
-    await setSetting("calendarSyncAt", new Date().toISOString());
+    await setSetting(uid, "calendarSyncAt", new Date().toISOString());
     const parts = [
       result.created && `${result.created} added`,
       result.updated && `${result.updated} updated`,
@@ -346,7 +345,7 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
     console.error("Calendar sync failed", err);
     return { ...result, ok: false, message: err instanceof Error ? err.message : "Calendar sync failed." };
   } finally {
-    await releaseLock().catch(() => {});
+    await releaseLock(uid).catch(() => {});
   }
 }
 
@@ -354,13 +353,13 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
  * Page loads: pick up phone edits if the last sync is older than a minute. The sync runs after the
  * page is sent, so it never slows the page down; its changes show on the next page you open.
  */
-export async function syncIfStale(maxAgeMs = 60_000) {
-  const settings = await getSettings();
+export async function syncIfStale(uid: number, maxAgeMs = 60_000) {
+  const settings = await getSettings(uid);
   if (!settings.calendarSync) return;
   // Throttled on the last attempt, so a failing sync doesn't slow every page.
-  const last = await getSetting<string>("calendarSyncTriedAt");
+  const last = await getSetting<string>(uid, "calendarSyncTriedAt");
   if (last && Date.now() - Date.parse(last) < maxAgeMs) return;
-  const sync = () => runSync().catch((err) => console.error("Calendar sync failed", err));
+  const sync = () => runSync(uid).catch((err) => console.error("Calendar sync failed", err));
   try {
     after(sync);
   } catch {
@@ -369,14 +368,14 @@ export async function syncIfStale(maxAgeMs = 60_000) {
 }
 
 /** After a change in the hub: sync once the response has been sent. */
-export function requestSync() {
+export function requestSync(uid: number) {
   try {
-    after(() => runSync({ waitMs: 20_000 }).catch((err) => console.error("Calendar sync failed", err)));
+    after(() => runSync(uid, { waitMs: 20_000 }).catch((err) => console.error("Calendar sync failed", err)));
   } catch {
     // Outside a request (scripts): nothing to schedule.
   }
 }
 
-export async function lastSyncInfo() {
-  return { at: await getSetting<string>("calendarSyncAt") };
+export async function lastSyncInfo(uid: number) {
+  return { at: await getSetting<string>(uid, "calendarSyncAt") };
 }

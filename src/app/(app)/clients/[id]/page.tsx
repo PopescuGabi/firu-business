@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SegmentedLinks, Slide } from "@/components/motion";
 import { notFound } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Archive, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2 } from "lucide-react";
 import { ClientForm } from "@/components/client-form";
 import { DriveFiles } from "@/components/drive-files";
@@ -19,6 +19,7 @@ import {
   setClientArchived,
   updateClient,
 } from "@/app/actions/clients";
+import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 import { folderUrl } from "@/lib/google/drive";
 import { getGoogleAccount } from "@/lib/google/oauth";
@@ -32,8 +33,12 @@ const TABS = [
 const REEL_STATUSES = ["idea", "scripting", "filming", "editing", "review", "posted"];
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireModule("clients");
   const db = await getDb();
-  const [c] = await db.select({ name: schema.clients.name }).from(schema.clients).where(eq(schema.clients.id, Number((await params).id) || 0));
+  const [c] = await db
+    .select({ name: schema.clients.name })
+    .from(schema.clients)
+    .where(and(eq(schema.clients.id, Number((await params).id) || 0), eq(schema.clients.userId, user.id)));
   return { title: c?.name ?? "Client" };
 }
 
@@ -46,12 +51,13 @@ export default async function ClientPage({
 }) {
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
+  const user = await requireModule("clients");
   const db = await getDb();
-  const [client] = await db.select().from(schema.clients).where(eq(schema.clients.id, id));
+  const [client] = await db.select().from(schema.clients).where(and(eq(schema.clients.id, id), eq(schema.clients.userId, user.id)));
   if (!client) notFound();
   const { tab: tabParam } = await searchParams;
   const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : client.appName ? "app" : "reels";
-  const googleConnected = Boolean((await getGoogleAccount())?.accessToken);
+  const googleConnected = Boolean((await getGoogleAccount(user.id))?.accessToken);
 
   return (
     <>
@@ -82,9 +88,9 @@ export default async function ClientPage({
       />
 
       <Slide group={`client-tab-${id}`} index={TABS.findIndex((t) => t.key === tab)}>
-        {tab === "app" && <AppTab clientId={id} appName={client.appName} googleConnected={googleConnected} />}
-        {tab === "reels" && <ReelsTab clientId={id} />}
-        {tab === "carousels" && <CarouselsTab clientId={id} />}
+        {tab === "app" && <AppTab userId={user.id} clientId={id} appName={client.appName} googleConnected={googleConnected} />}
+        {tab === "reels" && <ReelsTab userId={user.id} clientId={id} />}
+        {tab === "carousels" && <CarouselsTab userId={user.id} clientId={id} />}
       </Slide>
     </>
   );
@@ -129,12 +135,12 @@ function UpdateForm({
   );
 }
 
-async function AppTab({ clientId, appName, googleConnected }: { clientId: number; appName: string; googleConnected: boolean }) {
+async function AppTab({ userId, clientId, appName, googleConnected }: { userId: number; clientId: number; appName: string; googleConnected: boolean }) {
   const db = await getDb();
   const updates = await db
     .select()
     .from(schema.appUpdates)
-    .where(eq(schema.appUpdates.clientId, clientId))
+    .where(and(eq(schema.appUpdates.clientId, clientId), eq(schema.appUpdates.userId, userId)))
     .orderBy(desc(schema.appUpdates.date), desc(schema.appUpdates.id));
   return (
     <>
@@ -177,9 +183,9 @@ async function AppTab({ clientId, appName, googleConnected }: { clientId: number
   );
 }
 
-async function ReelsTab({ clientId }: { clientId: number }) {
+async function ReelsTab({ userId, clientId }: { userId: number; clientId: number }) {
   const db = await getDb();
-  const reels = await db.select().from(schema.reels).where(eq(schema.reels.clientId, clientId)).orderBy(desc(schema.reels.updatedAt));
+  const reels = await db.select().from(schema.reels).where(and(eq(schema.reels.clientId, clientId), eq(schema.reels.userId, userId))).orderBy(desc(schema.reels.updatedAt));
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -231,12 +237,12 @@ async function ReelsTab({ clientId }: { clientId: number }) {
   );
 }
 
-async function CarouselsTab({ clientId }: { clientId: number }) {
+async function CarouselsTab({ userId, clientId }: { userId: number; clientId: number }) {
   const db = await getDb();
   const carousels = await db
     .select()
     .from(schema.carousels)
-    .where(eq(schema.carousels.clientId, clientId))
+    .where(and(eq(schema.carousels.clientId, clientId), eq(schema.carousels.userId, userId)))
     .orderBy(desc(schema.carousels.updatedAt));
   return (
     <>

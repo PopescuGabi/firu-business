@@ -8,8 +8,10 @@ import { getSettings } from "@/lib/settings";
 import { fmtDate } from "@/lib/time";
 
 // Public: the items you marked public, at an address only you hand out (see Portfolio → Share).
-export async function generateMetadata() {
-  const { displayName } = await getSettings();
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
+  const data = await publicPortfolio((await params).token);
+  if (!data) return { title: "Portfolio" };
+  const { displayName } = await getSettings(data.owner.id);
   return { title: displayName ? `${displayName} · Portfolio` : "Portfolio" };
 }
 
@@ -17,7 +19,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const { token } = await params;
   const data = await publicPortfolio(token);
   if (!data) notFound();
-  const { displayName } = await getSettings();
+  const { displayName } = await getSettings(data.owner.id);
   const client = (id: number | null) => data.clients.find((c) => c.id === id);
   return (
     <main className="mx-auto max-w-[1400px] px-4 py-10 sm:px-8">

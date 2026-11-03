@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { SegmentedLinks, Slide } from "@/components/motion";
-import { asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 import clsx from "clsx";
 import {
   ArrowUpRight,
@@ -15,6 +15,7 @@ import {
   GalleryHorizontalEnd,
   Hourglass,
   LayoutGrid,
+  Mail,
   ListTodo,
   MessageSquareText,
   Plus,
@@ -29,6 +30,7 @@ import { ClearSuggestions } from "@/components/clear-suggestions";
 import { fmtMin, TargetStats, Timeline } from "@/components/day-timeline";
 import { FeedbackCheck, TaskCheck } from "@/components/check";
 import { PlanButton } from "@/components/plan-button";
+import { MailToTask } from "@/components/mail-actions";
 import { Sheet } from "@/components/sheet";
 import { Submit } from "@/components/submit";
 import { TaskForm } from "@/components/task-form";
@@ -38,8 +40,11 @@ import { quickAddAppUpdate, quickAddCarousel, quickAddReel } from "@/app/actions
 import { addFeedback } from "@/app/actions/feedback";
 import { importPromptFiles } from "@/app/actions/prompts";
 import { createTask } from "@/app/actions/tasks";
+import { claudeAvailable } from "@/lib/ai/claude";
+import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { env } from "@/lib/env";
+import { gmailConnected, listInbox } from "@/lib/google/gmail";
+import type { ModuleKey } from "@/lib/modules";
 import { KIND_COLORS } from "@/lib/kinds";
 import { nowAndNext } from "@/lib/now-next";
 import { getPlanAdvice, getSettings } from "@/lib/settings";
@@ -173,27 +178,46 @@ function EmptyLine({ children }: { children: React.ReactNode }) {
   return <p className="py-2 text-[14px] text-label-2">{children}</p>;
 }
 
+/**
+ * Spans for a run of tiles that should fill whole rows at every size, however many there are
+ * (depends on which sections someone uses): desktop 3 a row, laptop and tablet 2, phone 1.
+ */
+function fill(n: number): Span[] {
+  return Array.from({ length: n }, (_, i) => {
+    const lastOfThree = n % 3 === 1 ? i === n - 1 : n % 3 === 2 && i >= n - 2;
+    const loneOfTwo = n % 2 === 1 && i === n - 1;
+    return { p: 2, t: loneOfTwo ? 6 : 3, l: loneOfTwo ? 12 : 6, d: lastOfThree ? (n % 3 === 1 ? 12 : 6) : 4 };
+  });
+}
+
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab: tabParam } = await searchParams;
-  const tab: Tab = TABS.some((t) => t.key === tabParam) ? (tabParam as Tab) : "overview";
+  const user = await requireUser();
+  const on = (m: ModuleKey) => user.modules.includes(m);
+  const tabs = TABS.filter((t) => t.key !== "work" || on("clients"));
+  const tab: Tab = tabs.some((t) => t.key === tabParam) ? (tabParam as Tab) : "overview";
 
   const db = await getDb();
-  const settings = await getSettings();
+  const settings = await getSettings(user.id);
   const today = todayIn(settings.timezone);
   const now = nowMinutesIn(settings.timezone);
-  const [{ days, calendarError, googleConnected }, tasks, clients, reels, carousels, updates, feedback, advice, suggestions, promptCount] =
+  const [{ days, calendarError, googleConnected }, tasks, clients, reels, carousels, updates, feedback, advice, suggestions, promptCount, claudeConfigured] =
     await Promise.all([
-      getWeek(today, 7),
-      db.select().from(schema.tasks).where(eq(schema.tasks.done, false)).orderBy(asc(schema.tasks.due), desc(schema.tasks.priority)),
-      db.select().from(schema.clients).where(eq(schema.clients.archived, false)).orderBy(asc(schema.clients.name)),
-      db.select().from(schema.reels).where(ne(schema.reels.status, "posted")).orderBy(desc(schema.reels.updatedAt)),
-      db.select().from(schema.carousels).where(ne(schema.carousels.status, "posted")).orderBy(desc(schema.carousels.updatedAt)),
-      db.select().from(schema.appUpdates).orderBy(desc(schema.appUpdates.date), desc(schema.appUpdates.id)),
-      db.select().from(schema.clientFeedback).where(eq(schema.clientFeedback.status, "open")).orderBy(desc(schema.clientFeedback.createdAt)),
-      getPlanAdvice(),
-      countSuggestions(),
-      db.select({ id: schema.prompts.id }).from(schema.prompts),
+      getWeek(user.id, today, 7),
+      db.select().from(schema.tasks).where(and(eq(schema.tasks.userId, user.id), eq(schema.tasks.done, false))).orderBy(asc(schema.tasks.due), desc(schema.tasks.priority)),
+      db.select().from(schema.clients).where(and(eq(schema.clients.userId, user.id), eq(schema.clients.archived, false))).orderBy(asc(schema.clients.name)),
+      db.select().from(schema.reels).where(and(eq(schema.reels.userId, user.id), ne(schema.reels.status, "posted"))).orderBy(desc(schema.reels.updatedAt)),
+      db.select().from(schema.carousels).where(and(eq(schema.carousels.userId, user.id), ne(schema.carousels.status, "posted"))).orderBy(desc(schema.carousels.updatedAt)),
+      db.select().from(schema.appUpdates).where(eq(schema.appUpdates.userId, user.id)).orderBy(desc(schema.appUpdates.date), desc(schema.appUpdates.id)),
+      db.select().from(schema.clientFeedback).where(and(eq(schema.clientFeedback.userId, user.id), eq(schema.clientFeedback.status, "open"))).orderBy(desc(schema.clientFeedback.createdAt)),
+      getPlanAdvice(user.id),
+      countSuggestions(user.id),
+      db.select({ id: schema.prompts.id }).from(schema.prompts).where(eq(schema.prompts.userId, user.id)),
+      claudeAvailable(user.id),
     ]);
+  // Email tile: a few unread mails from the primary inbox (only when Gmail is connected).
+  const gmail = on("email") && (await gmailConnected(user.id));
+  const inbox = gmail ? await listInbox(user.id, { max: 5, q: "in:inbox category:primary is:unread" }).catch(() => null) : null;
 
   const day = days[0];
   const { current, next, leaveBy } = nowAndNext(day, now, settings.travel);
@@ -494,7 +518,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           )}
         </div>
         <div className="mt-auto flex flex-wrap items-end gap-2 pt-5">
-          <PlanButton claudeConfigured={env.claudeConfigured()} />
+          <PlanButton claudeConfigured={claudeConfigured} />
           <Link href="/today" className={buttonClass("gray")}>
             Open today
           </Link>
@@ -522,20 +546,51 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     clients: (p: Placed) => (
       <Stat {...p} label="Active clients" value={clients.length} icon={Clapperboard} href="/clients" sub={`${myReels.length} reels · ${myCarousels.length} carousels open`} />
     ),
+    suggestions: (p: Placed) => (
+      <Stat {...p} label="Suggestions" value={suggestions} icon={Sparkles} href="/calendar" sub="From Plan my week, waiting for you" />
+    ),
   };
+
+  const inboxTile = (p: Placed) => (
+    <Widget {...p} title="Inbox" icon={Mail} href="/email">
+      {!gmail ? (
+        <EmptyLine>
+          <a href="/api/auth/google?gmail=1" className="font-semibold text-accent">Connect Gmail</a> to see unread mail here, reply and turn emails into tasks.
+        </EmptyLine>
+      ) : !inbox ? (
+        <EmptyLine>Couldn&apos;t load your inbox right now.</EmptyLine>
+      ) : inbox.length === 0 ? (
+        <EmptyLine>No unread mail. Nice.</EmptyLine>
+      ) : (
+        <ul className="space-y-1">
+          {inbox.map((m) => (
+            <li key={m.id} className="flex items-center gap-2">
+              <Link href={`/email?m=${m.id}`} className="min-w-0 flex-1 rounded-lg px-1 py-1 hover:bg-fill">
+                <p className="truncate text-[14px] font-medium">{m.subject}</p>
+                <p className="truncate text-[12px] text-label-2">{m.from}</p>
+              </Link>
+              <MailToTask id={m.id} subject={m.subject} compact />
+            </li>
+          ))}
+        </ul>
+      )}
+    </Widget>
+  );
 
   const scheduleShortcuts = (p: Placed) => (
     <Widget {...p} title="Shortcuts" icon={Sun}>
       <div className="flex flex-col gap-2">
-        <PlanButton claudeConfigured={env.claudeConfigured()} />
+        <PlanButton claudeConfigured={claudeConfigured} />
         <ClearSuggestions count={suggestions} />
         <div className="grid grid-cols-2 gap-2">
           <Link href="/today" className={buttonClass("gray", "sm")}>Today</Link>
           <Link href="/calendar" className={buttonClass("gray", "sm")}>Calendar</Link>
-          <Link href="/school" className={buttonClass("gray", "sm")}>School</Link>
-          <Link href="/school" className={buttonClass("gray", "sm")}>
-            <Dumbbell size={14} /> Gym split
-          </Link>
+          {on("school") && <Link href="/school" className={buttonClass("gray", "sm")}>School</Link>}
+          {on("gym") && (
+            <Link href="/gym" className={buttonClass("gray", "sm")}>
+              <Dumbbell size={14} /> Gym split
+            </Link>
+          )}
         </div>
       </div>
     </Widget>
@@ -728,19 +783,36 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   // Each tab's tiles in reading order, with their size on phone / tablet / laptop / desktop.
   // Laptop and desktop have 12 columns, tablet 6, phone 2; the grid packs them densely.
-  const layouts: Record<Tab, [(p: Placed) => React.ReactNode, Span][]> = {
+  // Each tab's tiles in reading order, with their size on phone / tablet / laptop / desktop, built from the
+  // sections this person uses. Laptop and desktop have 12 columns, tablet 6, phone 2; the grid packs densely.
+  type Tile = [(p: Placed) => React.ReactNode, Span];
+  const flexible = (tiles: ((p: Placed) => React.ReactNode)[]): Tile[] => fill(tiles.length).map((span, i) => [tiles[i], span]);
+  const top: Tile[] = on("clients")
+    ? [
+        [hero, { p: 2, t: 6, l: 6, d: 5, rl: 2, rd: 2 }],
+        [stats.tasks, { p: 1, t: 3, l: 3, d: 2 }],
+        [stats.work, { p: 1, t: 3, l: 3, d: 2 }],
+        [monthStrip, { p: 2, t: 6, l: 6, d: 3, rd: 2 }],
+        [stats.review, { p: 1, t: 3, l: 3, d: 2 }],
+        [stats.feedback, { p: 1, t: 3, l: 3, d: 2 }],
+      ]
+    : [
+        [hero, { p: 2, t: 6, l: 6, d: 6, rl: 2, rd: 2 }],
+        [monthStrip, { p: 2, t: 6, l: 6, d: 6 }],
+        [stats.tasks, { p: 1, t: 3, l: 3, d: 3 }],
+        [stats.suggestions, { p: 1, t: 3, l: 3, d: 3 }],
+      ];
+  const layouts: Record<Tab, Tile[]> = {
     overview: [
-      [hero, { p: 2, t: 6, l: 6, d: 5, rl: 2, rd: 2 }],
-      [stats.tasks, { p: 1, t: 3, l: 3, d: 2 }],
-      [stats.work, { p: 1, t: 3, l: 3, d: 2 }],
-      [monthStrip, { p: 2, t: 6, l: 6, d: 3, rd: 2 }],
-      [stats.review, { p: 1, t: 3, l: 3, d: 2 }],
-      [stats.feedback, { p: 1, t: 3, l: 3, d: 2 }],
-      [tasksDue, { p: 2, t: 3, l: 6, d: 4 }],
-      [busyWeek, { p: 2, t: 6, l: 6, d: 4 }],
-      [waitingReview, { p: 2, t: 3, l: 6, d: 4 }],
-      [quickAdd, { p: 2, t: 3, l: 6, d: 6 }],
-      [promptUpload, { p: 2, t: 3, l: 6, d: 6 }],
+      ...top,
+      ...flexible([
+        tasksDue,
+        busyWeek,
+        ...(on("clients") ? [waitingReview] : []),
+        ...(on("email") ? [inboxTile] : []),
+        ...(on("clients") ? [quickAdd] : []),
+        ...(on("prompts") ? [promptUpload] : []),
+      ]),
     ],
     schedule: [
       [hero, { p: 2, t: 6, l: 7, d: 6 }],
@@ -777,7 +849,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <SegmentedLinks
             label="Home sections"
             active={tab}
-            items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? "/" : `/?tab=${key}`, icon: <Icon size={15} /> }))}
+            items={tabs.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? "/" : `/?tab=${key}`, icon: <Icon size={15} /> }))}
           />
           <Link href="/settings" aria-label="Settings" className="chrome grid size-10 shrink-0 place-items-center rounded-full text-label-2 md:hidden">
             <Settings size={18} />
@@ -792,7 +864,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         notConnected={<>Google isn&apos;t connected. <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link></>}
       />
 
-      <Slide group="home-tab" index={TABS.findIndex((t) => t.key === tab)}>
+      <Slide group="home-tab" index={tabs.findIndex((t) => t.key === tab)}>
         <Bento>
           {layouts[tab].map(([tile, span], i) => (
             <Fragment key={i}>{tile({ span, i })}</Fragment>

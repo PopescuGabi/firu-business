@@ -4,17 +4,21 @@ import Link from "next/link";
 import clsx from "clsx";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
-import { BookText, Briefcase, CalendarDays, GraduationCap, House, Images, Plus, Settings, Sun } from "lucide-react";
+import { BookText, Briefcase, CalendarDays, Dumbbell, GraduationCap, House, Images, Mail, Plus, Settings, Sun } from "lucide-react";
 
-const ITEMS = [
+// `module`: shown only when that section is turned on (lib/modules.ts); the rest are always there.
+const ALL_ITEMS = [
   { href: "/", label: "Home", icon: House },
   { href: "/today", label: "Today", icon: Sun },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/school", label: "School", icon: GraduationCap },
-  { href: "/clients", label: "Clients", icon: Briefcase },
-  { href: "/portfolio", label: "Portfolio", icon: Images },
-  { href: "/prompts", label: "Prompts", icon: BookText },
+  { href: "/email", label: "Email", icon: Mail, module: "email" },
+  { href: "/school", label: "School", icon: GraduationCap, module: "school" },
+  { href: "/gym", label: "Gym", icon: Dumbbell, module: "gym" },
+  { href: "/clients", label: "Clients", icon: Briefcase, module: "clients" },
+  { href: "/portfolio", label: "Portfolio", icon: Images, module: "portfolio" },
+  { href: "/prompts", label: "Prompts", icon: BookText, module: "prompts" },
 ];
+const itemsFor = (modules: string[]) => ALL_ITEMS.filter((i) => !i.module || modules.includes(i.module));
 
 const isActive = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 /** The one link to highlight: the most specific match (a client over "Clients"). */
@@ -102,10 +106,12 @@ function RailLink({
 }
 
 /** Floating pill rail (tablet and up): sections, your clients, settings. */
-export function Sidebar({ clients }: { clients: { id: number; name: string; color: string }[] }) {
+export function Sidebar({ clients, modules }: { clients: { id: number; name: string; color: string }[]; modules: string[] }) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
-  const hrefs = [...ITEMS.map((i) => i.href), ...clients.map((c) => `/clients/${c.id}`), "/settings"];
+  const ITEMS = itemsFor(modules);
+  const showClients = modules.includes("clients");
+  const hrefs = [...ITEMS.map((i) => i.href), ...(showClients ? clients.map((c) => `/clients/${c.id}`) : []), "/settings"];
   const active = activeOf(path, hrefs);
   const { register, blob, box } = useGlide(active, RAIL_SQUASH);
   const link = (href: string, label: string, children: React.ReactNode) => (
@@ -137,8 +143,8 @@ export function Sidebar({ clients }: { clients: { id: number; name: string; colo
           {ITEMS.map(({ href, label, icon: Icon }) => link(href, label, <Icon size={18} strokeWidth={2} />))}
         </nav>
 
-        <span className="my-1.5 h-px w-6 bg-white/15" aria-hidden />
-        <nav className="flex flex-col items-center gap-1.5" aria-label="Clients">
+        {showClients && <span className="my-1.5 h-px w-6 bg-white/15" aria-hidden />}
+        <nav className={clsx("flex flex-col items-center gap-1.5", !showClients && "hidden")} aria-label="Clients">
           {clients.map((c) =>
             link(
               `/clients/${c.id}`,
@@ -160,16 +166,20 @@ export function Sidebar({ clients }: { clients: { id: number; name: string; colo
 }
 
 /** Floating glass dock (phones). */
-export function TabBar() {
+export function TabBar({ modules }: { modules: string[] }) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
-  const items = ITEMS.filter((i) => i.href !== "/prompts");
+  // At most six on a phone: the always-on tabs plus the first chosen sections (Prompts is reached from Clients).
+  const items = itemsFor(modules)
+    .filter((i) => i.href !== "/prompts")
+    .slice(0, 6);
   const active = activeOf(path, items.map((i) => i.href));
   const { register, blob, box } = useGlide(active, DOCK_SQUASH);
   return (
     <nav
       aria-label="Main"
-      className="chrome fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 grid grid-cols-6 gap-0.5 rounded-full p-1.5 md:hidden"
+      className="chrome fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 grid gap-0.5 rounded-full p-1.5 md:hidden"
+      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
     >
       <span
         ref={blob}

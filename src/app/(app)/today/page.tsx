@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Dumbbell, ListTodo, Pencil, Settings, Trash2 } from "lucide-react";
 import { fmtMin, TargetStats, Timeline } from "@/components/day-timeline";
 import { ClearSuggestions } from "@/components/clear-suggestions";
@@ -11,8 +11,9 @@ import { TaskCheck } from "@/components/check";
 import { TaskForm } from "@/components/task-form";
 import { buttonClass, Card, Empty, List, PageHeader, Row, Section } from "@/components/ui";
 import { createTask, deleteTask, updateTask } from "@/app/actions/tasks";
+import { claudeAvailable } from "@/lib/ai/claude";
+import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { env } from "@/lib/env";
 import { fmtDate, toHHMM, WEEKDAYS } from "@/lib/time";
 import { countSuggestions, getWeek, nowMinutesIn, todayIn } from "@/lib/week";
 import { getPlanAdvice, getSettings } from "@/lib/settings";
@@ -20,15 +21,16 @@ import { getPlanAdvice, getSettings } from "@/lib/settings";
 export const metadata = { title: "Today" };
 
 export default async function TodayPage() {
+  const user = await requireUser();
   const db = await getDb();
-  const settings = await getSettings();
+  const settings = await getSettings(user.id);
   const today = todayIn(settings.timezone);
   const now = nowMinutesIn(settings.timezone);
   const [{ days, calendarError, googleConnected }, tasks, clients, advice] = await Promise.all([
-    getWeek(today, 7),
-    db.select().from(schema.tasks).orderBy(asc(schema.tasks.done), asc(schema.tasks.due), desc(schema.tasks.priority)),
-    db.select().from(schema.clients).where(eq(schema.clients.archived, false)).orderBy(asc(schema.clients.name)),
-    getPlanAdvice(),
+    getWeek(user.id, today, 7),
+    db.select().from(schema.tasks).where(eq(schema.tasks.userId, user.id)).orderBy(asc(schema.tasks.done), asc(schema.tasks.due), desc(schema.tasks.priority)),
+    db.select().from(schema.clients).where(and(eq(schema.clients.userId, user.id), eq(schema.clients.archived, false))).orderBy(asc(schema.clients.name)),
+    getPlanAdvice(user.id),
   ]);
   const day = days[0];
   const target = advice?.dailyTargets.find((t) => t.date === today);
@@ -44,8 +46,8 @@ export default async function TodayPage() {
         title="Today"
         actions={
           <>
-            <ClearSuggestions count={await countSuggestions()} />
-            <PlanButton claudeConfigured={env.claudeConfigured()} />
+            <ClearSuggestions count={await countSuggestions(user.id)} />
+            <PlanButton claudeConfigured={await claudeAvailable(user.id)} />
             <Link href="/settings" aria-label="Settings" className="grid size-9 place-items-center rounded-full bg-fill text-label-2 md:hidden">
               <Settings size={18} />
             </Link>
