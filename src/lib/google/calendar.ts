@@ -21,8 +21,23 @@ export type CalendarEvent = {
   writable: boolean; // in a calendar you own or can edit
 };
 
-/** Once per request: the week view, forms and sync all need it. */
+const CALENDARS_TTL_MS = 2 * 60_000;
+const memo = globalThis as unknown as { __hubCalendars?: { at: number; list: Promise<CalendarInfo[]> } };
+
+/**
+ * Your calendars rarely change, so the list is reused for two minutes (and once per request):
+ * the week view, forms and sync all need it, and it saves a Google round trip on every page.
+ */
 export const listCalendars = cache(async (): Promise<CalendarInfo[]> => {
+  const hit = memo.__hubCalendars;
+  if (hit && Date.now() - hit.at < CALENDARS_TTL_MS) return hit.list;
+  const list = fetchCalendars();
+  memo.__hubCalendars = { at: Date.now(), list };
+  list.catch(() => (memo.__hubCalendars = undefined));
+  return list;
+});
+
+async function fetchCalendars(): Promise<CalendarInfo[]> {
   const res = await googleFetch(`${API}/users/me/calendarList?minAccessRole=reader`);
   const data = (await res.json()) as {
     items: { id: string; summary: string; backgroundColor?: string; primary?: boolean; selected?: boolean; accessRole?: string }[];
@@ -34,7 +49,7 @@ export const listCalendars = cache(async (): Promise<CalendarInfo[]> => {
     primary: Boolean(c.primary),
     writable: c.accessRole === "owner" || c.accessRole === "writer",
   }));
-});
+}
 
 export async function listEvents(timeMin: Date, timeMax: Date, calendarIds: string[]): Promise<CalendarEvent[]> {
   const calendars = await listCalendars();

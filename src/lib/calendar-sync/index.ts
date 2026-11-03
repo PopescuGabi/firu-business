@@ -350,20 +350,22 @@ export async function runSync({ waitMs = 0 } = {}): Promise<SyncResult> {
   }
 }
 
-/** Page loads: pick up phone edits if the last sync is older than a minute (the page waits at most ~4 s). */
-export async function syncIfStale(maxAgeMs = 60_000, waitMs = 4_000) {
+/**
+ * Page loads: pick up phone edits if the last sync is older than a minute. The sync runs after the
+ * page is sent, so it never slows the page down; its changes show on the next page you open.
+ */
+export async function syncIfStale(maxAgeMs = 60_000) {
   const settings = await getSettings();
   if (!settings.calendarSync) return;
   // Throttled on the last attempt, so a failing sync doesn't slow every page.
   const last = await getSetting<string>("calendarSyncTriedAt");
   if (last && Date.now() - Date.parse(last) < maxAgeMs) return;
-  const sync = runSync().catch((err) => console.error("Calendar sync failed", err));
+  const sync = () => runSync().catch((err) => console.error("Calendar sync failed", err));
   try {
-    after(() => sync); // a long first sync keeps running after the page is sent
+    after(sync);
   } catch {
-    // Outside a request: just wait below.
+    await sync(); // outside a request
   }
-  await Promise.race([sync, new Promise((r) => setTimeout(r, waitMs))]);
 }
 
 /** After a change in the hub: sync once the response has been sent. */

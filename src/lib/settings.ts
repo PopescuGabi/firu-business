@@ -1,15 +1,17 @@
 import "server-only";
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { DEFAULT_SETTINGS, type AppSettings, type PlanAdvice } from "./settings-defaults";
 
-export async function getSettings(): Promise<AppSettings> {
+/** Once per page render: the layout, the page and the calendar code all ask for it. */
+export const getSettings = cache(async (): Promise<AppSettings> => {
   const db = await getDb();
   const rows = await db.select().from(schema.settings);
   const out: Record<string, unknown> = { ...DEFAULT_SETTINGS };
   for (const r of rows) if (r.key in DEFAULT_SETTINGS) out[r.key] = r.value;
   return out as AppSettings;
-}
+});
 
 export async function saveSettings(patch: Partial<AppSettings>) {
   const db = await getDb();

@@ -50,7 +50,7 @@ export async function getSchool() {
 }
 
 export async function getWeek(weekStart: string, numDays = 7) {
-  await syncIfStale(); // pick up edits made in Google Calendar first
+  await syncIfStale(); // in the background, after the page is sent
   const db = await getDb();
   const settings = await getSettings();
   const tz = settings.timezone;

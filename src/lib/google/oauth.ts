@@ -98,7 +98,16 @@ export async function saveGoogleAccount(
     .insert(schema.googleAccount)
     .values({ id: 1, ...values })
     .onConflictDoUpdate({ target: schema.googleAccount.id, set: values });
+  memo.__hubToken = { value: tokens.access_token, expiresAt: values.expiresAt.getTime() };
+  memo.__hubCalendars = undefined; // maybe a different account: fetch its calendar list again
 }
+
+// Kept in memory between requests on the same server, so Google calls don't each read the database first.
+const memo = globalThis as unknown as {
+  __hubToken?: { value: string; expiresAt: number };
+  __hubTokenRefresh?: Promise<string>;
+  __hubCalendars?: unknown; // the calendar list (google/calendar.ts)
+};
 
 export async function getGoogleAccount() {
   const db = await getDb();
@@ -114,16 +123,22 @@ export class GoogleNotConnectedError extends Error {
 
 /** A valid access token, refreshed when it has expired. */
 export async function getAccessToken(): Promise<string> {
+  if (memo.__hubToken && memo.__hubToken.expiresAt > Date.now()) return memo.__hubToken.value;
   const acc = await getGoogleAccount();
   if (!acc?.accessToken) throw new GoogleNotConnectedError();
-  if (acc.expiresAt && acc.expiresAt.getTime() > Date.now()) return decrypt(acc.accessToken);
+  if (acc.expiresAt && acc.expiresAt.getTime() > Date.now()) {
+    memo.__hubToken = { value: decrypt(acc.accessToken), expiresAt: acc.expiresAt.getTime() };
+    return memo.__hubToken.value;
+  }
   if (!acc.refreshToken) throw new GoogleNotConnectedError();
-  const tokens = await tokenRequest({
-    grant_type: "refresh_token",
-    refresh_token: decrypt(acc.refreshToken),
-  });
-  await saveGoogleAccount(tokens, { email: acc.email, name: acc.name ?? undefined, picture: acc.picture ?? undefined });
-  return tokens.access_token;
+  // Several Google calls at once share one refresh.
+  memo.__hubTokenRefresh ??= tokenRequest({ grant_type: "refresh_token", refresh_token: decrypt(acc.refreshToken) })
+    .then(async (tokens) => {
+      await saveGoogleAccount(tokens, { email: acc.email, name: acc.name ?? undefined, picture: acc.picture ?? undefined });
+      return tokens.access_token;
+    })
+    .finally(() => (memo.__hubTokenRefresh = undefined));
+  return memo.__hubTokenRefresh;
 }
 
 export async function googleFetch(url: string, init: RequestInit = {}) {

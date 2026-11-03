@@ -15,7 +15,7 @@ import { getSchool, todayIn } from "@/lib/week";
 export const metadata = { title: "School" };
 
 export default async function SchoolPage() {
-  await syncIfStale(); // pick up edits made in Google Calendar first
+  await syncIfStale(); // in the background, after the page is sent
   const db = await getDb();
   const settings = await getSettings();
   const today = todayIn(settings.timezone);
