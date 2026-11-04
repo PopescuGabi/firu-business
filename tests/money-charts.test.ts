@@ -10,6 +10,7 @@ test("axis maximums and ticks are round numbers", () => {
   assert.equal(niceMax(2300), 2500);
   assert.equal(niceMax(48_000), 50_000);
   assert.deepEqual(ticks(1234), [0, 500, 1000, 1500, 2000]);
+  assert.deepEqual(ticks(4200), [0, 1000, 2000, 3000, 4000, 5000]);
 });
 
 test("series points fill the box; donut slices add up to the whole", () => {

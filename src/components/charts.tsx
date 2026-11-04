@@ -72,7 +72,7 @@ export function LineChart({
         <span />
         <div className="flex justify-between text-[10px] text-label-3">
           {labels.map((l, i) => (
-            <span key={i} className={clsx("min-w-0 truncate", i % every && i !== labels.length - 1 ? "invisible" : "")}>
+            <span key={i} className={clsx("min-w-0 truncate", (labels.length - 1 - i) % every ? "invisible" : "")}>
               {l}
             </span>
           ))}

@@ -45,5 +45,5 @@ export function formatMoney(cents: number, currency: Currency, { compact = false
   if (compact && Math.abs(value) >= 10_000) {
     return `${(value / 1000).toLocaleString("ro-RO", { maximumFractionDigits: 1 })}k ${currency === "RON" ? "lei" : "€"}`;
   }
-  return new Intl.NumberFormat("ro-RO", { style: "currency", currency, maximumFractionDigits: compact ? 0 : 2 }).format(value);
+  return new Intl.NumberFormat("ro-RO", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: compact ? 0 : 2 }).format(value);
 }

@@ -5,6 +5,9 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 import clsx from "clsx";
 import {
   ArrowUpRight,
+  BarChart3,
+  Target,
+  Wallet,
   ChevronLeft,
   ChevronRight,
   BookText,
@@ -54,6 +57,10 @@ import { nowAndNext } from "@/lib/now-next";
 import { mapsAvailable } from "@/lib/google/maps";
 import { liveNowAndNext, routeForDay } from "@/lib/route";
 import { RouteMap } from "@/components/route-map";
+import { Bars, Meter, Sparkline } from "@/components/charts";
+import { loadFinance } from "@/lib/finance";
+import { formatMoney } from "@/lib/fx-math";
+import { GOAL_METRICS, goalProgress, loadGoals, loadPosts, needsNumbers, summarize } from "@/lib/marketing";
 import { getPlanAdvice, getSettings } from "@/lib/settings";
 import { addDays, clock, fmtDate, toMin, WEEKDAYS } from "@/lib/time";
 import { countSuggestions, getWeek, nowMinutesIn, todayIn, type DayView } from "@/lib/week";
@@ -219,6 +226,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       db.select({ id: schema.prompts.id }).from(schema.prompts).where(eq(schema.prompts.userId, user.id)),
       claudeAvailable(user.id),
     ]);
+  // Marketing and money (the Clients section): this month at a glance.
+  const biz = on("clients")
+    ? await Promise.all([loadPosts(user.id), loadFinance(user.id, today, settings.moneyCurrency), loadGoals(user.id), needsNumbers(user.id)]).then(([posts, money, goals, todo]) => ({
+        posts,
+        m: summarize(posts, today),
+        money,
+        goals,
+        todo,
+      }))
+    : null;
   // Email tile: a few unread mails from the primary inbox (only when Gmail is connected).
   const gmail = on("email") && (await gmailConnected(user.id));
   const inbox = gmail ? await listInbox(user.id, { max: 5, q: "in:inbox is:unread" }).catch(() => null) : null;
@@ -552,6 +569,88 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const openFeedback = feedback.filter((f) => activeClientIds.has(f.clientId));
   const dueToday = tasks.filter((t) => t.due && t.due <= today).length;
   const oldestWait = waiting[0] ? daysSince(waiting[0].row.updatedAt) : 0;
+  const cur = settings.moneyCurrency;
+  const fmtMoney = (c: number) => formatMoney(c, cur, { compact: true });
+  const viewsTile = (p: Placed) =>
+    biz && (
+      <Widget {...p} title="Views this month" icon={BarChart3} href="/clients?view=marketing">
+        <p className="text-[34px] leading-none font-bold tracking-tight">
+          <CountUp value={biz.m.month.views} />
+        </p>
+        <p className="mt-1 text-[12px] text-label-2">
+          {biz.m.lastMonth.views ? `${biz.m.month.views >= biz.m.lastMonth.views ? "▲" : "▼"} ${Math.abs(Math.round(((biz.m.month.views - biz.m.lastMonth.views) / biz.m.lastMonth.views) * 100))}% vs last month` : `${biz.m.postsThisMonth} posts this month`}
+          {" · "}
+          {biz.m.engagement.toFixed(1)}% engagement
+        </p>
+        <Sparkline values={biz.m.weekly} className="mt-3 text-accent" />
+      </Widget>
+    );
+  const moneyTile = (p: Placed) =>
+    biz && (
+      <Widget {...p} title="Money this month" icon={Wallet} href="/clients?view=finance">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[12px] text-label-2">In</p>
+            <p className="text-[22px] font-bold tracking-tight text-green tabular-nums">{fmtMoney(biz.money.incomeThisMonth)}</p>
+          </div>
+          <div>
+            <p className="text-[12px] text-label-2">Out</p>
+            <p className="text-[22px] font-bold tracking-tight tabular-nums">{fmtMoney(biz.money.spendThisMonth)}</p>
+          </div>
+        </div>
+        <Bars height={56} labels={biz.money.months.slice(-6).map((m) => fmtDate(`${m}-01`, { month: "narrow" }))} highlight={5} format={fmtMoney} series={[{ label: "In", values: biz.money.income.slice(-6), color: "var(--green)" }, { label: "Out", values: biz.money.spending.slice(-6), color: "var(--accent)" }]} />
+        {biz.money.waiting.length > 0 && (
+          <div className="mt-2">
+            <Chip tone={biz.money.overdue.length ? "red" : "orange"}>
+              {fmtMoney(biz.money.waitingTotal)} waiting{biz.money.overdue.length ? ` · ${biz.money.overdue.length} overdue` : ""}
+            </Chip>
+          </div>
+        )}
+      </Widget>
+    );
+  const goalsTile = (p: Placed) =>
+    biz && (
+      <Widget {...p} title="Goals" icon={Target} href="/clients?view=marketing">
+        <div className="flex flex-col gap-3">
+          {biz.goals.slice(0, 3).map((g) => (
+            <Meter
+              key={g.id}
+              label={`${GOAL_METRICS.find((x) => x.key === g.metric)?.label} · ${g.period}`}
+              value={g.metric === "income" ? biz.money.incomeThisMonth / 100 : goalProgress(g, biz.posts, today)}
+              target={g.target}
+            />
+          ))}
+        </div>
+      </Widget>
+    );
+  const needsNumbersTile = (p: Placed) =>
+    biz && (
+      <Widget {...p} title="Needs numbers" icon={BarChart3} href="/clients?view=marketing">
+        <ul className="flex flex-col gap-1.5 text-[14px]">
+          {biz.todo.slice(0, 5).map((t) => (
+            <li key={`${t.kind}${t.id}`} className="truncate">
+              {t.title} <span className="text-label-2">· {t.kind}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[12px] text-label-2">Marked Posted; add their views and likes.</p>
+      </Widget>
+    );
+  const waitingMoneyTile = (p: Placed) =>
+    biz && (
+      <Widget {...p} title="Waiting payments" icon={Wallet} href="/clients?view=finance">
+        <p className="text-[26px] font-bold tracking-tight tabular-nums">{fmtMoney(biz.money.waitingTotal)}</p>
+        <ul className="mt-1 flex flex-col gap-1 text-[13px]">
+          {biz.money.waiting.slice(0, 4).map((r) => (
+            <li key={r.id} className="flex gap-2">
+              <span className="min-w-0 flex-1 truncate">{client(r.clientId ?? -1)?.name || r.note || "Payment"}</span>
+              <span className={r.due && r.due < today ? "font-semibold text-red" : "text-label-2"}>{r.due ? fmtDate(r.due, { day: "numeric", month: "short" }) : ""}</span>
+            </li>
+          ))}
+        </ul>
+      </Widget>
+    );
+
   const stats = {
     tasks: (p: Placed) => (
       <Stat {...p} accent label="Open tasks" value={tasks.length} icon={ListTodo} href="/today" sub={dueToday ? `${dueToday} due today or overdue` : "Nothing due today"} />
@@ -835,6 +934,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         ...(on("email") ? [inboxTile] : []),
         ...(on("clients") ? [quickAdd] : []),
         ...(on("prompts") ? [promptUpload] : []),
+        ...(biz && biz.posts.length ? [viewsTile] : []),
+        ...(biz && (biz.money.items.length || biz.money.waiting.length) ? [moneyTile] : []),
+        ...(biz && biz.goals.length ? [goalsTile] : []),
       ]),
     ],
     schedule: [
@@ -856,6 +958,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       [feedbackW, { p: 2, t: 3, l: 5, d: 3 }],
       [pipeline, { p: 2, t: 3, l: 6, d: 6 }],
       [appUpdatesW, { p: 2, t: 3, l: 6, d: 6 }],
+      ...flexible([
+        ...(biz && biz.posts.length ? [viewsTile] : []),
+        ...(biz && (biz.money.items.length || biz.money.waiting.length) ? [moneyTile] : []),
+        ...(biz && biz.goals.length ? [goalsTile] : []),
+        ...(biz && biz.todo.length ? [needsNumbersTile] : []),
+        ...(biz && biz.money.waiting.length ? [waitingMoneyTile] : []),
+      ]),
     ],
   };
 

@@ -8,9 +8,14 @@ export function niceMax(max: number) {
   return 10 * p;
 }
 
-/** Evenly spaced ticks from 0 to niceMax(max). */
-export function ticks(max: number, count = 4) {
+/** Evenly spaced ticks from 0 to niceMax(max), split into 4, 5 or 3 so each step is a round number. */
+export function ticks(max: number) {
   const top = niceMax(max);
+  const round = (step: number) => {
+    const m = step / 10 ** Math.floor(Math.log10(step));
+    return [1, 2, 2.5, 5].some((x) => Math.abs(m - x) < 1e-9);
+  };
+  const count = [4, 5, 3].find((c) => round(top / c)) ?? 4;
   return Array.from({ length: count + 1 }, (_, i) => (top / count) * i);
 }
 
