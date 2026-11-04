@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { asc, count, eq } from "drizzle-orm";
-import { Briefcase, Plus } from "lucide-react";
+import { BarChart3, Briefcase, Plus, Wallet } from "lucide-react";
+import { SegmentedLinks, Slide } from "@/components/motion";
+import { MarketingView } from "@/components/marketing-view";
+import { FinanceView } from "@/components/finance-view";
+import { loadFinance } from "@/lib/finance";
+import { getSettings } from "@/lib/settings";
+import { todayIn } from "@/lib/week";
 import { ClientForm } from "@/components/client-form";
 import { Sheet } from "@/components/sheet";
 import { buttonClass, Card, Empty, List, PageHeader, Row, Section } from "@/components/ui";
@@ -10,10 +16,20 @@ import { getDb, schema } from "@/lib/db";
 
 export const metadata = { title: "Clients" };
 
-export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
+const VIEWS = [
+  { key: "clients", label: "Clients", icon: Briefcase },
+  { key: "marketing", label: "Marketing", icon: BarChart3 },
+  { key: "finance", label: "Finance", icon: Wallet },
+] as const;
+type View = (typeof VIEWS)[number]["key"];
+
+export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ new?: string; view?: string }> }) {
   const user = await requireModule("clients");
   const db = await getDb();
-  const { new: openNew } = await searchParams;
+  const { new: openNew, view: viewParam } = await searchParams;
+  const view: View = VIEWS.some((v) => v.key === viewParam) ? (viewParam as View) : "clients";
+  const settings = await getSettings(user.id);
+  const today = todayIn(settings.timezone);
   const [clients, reels, carousels, updates] = await Promise.all([
     db.select().from(schema.clients).where(eq(schema.clients.userId, user.id)).orderBy(asc(schema.clients.name)),
     db.select({ clientId: schema.reels.clientId, n: count() }).from(schema.reels).where(eq(schema.reels.userId, user.id)).groupBy(schema.reels.clientId),
@@ -34,6 +50,18 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           </Sheet>
         }
       />
+      <SegmentedLinks
+        label="Clients sections"
+        className="mb-6"
+        active={view}
+        items={VIEWS.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "clients" ? "/clients" : `/clients?view=${key}`, icon: <Icon size={15} /> }))}
+      />
+      <Slide group="clients-view" index={VIEWS.findIndex((v) => v.key === view)}>
+      {view === "marketing" && (
+        <MarketingView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} incomeThisMonth={(await loadFinance(user.id, today, settings.moneyCurrency)).incomeThisMonth} />
+      )}
+      {view === "finance" && <FinanceView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} />}
+      {view === "clients" && (<>
       {active.length === 0 ? (
         <Empty icon={<Briefcase size={36} />} title="No clients yet">Add a client to track their app, reels and carousels.</Empty>
       ) : (
@@ -71,6 +99,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           </List>
         </Section>
       )}
+      </>)}
+      </Slide>
     </>
   );
 }

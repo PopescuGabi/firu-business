@@ -2,7 +2,11 @@ import Link from "next/link";
 import { SegmentedLinks, Slide } from "@/components/motion";
 import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
-import { Archive, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2 } from "lucide-react";
+import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2, Wallet } from "lucide-react";
+import { MarketingView } from "@/components/marketing-view";
+import { FinanceView } from "@/components/finance-view";
+import { getSettings } from "@/lib/settings";
+import { todayIn } from "@/lib/week";
 import { ClientForm } from "@/components/client-form";
 import { DriveFiles } from "@/components/drive-files";
 import { DriveFolderButton } from "@/components/drive-folder-button";
@@ -28,6 +32,8 @@ const TABS = [
   { key: "app", label: "App", icon: Smartphone },
   { key: "reels", label: "Reels", icon: Clapperboard },
   { key: "carousels", label: "Carousels", icon: GalleryHorizontalEnd },
+  { key: "marketing", label: "Marketing", icon: BarChart3 },
+  { key: "finance", label: "Finance", icon: Wallet },
 ] as const;
 
 const REEL_STATUSES = ["idea", "scripting", "filming", "editing", "review", "posted"];
@@ -58,6 +64,7 @@ export default async function ClientPage({
   const { tab: tabParam } = await searchParams;
   const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : client.appName ? "app" : "reels";
   const googleConnected = Boolean((await getGoogleAccount(user.id))?.accessToken);
+  const settings = await getSettings(user.id);
 
   return (
     <>
@@ -91,6 +98,8 @@ export default async function ClientPage({
         {tab === "app" && <AppTab userId={user.id} clientId={id} appName={client.appName} googleConnected={googleConnected} />}
         {tab === "reels" && <ReelsTab userId={user.id} clientId={id} />}
         {tab === "carousels" && <CarouselsTab userId={user.id} clientId={id} />}
+        {tab === "marketing" && <MarketingView uid={user.id} clients={[client]} clientId={id} today={todayIn(settings.timezone)} currency={settings.moneyCurrency} />}
+        {tab === "finance" && <FinanceView uid={user.id} clients={[client]} clientId={id} today={todayIn(settings.timezone)} currency={settings.moneyCurrency} />}
       </Slide>
     </>
   );
