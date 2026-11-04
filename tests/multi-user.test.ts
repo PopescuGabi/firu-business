@@ -67,6 +67,13 @@ test("two people's data stays apart in the database", async () => {
   const lite = new PGlite(dir);
   try {
     await migrate(drizzle(lite), { migrationsFolder: path.join(root, "drizzle") });
+
+    // Every table is locked to the app's own connection (Supabase's public API sees nothing).
+    // A new table needs `ALTER TABLE … ENABLE ROW LEVEL SECURITY` in its migration.
+    const open = await lite.query<{ relname: string }>(
+      "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity",
+    );
+    assert.deepEqual(open.rows.map((r) => r.relname), [], "tables without row-level security");
     await lite.exec(`
       update users set email = 'owner@example.com' where id = 1;
       insert into users (email, role) values ('member@example.com', 'member');
