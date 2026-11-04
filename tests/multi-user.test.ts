@@ -30,6 +30,12 @@ const PER_USER = [
   "aiUsage",
   "backgrounds",
   "places",
+  "posts",
+  "postStats",
+  "goals",
+  "shareViews",
+  "money",
+  "budgets",
 ];
 
 function sourceFiles(dir: string): string[] {

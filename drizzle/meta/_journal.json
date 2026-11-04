@@ -78,6 +78,13 @@
       "when": 1793787359327,
       "tag": "0010_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793791767689,
+      "tag": "0011_marketing_finance",
+      "breakpoints": true
     }
   ]
 }

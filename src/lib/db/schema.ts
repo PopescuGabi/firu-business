@@ -386,3 +386,112 @@ export const aiUsage = pgTable("ai_usage", {
   outputTokens: integer("output_tokens").notNull().default(0),
   createdAt: createdAt(),
 });
+
+// ── Marketing ─────────────────────────────────────────────────
+
+// A published post (reel, carousel, video…) on a platform, for a client or yourself.
+export const posts = pgTable(
+  "posts",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
+    reelId: integer("reel_id").references(() => reels.id, { onDelete: "set null" }),
+    carouselId: integer("carousel_id").references(() => carousels.id, { onDelete: "set null" }),
+    platform: text("platform").notNull(), // instagram | tiktok | youtube | facebook | linkedin | other
+    kind: text("kind").notNull(), // reel | carousel | video | post | story
+    title: text("title").notNull(),
+    url: text("url").notNull().default(""),
+    postedOn: text("posted_on").notNull(), // yyyy-mm-dd (local)
+    postedAt: text("posted_at"), // HH:mm (local), for the best-time heatmap
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("posts_user").on(t.userId, t.postedOn)],
+);
+
+// The numbers for a post, one row per update (the latest is current; earlier ones show growth).
+export const postStats = pgTable(
+  "post_stats",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    recordedOn: text("recorded_on").notNull(), // yyyy-mm-dd
+    views: integer("views").notNull().default(0),
+    likes: integer("likes").notNull().default(0),
+    comments: integer("comments").notNull().default(0),
+    shares: integer("shares").notNull().default(0),
+    saves: integer("saves").notNull().default(0),
+    follows: integer("follows").notNull().default(0),
+    reach: integer("reach").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("post_stats_post").on(t.postId)],
+);
+
+export const goals = pgTable("goals", {
+  id: serial("id").primaryKey(),
+  userId: owner(),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: "cascade" }), // null = everything
+  metric: text("metric").notNull(), // views | engagement | posts | follows | income
+  target: integer("target").notNull(), // engagement: tenths of a percent; income: whole units of moneyCurrency
+  period: text("period").notNull().default("month"), // week | month
+  createdAt: createdAt(),
+});
+
+// Visits to a public portfolio page: no IP address, no cookies, only the day and the referring site.
+export const shareViews = pgTable(
+  "share_views",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(), // the portfolio's owner
+    itemId: integer("item_id").references(() => portfolioItems.id, { onDelete: "set null" }), // null = gallery
+    day: text("day").notNull(), // yyyy-mm-dd (UTC)
+    referrer: text("referrer").notNull().default(""), // host only, e.g. "instagram.com"
+    createdAt: createdAt(),
+  },
+  (t) => [index("share_views_user").on(t.userId, t.day)],
+);
+
+// ── Finance ───────────────────────────────────────────────────
+
+// Money in (client payments…) and out (spending), in RON or EUR.
+export const money = pgTable(
+  "money",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    kind: text("kind").notNull(), // income | expense
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull(), // RON | EUR
+    date: text("date").notNull(), // yyyy-mm-dd
+    category: text("category").notNull(),
+    clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("paid"), // paid | waiting (income not received yet)
+    due: text("due"), // yyyy-mm-dd, for waiting income
+    note: text("note").notNull().default(""),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("money_user_date").on(t.userId, t.date)],
+);
+
+export const budgets = pgTable(
+  "budgets",
+  {
+    userId: owner(),
+    category: text("category").notNull(),
+    limitCents: integer("limit_cents").notNull(), // per month
+    currency: text("currency").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.category] })],
+);
+
+// ECB reference rate: lei for one euro on a day (shared, not personal).
+export const fxRates = pgTable("fx_rates", {
+  date: text("date").primaryKey(),
+  ronPerEur: doublePrecision("ron_per_eur").notNull(),
+});

@@ -27,6 +27,8 @@ export const DEFAULT_SETTINGS = {
   // Google Maps (with your own key): how you usually travel, and minutes added after the gym (shower, changing).
   travelMode: "transit" as "transit" | "drive" | "walk" | "bicycle",
   gymExtraMinutes: 15,
+  // The currency money charts show (each entry is converted at its own date's ECB rate).
+  moneyCurrency: "RON" as "RON" | "EUR",
 };
 
 export type AppSettings = typeof DEFAULT_SETTINGS;
