@@ -4,13 +4,15 @@ import clsx from "clsx";
 import { Globe, Images, Plus, Share2 } from "lucide-react";
 import { NewPortfolioItem, ShareControls } from "@/components/portfolio";
 import { Sheet } from "@/components/sheet";
-import { Bento, buttonClass, Empty, PageHeader, Pill, spanStyle } from "@/components/ui";
+import { Bento, buttonClass, Card, Empty, PageHeader, Pill, spanStyle } from "@/components/ui";
 import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getGoogleAccount } from "@/lib/google/oauth";
 import { coverOf, getShare, PORTFOLIO_TYPES, typeLabel } from "@/lib/portfolio";
 import { fmtDate } from "@/lib/time";
+import { shareStats } from "@/lib/share-views";
+import { LineChart } from "@/components/charts";
 
 export const metadata = { title: "Portfolio" };
 
@@ -24,6 +26,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
     getShare(user.id),
     getGoogleAccount(user.id),
   ]);
+  const visits = share.enabled ? await shareStats(user.id) : null;
   const client = (id: number | null) => clients.find((c) => c.id === id);
   const shown = items.filter((i) => (!type || i.type === type) && (!tag || i.tags.includes(tag)));
   const tags = [...new Set(items.flatMap((i) => i.tags))].sort();
@@ -54,6 +57,40 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
           </>
         }
       />
+
+      {visits && (
+        <Card className="mb-6 grid gap-5 p-4 lg:grid-cols-[2fr_1fr_1fr]">
+          <div>
+            <p className="text-[15px] font-semibold">Share page visitors · 30 days</p>
+            <p className="mb-3 text-[12px] text-label-2">{visits.total} visit{visits.total === 1 ? "" : "s"}. Counted without cookies; bots, link previews and you don&apos;t count.</p>
+            <LineChart height={110} labels={visits.days.map((d) => fmtDate(d, { day: "numeric", month: "short" }))} series={[{ label: "Visits", values: visits.perDay }]} />
+          </div>
+          <div>
+            <p className="mb-2 text-[13px] font-semibold text-label-2">Most opened</p>
+            <ol className="space-y-1.5 text-[14px]">
+              {visits.items.length === 0 && <li className="text-label-3">No item opened yet</li>}
+              {visits.items.slice(0, 5).map(([id, n]) => (
+                <li key={id} className="flex gap-2">
+                  <span className="min-w-0 flex-1 truncate">{items.find((i) => i.id === id)?.title ?? "Removed item"}</span>
+                  <strong className="tabular-nums">{n}</strong>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div>
+            <p className="mb-2 text-[13px] font-semibold text-label-2">Came from</p>
+            <ol className="space-y-1.5 text-[14px]">
+              {visits.sources.length === 0 && <li className="text-label-3">No visits yet</li>}
+              {visits.sources.map(([src, n]) => (
+                <li key={src} className="flex gap-2">
+                  <span className="min-w-0 flex-1 truncate">{src}</span>
+                  <strong className="tabular-nums">{n}</strong>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </Card>
+      )}
 
       {items.length > 0 && (
         <div className="mb-5 flex flex-wrap gap-2">

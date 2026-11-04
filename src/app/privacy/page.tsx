@@ -60,6 +60,13 @@ export default function PrivacyPage() {
         requests by default.
       </p>
 
+      <h2>Your public portfolio page</h2>
+      <p>
+        If you turn on your portfolio share link, visits to it are counted so you can see how many people look and
+        which pieces they open. For each visit only the day, the piece opened and the website the visitor came from
+        (for example instagram.com) are stored. No IP address, no cookies, nothing that identifies the visitor.
+      </p>
+
       <h2>Google Maps (optional)</h2>
       <p>
         If you add your own Google Maps API key, the addresses you save for your places (home, school, gym, tutoring) are

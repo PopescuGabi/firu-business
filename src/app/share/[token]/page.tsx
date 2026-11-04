@@ -6,6 +6,7 @@ import { publicThumbUrl } from "@/lib/google/drive";
 import { coverOf, publicPortfolio, typeLabel } from "@/lib/portfolio";
 import { getSettings } from "@/lib/settings";
 import { fmtDate } from "@/lib/time";
+import { recordShareView } from "@/lib/share-views";
 
 // Public: the items you marked public, at an address only you hand out (see Portfolio → Share).
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
@@ -19,6 +20,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const { token } = await params;
   const data = await publicPortfolio(token);
   if (!data) notFound();
+  await recordShareView(data.owner.id, null);
   const { displayName } = await getSettings(data.owner.id);
   const client = (id: number | null) => data.clients.find((c) => c.id === id);
   return (

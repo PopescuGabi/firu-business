@@ -4,12 +4,14 @@ import { ChevronLeft } from "lucide-react";
 import { Card, Pill } from "@/components/ui";
 import { publicPreviewUrl, publicThumbUrl } from "@/lib/google/drive";
 import { publicItem, typeLabel } from "@/lib/portfolio";
+import { recordShareView } from "@/lib/share-views";
 import { fmtDate } from "@/lib/time";
 
 export default async function ShareItemPage({ params }: { params: Promise<{ token: string; id: string }> }) {
   const { token, id } = await params;
   const data = Number.isInteger(Number(id)) ? await publicItem(token, Number(id)) : null;
   if (!data) notFound();
+  await recordShareView(data.owner.id, data.item.id);
   const { item, clients } = data;
   const client = clients.find((c) => c.id === item.clientId);
   return (
