@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
   // Proposed (not yet accepted) blocks are replaced by the new plan, only once it succeeded.
   await db
     .delete(schema.planBlocks)
-    .where(and(eq(schema.planBlocks.userId, user.id), eq(schema.planBlocks.status, "proposed"), gte(schema.planBlocks.date, today), lte(schema.planBlocks.date, last)));
+    .where(and(eq(schema.planBlocks.userId, user.id), eq(schema.planBlocks.status, "proposed"), ne(schema.planBlocks.kind, "post"), gte(schema.planBlocks.date, today), lte(schema.planBlocks.date, last)));
   if (valid.length) {
     await db.insert(schema.planBlocks).values(
       valid.map((b) => ({

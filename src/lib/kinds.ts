@@ -6,4 +6,5 @@ export const KIND_COLORS: Record<string, string> = {
   break: "var(--teal)",
   school: "var(--indigo)",
   tutoring: "var(--pink)",
+  post: "var(--green)", // posting suggestions from Marketing
 };

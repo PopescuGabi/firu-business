@@ -35,7 +35,8 @@ export const earliestStart = (day: DayContext, opts: PlanOptions) =>
   day.schoolEnd ?? Math.max(toMin(opts.dayStart), toMin(opts.freeDayStart));
 
 /** Where a planned block happens: gym at the gym, everything else at home. */
-export const placeOf = (kind: string) => (kind === "gym" ? "gym" : kind === "break" ? "any" : "home");
+// Posting (from Marketing) can happen anywhere, like a break.
+export const placeOf = (kind: string) => (kind === "gym" ? "gym" : kind === "break" || kind === "post" ? "any" : "home");
 
 const fixedItems = (day: DayContext): PlacedItem[] => day.busy.map((b) => ({ ...b }));
 const toItem = (b: ProposedBlock): PlacedItem => ({

@@ -278,7 +278,7 @@ export const planBlocks = pgTable(
     start: text("start").notNull(), // HH:mm
     end: text("end").notNull(),
     title: text("title").notNull(),
-    kind: text("kind").notNull(), // gym | study | project | task | break
+    kind: text("kind").notNull(), // gym | study | project | task | break | post
     taskId: integer("task_id").references(() => tasks.id, {
       onDelete: "set null",
     }),
