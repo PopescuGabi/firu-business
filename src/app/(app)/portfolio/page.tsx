@@ -120,11 +120,13 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
             const cover = coverOf(item);
             const c = client(item.clientId);
             // Featured look: the newest piece is wide on bigger screens.
-            const span = i === 0 && !type && !tag ? { p: 2, t: 6, l: 8, d: 6, rl: 2, rd: 2 } : { p: 2, t: 3, l: 4, d: 3 };
+            const featured = i === 0 && !type && !tag;
+            const span = featured ? { p: 2, t: 6, l: 8, d: 6, rl: 2, rd: 2 } : { p: 2, t: 3, l: 4, d: 3 };
             return (
               <ContextMenu key={item.id} className="tile flex" style={spanStyle(span, i)} items={[{ label: "Delete from portfolio", destructive: true, confirm: `Delete “${item.title}”? Its files stay in your Drive (made private again).`, action: deletePortfolioItem.bind(null, item.id) }]}>
               <Link href={`/portfolio/${item.id}`} className="glass group flex w-full flex-col overflow-hidden rounded-[24px]">
-                <div className="relative min-h-44 flex-1 overflow-hidden bg-fill">
+                {/* The featured piece shows its whole cover (covers are made 16:10). */}
+                <div className={clsx("relative overflow-hidden bg-fill", featured ? "aspect-[16/10]" : "min-h-44 flex-1")}>
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
