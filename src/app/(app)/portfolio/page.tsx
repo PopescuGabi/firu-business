@@ -125,8 +125,8 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
             return (
               <ContextMenu key={item.id} className="tile flex" style={spanStyle(span, i)} items={[{ label: "Delete from portfolio", destructive: true, confirm: `Delete “${item.title}”? Its files stay in your Drive (made private again).`, action: deletePortfolioItem.bind(null, item.id) }]}>
               <Link href={`/portfolio/${item.id}`} className="glass group flex w-full flex-col overflow-hidden rounded-[24px]">
-                {/* The featured piece shows its whole cover (covers are made 16:10). */}
-                <div className={clsx("relative overflow-hidden bg-fill", featured ? "aspect-[16/10]" : "min-h-44 flex-1")}>
+                {/* Every tile shows its whole cover (covers are made 16:10). */}
+                <div className="relative aspect-[16/10] overflow-hidden bg-fill">
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

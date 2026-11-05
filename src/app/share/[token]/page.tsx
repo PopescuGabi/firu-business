@@ -45,7 +45,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             const span = i === 0 ? { p: 2, t: 6, l: 8, d: 6, rl: 2, rd: 2 } : { p: 2, t: 3, l: 4, d: 3 };
             return (
               <Link key={item.id} href={`/share/${token}/${item.id}`} className="tile glass group flex flex-col overflow-hidden rounded-[24px]" style={spanStyle(span, i)}>
-                <div className={i === 0 ? "relative aspect-[16/10] overflow-hidden bg-fill" : "relative min-h-48 flex-1 overflow-hidden bg-fill"}>
+                <div className="relative aspect-[16/10] overflow-hidden bg-fill">
                   {cover && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={publicThumbUrl(cover.id, i === 0 ? 1600 : 900)} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" />
