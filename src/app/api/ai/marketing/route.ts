@@ -1,7 +1,7 @@
 import { and, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
-import { assertWithinLimit, claude, claudeAvailable, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
+import { assertWithinLimit, claude, claudeAvailable, describeAiError, modelFor, recordUsage } from "@/lib/ai/claude";
 import { getDb, schema } from "@/lib/db";
 import { engagement, kindLabel, loadGoals, loadPosts, platformLabel, summarize, type PostRow } from "@/lib/marketing";
 import { dayItems } from "@/lib/now-next";
@@ -120,18 +120,17 @@ export async function POST(req: Request) {
   }
   try {
     await assertWithinLimit(user.id);
+    const ai = modelFor(mode === "ideas" ? "content" : mode === "report" ? "analysis" : "quick");
     const final = await (await claude(user.id)).beta.messages
       .stream({
-        model: MODEL,
+        ...ai,
         max_tokens: 8000,
-        betas: [FALLBACK_BETA],
-        fallbacks: "default",
         output_config: mode === "plan" ? { effort: "low", format: { type: "json_schema", schema: PLAN_SCHEMA } } : { effort: "low" },
         system: SYSTEMS[mode],
         messages: [{ role: "user", content: prompt }],
       })
       .finalMessage();
-    await recordUsage(user.id, `marketing-${mode}`, final.usage);
+    await recordUsage(user.id, `marketing-${mode}`, final.usage, ai.model);
     if (final.stop_reason === "refusal") throw new Error("Claude declined this one.");
     const text = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
     if (mode !== "plan") return Response.json({ text });

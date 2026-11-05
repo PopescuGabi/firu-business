@@ -2,7 +2,7 @@ import { and, eq, gte, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { assertWithinLimit, claude, claudeAvailable, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
+import { assertWithinLimit, claude, claudeAvailable, describeAiError, modelFor, recordUsage } from "@/lib/ai/claude";
 import { buildPlanPrompt, PLAN_SCHEMA, planOutput, planSystem, type PlanOutput } from "@/lib/ai/plan";
 import { basicPlan, validateBlocks, type DayContext, type ProposedBlock } from "@/lib/planner";
 import { nextSessionAfter } from "@/lib/tutoring";
@@ -82,18 +82,17 @@ export async function POST(req: Request) {
         travel: settings.travel,
         gymExercises: new Map(gym.map((g) => [g.weekday, g.exercises.map((e) => `${e.name} ${e.sets}x`).join(", ")])),
       });
+      const ai = modelFor("quick");
       const final = await (await claude(user.id))
         .beta.messages.stream({
-          model: MODEL,
+          ...ai,
           max_tokens: 32000,
-          betas: [FALLBACK_BETA],
-          fallbacks: "default",
           output_config: { effort: "medium", format: { type: "json_schema", schema: PLAN_SCHEMA } },
           system: planSystem(user.modules),
           messages: [{ role: "user", content: prompt }],
         })
         .finalMessage();
-      await recordUsage(user.id, "plan", final.usage);
+      await recordUsage(user.id, "plan", final.usage, ai.model);
       if (final.stop_reason === "refusal") throw new Error("Claude declined to plan this week.");
       const text = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
       output = planOutput.parse(JSON.parse(text));

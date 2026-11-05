@@ -10,7 +10,7 @@ import { VercelEnvForm } from "@/components/vercel-env-form";
 import { Submit } from "@/components/submit";
 import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
 import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
-import { claudeAvailable, MODEL } from "@/lib/ai/claude";
+import { claudeAvailable, MODELS, PRICES } from "@/lib/ai/claude";
 import { requireUser } from "@/lib/auth";
 import { photoVersion } from "@/lib/background";
 import { mapsAvailable, TRAVEL_MODES } from "@/lib/google/maps";
@@ -27,9 +27,6 @@ import { getSettings } from "@/lib/settings";
 
 export const metadata = { title: "Settings" };
 
-// Opus 5.5 list prices, USD per million tokens.
-const PRICE_IN = 4;
-const PRICE_OUT = 20;
 
 export default async function SettingsPage() {
   const user = await requireUser();
@@ -58,16 +55,25 @@ export default async function SettingsPage() {
   const tutoringPlaces = (await db.select({ place: schema.tutoring.place }).from(schema.tutoring).where(eq(schema.tutoring.userId, user.id))).map((t) => t.place);
   const places = [...new Set(["school", "home", "gym", "online", ...tutoringPlaces, ...Object.keys(settings.travel).flatMap((k) => k.split(">"))])];
 
+  // Each model priced at its own list rate (Opus for content, Sonnet for analysis, Haiku for quick jobs).
   const usage = async (since: Date) => {
-    const [r] = await db
+    const rows = await db
       .select({
+        model: schema.aiUsage.model,
         n: sql<number>`count(*)::int`,
         input: sql<number>`coalesce(sum(${schema.aiUsage.inputTokens}), 0)::int`,
         output: sql<number>`coalesce(sum(${schema.aiUsage.outputTokens}), 0)::int`,
       })
       .from(schema.aiUsage)
-      .where(and(eq(schema.aiUsage.userId, user.id), gte(schema.aiUsage.createdAt, since)));
-    return { ...r, cost: (r.input * PRICE_IN + r.output * PRICE_OUT) / 1_000_000 };
+      .where(and(eq(schema.aiUsage.userId, user.id), gte(schema.aiUsage.createdAt, since)))
+      .groupBy(schema.aiUsage.model);
+    return rows.reduce(
+      (t, r) => {
+        const [pin, pout] = PRICES[r.model] ?? PRICES[MODELS.content];
+        return { n: t.n + r.n, input: t.input + r.input, output: t.output + r.output, cost: t.cost + (r.input * pin + r.output * pout) / 1_000_000 };
+      },
+      { n: 0, input: 0, output: 0, cost: 0 },
+    );
   };
   const [hour, month] = await Promise.all([usage(new Date(Date.now() - 3600_000)), usage(new Date(Date.now() - 30 * 86400_000))]);
 
@@ -132,7 +138,7 @@ export default async function SettingsPage() {
               <p className="font-medium">Claude</p>
               <p className="text-[13px] text-label-2">
                 {claudeOn
-                  ? `${MODEL} · max ${env.aiMaxPerHour()} requests/hour${me?.key ? " · your key" : ""}`
+                  ? `Opus 5.5 for content · Sonnet 5.5 for analysis · Haiku 5.5 for quick jobs · max ${env.aiMaxPerHour()} requests/hour${me?.key ? " · your key" : ""}`
                   : "Copy-paste mode (Claude app). Add your own API key below to use Claude inside the site."}
               </p>
             </div>
@@ -218,7 +224,7 @@ export default async function SettingsPage() {
         <></>
       </Section>
 
-      <Section title="Claude usage" footer="Estimated from Opus 5.5 list prices; your Anthropic console has the exact bill.">
+      <Section title="Claude usage" footer="Estimated from each model's list price; your Anthropic console has the exact bill.">
         <div className="grid grid-cols-2 gap-3">
           {[
             ["Last hour", hour],

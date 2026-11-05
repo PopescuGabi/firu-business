@@ -3,7 +3,7 @@ import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { apiUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
-import { assertWithinLimit, claude, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
+import { assertWithinLimit, claude, describeAiError, modelFor, recordUsage } from "@/lib/ai/claude";
 import { carouselProposal, carouselTool, EDITOR_SYSTEM, reelProposal, reelTool, renderPrompts } from "@/lib/ai/editor";
 import { loadPrompts, loadTargetContext } from "@/lib/ai/target";
 import { BRAIN_PROMPT } from "@/lib/reels-brain/prompt";
@@ -67,11 +67,10 @@ export async function POST(req: Request) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
       let text = "";
       try {
+        const ai = modelFor("content");
         const s = client.beta.messages.stream({
-          model: MODEL,
+          ...ai,
           max_tokens: 64000,
-          betas: [FALLBACK_BETA],
-          fallbacks: "default",
           output_config: { effort: "high" },
           system: [{ type: "text", text: EDITOR_SYSTEM + (targetType === "reel" ? BRAIN_PROMPT : "") + renderPrompts(selected), cache_control: { type: "ephemeral" } }],
           tools: [targetType === "reel" ? reelTool : carouselTool],
@@ -83,7 +82,7 @@ export async function POST(req: Request) {
           send({ type: "text", text: delta });
         });
         const final = await s.finalMessage();
-        await recordUsage(user.id, `editor:${targetType}`, final.usage);
+        await recordUsage(user.id, `editor:${targetType}`, final.usage, ai.model);
 
         if (final.stop_reason === "refusal") {
           send({ type: "error", error: "Claude declined this request. Try rephrasing it." });

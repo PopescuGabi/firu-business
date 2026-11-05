@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
-import { assertWithinLimit, claude, claudeAvailable, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
+import { assertWithinLimit, claude, claudeAvailable, describeAiError, modelFor, recordUsage } from "@/lib/ai/claude";
 import { loadTargetContext } from "@/lib/ai/target";
 import { BRAIN_PROMPT } from "@/lib/reels-brain/prompt";
 
@@ -13,6 +13,7 @@ Judge only what is in the reel text, plan and client profile; say when something
 Be specific and practical: every finding names the problem and the exact fix (rewritten line, timestamp, setting). Never invent numbers or results.
 Write in the reel's language for rewritten lines, and in English for the rest.${BRAIN_PROMPT}`;
 
+// Structured outputs don't accept maxItems & co.: the limits are in the prompt and trimmed after parsing.
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -20,7 +21,6 @@ const SCHEMA = {
     verdict: { type: "string", description: "One or two sentences: the biggest strength and the most important fix." },
     findings: {
       type: "array",
-      maxItems: 8,
       items: {
         type: "object",
         additionalProperties: false,
@@ -35,7 +35,6 @@ const SCHEMA = {
     },
     hooks: {
       type: "array",
-      maxItems: 3,
       items: {
         type: "object",
         additionalProperties: false,
@@ -54,7 +53,7 @@ const SCHEMA = {
       properties: {
         style: { type: "string", enum: ["phrase", "highlight", "karaoke", "none"] },
         why: { type: "string" },
-        emphasis: { type: "array", items: { type: "string" }, maxItems: 8 },
+        emphasis: { type: "array", items: { type: "string" } },
       },
       required: ["style", "why", "emphasis"],
     },
@@ -84,21 +83,23 @@ export async function POST(req: Request) {
   }
   try {
     await assertWithinLimit(user.id);
+    const ai = modelFor("analysis");
     const final = await (await claude(user.id)).beta.messages
       .stream({
-        model: MODEL,
+        ...ai,
         max_tokens: 6000,
-        betas: [FALLBACK_BETA],
-        fallbacks: "default",
         output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } },
         system: SYSTEM,
         messages: [{ role: "user", content: ask }],
       })
       .finalMessage();
-    await recordUsage(user.id, "brain-review", final.usage);
+    await recordUsage(user.id, "brain-review", final.usage, ai.model);
     if (final.stop_reason === "refusal") throw new Error("Claude declined this one.");
     const text = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
-    return Response.json({ review: reviewOut.parse(JSON.parse(text)) });
+    const review = reviewOut.parse(JSON.parse(text));
+    return Response.json({
+      review: { ...review, findings: review.findings.slice(0, 8), hooks: review.hooks.slice(0, 3), captionPlan: { ...review.captionPlan, emphasis: review.captionPlan.emphasis.slice(0, 8) } },
+    });
   } catch (err) {
     const { message, status } = describeAiError(err);
     return Response.json({ error: message }, { status });

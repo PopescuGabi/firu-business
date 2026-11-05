@@ -1,5 +1,5 @@
 import { apiUser } from "@/lib/auth";
-import { assertWithinLimit, claude, claudeAvailable, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
+import { assertWithinLimit, claude, claudeAvailable, describeAiError, modelFor, recordUsage } from "@/lib/ai/claude";
 import { mapsAvailable, MapsError, routeMatrix, TRAVEL_MODES } from "@/lib/google/maps";
 import { dayItems } from "@/lib/now-next";
 import { listPlaces } from "@/lib/places";
@@ -60,18 +60,17 @@ ${week}`;
   if (!(await claudeAvailable(user.id))) return Response.json({ prompt: `${SYSTEM}\n\n${prompt}` });
   try {
     await assertWithinLimit(user.id);
+    const ai = modelFor("quick");
     const final = await (await claude(user.id)).beta.messages
       .stream({
-        model: MODEL,
+        ...ai,
         max_tokens: 4000,
-        betas: [FALLBACK_BETA],
-        fallbacks: "default",
         output_config: { effort: "low" },
         system: SYSTEM,
         messages: [{ role: "user", content: prompt }],
       })
       .finalMessage();
-    await recordUsage(user.id, "route", final.usage);
+    await recordUsage(user.id, "route", final.usage, ai.model);
     if (final.stop_reason === "refusal") throw new Error("Claude declined to give route advice.");
     return Response.json({ advice: final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim() });
   } catch (err) {
