@@ -403,7 +403,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   );
 
   const promptUpload = (p: Placed) => (
-    <Widget {...p} title="Prompts" icon={BookText} href="/prompts">
+    <Widget {...p} title="Your style · prompts" icon={BookText} href="/clients?view=brain#style">
       <p className="mb-3 text-[13px] text-label-2">
         {promptCount.length} saved. Upload .txt or .md files; each file becomes a prompt named after the file.
       </p>
@@ -428,7 +428,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </Submit>
         </div>
       </form>
-      <Link href="/prompts" className="mt-2 inline-block text-[13px] font-semibold text-blue">
+      <Link href="/clients?view=brain#style" className="mt-2 inline-block text-[13px] font-semibold text-blue">
         Or paste a prompt →
       </Link>
     </Widget>
@@ -933,7 +933,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         ...(on("clients") ? [waitingReview] : []),
         ...(on("email") ? [inboxTile] : []),
         ...(on("clients") ? [quickAdd] : []),
-        ...(on("prompts") ? [promptUpload] : []),
+        ...(on("clients") ? [promptUpload] : []),
         ...(biz && biz.posts.length ? [viewsTile] : []),
         ...(biz && (biz.money.items.length || biz.money.waiting.length) ? [moneyTile] : []),
         ...(biz && biz.goals.length ? [goalsTile] : []),

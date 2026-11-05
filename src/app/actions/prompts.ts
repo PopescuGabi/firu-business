@@ -17,7 +17,7 @@ export async function createPrompt(fd: FormData) {
   const user = await requireUser();
   const db = await getDb();
   await db.insert(schema.prompts).values({ userId: user.id, ...fromForm(fd) });
-  revalidatePath("/prompts");
+  revalidatePath("/clients");
 }
 
 export async function updatePrompt(id: number, fd: FormData) {
@@ -27,14 +27,14 @@ export async function updatePrompt(id: number, fd: FormData) {
     .update(schema.prompts)
     .set({ ...fromForm(fd), updatedAt: new Date() })
     .where(and(eq(schema.prompts.id, id), eq(schema.prompts.userId, user.id)));
-  revalidatePath("/prompts");
+  revalidatePath("/clients");
 }
 
 export async function deletePrompt(id: number) {
   const user = await requireUser();
   const db = await getDb();
   await db.delete(schema.prompts).where(and(eq(schema.prompts.id, id), eq(schema.prompts.userId, user.id)));
-  revalidatePath("/prompts");
+  revalidatePath("/clients");
 }
 
 /** Uploads .txt / .md files as prompts: the file name becomes the prompt name. */

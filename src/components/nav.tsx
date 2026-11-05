@@ -4,7 +4,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
-import { BookText, Briefcase, CalendarDays, Dumbbell, GraduationCap, House, Images, LayoutGrid, Mail, Settings, Sun } from "lucide-react";
+import { Briefcase, CalendarDays, Dumbbell, GraduationCap, House, Images, LayoutGrid, Mail, Settings, Sun } from "lucide-react";
 
 // `module`: shown only when that section is turned on (lib/modules.ts); the rest are always there.
 const ALL_ITEMS = [
@@ -16,7 +16,6 @@ const ALL_ITEMS = [
   { href: "/gym", label: "Gym", icon: Dumbbell, module: "gym" },
   { href: "/clients", label: "Clients", icon: Briefcase, module: "clients" },
   { href: "/portfolio", label: "Portfolio", icon: Images, module: "portfolio" },
-  { href: "/prompts", label: "Prompts", icon: BookText, module: "prompts" },
 ];
 const itemsFor = (modules: string[]) => ALL_ITEMS.filter((i) => !i.module || modules.includes(i.module));
 

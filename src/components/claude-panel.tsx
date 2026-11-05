@@ -176,7 +176,7 @@ export function ClaudePanel<T>({
           </div>
         ) : (
           <p className="text-[12px] text-label-2">
-            No saved prompts yet. <Link href="/prompts" className="font-semibold text-blue">Add your prompts</Link> so Opus edits in your style.
+            No saved prompts yet. <Link href="/clients?view=brain#style" className="font-semibold text-blue">Add your prompts</Link> so Opus edits in your style.
           </p>
         )}
       </div>
