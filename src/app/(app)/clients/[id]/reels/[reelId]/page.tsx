@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { ReelEditor } from "@/components/reel-editor";
+import { ReelBrain } from "@/components/reel-brain";
 import { ItemFeedback } from "@/components/item-feedback";
 import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
@@ -22,7 +23,7 @@ export default async function ReelPage({ params }: { params: Promise<{ id: strin
   const data = await getEditorData(user.id, "reel", reel.id);
   return (
     <>
-      <ReelEditor key={reel.id} reel={reel} clientName={client.name} {...data} />
+      <ReelEditor key={reel.id} reel={reel} clientName={client.name} {...data} brain={<ReelBrain reelId={reel.id} initialPlan={reel.plan} />} />
       <ItemFeedback targetType="reel" targetId={reel.id} />
     </>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { asc, count, eq } from "drizzle-orm";
-import { BarChart3, Briefcase, Plus, Wallet } from "lucide-react";
+import { BarChart3, Brain, Briefcase, Plus, Wallet } from "lucide-react";
+import { BrainView } from "@/components/brain-view";
 import { SegmentedLinks, Slide } from "@/components/motion";
 import { MarketingView } from "@/components/marketing-view";
 import { FinanceView } from "@/components/finance-view";
@@ -20,6 +21,7 @@ const VIEWS = [
   { key: "clients", label: "Clients", icon: Briefcase },
   { key: "marketing", label: "Marketing", icon: BarChart3 },
   { key: "finance", label: "Finance", icon: Wallet },
+  { key: "brain", label: "Reels Brain", icon: Brain },
 ] as const;
 type View = (typeof VIEWS)[number]["key"];
 
@@ -61,6 +63,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         <MarketingView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} incomeThisMonth={(await loadFinance(user.id, today, settings.moneyCurrency)).incomeThisMonth} />
       )}
       {view === "finance" && <FinanceView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} />}
+      {view === "brain" && <BrainView />}
       {view === "clients" && (<>
       {active.length === 0 ? (
         <Empty icon={<Briefcase size={36} />} title="No clients yet">Add a client to track their app, reels and carousels.</Empty>

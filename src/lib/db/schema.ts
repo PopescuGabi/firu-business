@@ -42,6 +42,8 @@ const createdAt = () =>
 const updatedAt = () =>
   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 
+import type { ClientProfile, ReelPlan } from "../reels-brain/types";
+
 export type Role = "owner" | "member";
 
 // One row per person. The owner (ALLOWED_EMAIL) invites everyone else.
@@ -139,6 +141,8 @@ export const clients = pgTable(
     appName: text("app_name").notNull().default(""),
     driveFolderId: text("drive_folder_id"),
     archived: boolean("archived").notNull().default(false),
+    // Reels Brain: who the content is for (audience, awareness, voice, brand, constraints, observed results)
+    profile: jsonb("profile").$type<Partial<ClientProfile>>().notNull().default({}),
     createdAt: createdAt(),
   },
   (t) => [index("clients_user_idx").on(t.userId)],
@@ -180,6 +184,8 @@ export const reels = pgTable(
     notes: text("notes").notNull().default(""),
     postDate: text("post_date"),
     files: jsonb("files").$type<DriveFile[]>().notNull().default([]),
+    // Reels Brain: diagnosis, caption plan, one experiment and the review checklist for this reel
+    plan: jsonb("plan").$type<Partial<ReelPlan>>().notNull().default({}),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

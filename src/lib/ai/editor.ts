@@ -2,6 +2,7 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { CarouselTheme, Slide } from "../db/schema";
+import { BRAIN_PROMPT } from "../reels-brain/prompt";
 
 export const reelProposal = z.object({
   summary: z.string(),
@@ -44,7 +45,7 @@ export const reelTool: Anthropic.Beta.BetaTool = {
       hook: str("New hook (first 1-3 seconds)."),
       script: str("Complete new script."),
       caption: str("Complete new Instagram caption, including hashtags if wanted."),
-      notes: str("New editing / production notes (cuts, b-roll, captions, music, transitions)."),
+      notes: str("New editing / production notes: timestamped cuts, B-roll, motion (each effect with its purpose), caption plan (style + why, emphasis words, position), music and loudness."),
     },
     required: ["summary"],
     additionalProperties: false,
@@ -155,7 +156,7 @@ export function buildClaudeAppPrompt(opts: {
 
 - Follow the user's saved prompts below. They describe their style, structure and rules, and take priority over your own preferences.
 - Write in the language the content is already in (use correct diacritics for that language). If there's no content yet, use the language of the request.
-- Only change what was asked. Keep everything else exactly as it is.${renderPrompts(opts.prompts)}
+- Only change what was asked. Keep everything else exactly as it is.${opts.targetType === "reel" ? BRAIN_PROMPT : ""}${renderPrompts(opts.prompts)}
 
 ${opts.context}
 

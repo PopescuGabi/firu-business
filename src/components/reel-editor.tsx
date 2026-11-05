@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronLeft, Sparkles, Trash2 } from "lucide-react";
 import { deleteReel, saveReel } from "@/app/actions/clients";
 import type { DriveFile } from "@/lib/db/schema";
@@ -43,7 +43,9 @@ export function ReelEditor({
   prompts,
   claudeConfigured,
   googleConnected,
+  brain,
 }: {
+  brain?: ReactNode;
   reel: Reel;
   clientName: string;
   messages: ChatMessage[];
@@ -116,6 +118,8 @@ export function ReelEditor({
             </Field>
           </Card>
 
+          {brain}
+
           <Card className="p-4">
             <p className="mb-2 text-[13px] font-medium text-label-2">Footage & exports (Google Drive)</p>
             <DriveFiles clientId={reel.clientId} section="Reels" target="reel" targetId={reel.id} files={reel.files} googleConnected={googleConnected} />
@@ -140,7 +144,7 @@ export function ReelEditor({
             initialMessages={messages}
             prompts={prompts}
             claudeConfigured={claudeConfigured}
-            suggestions={["Write 3 hook options", "Tighten the script for 30 seconds", "Write the caption with a CTA"]}
+            suggestions={["Write 3 aligned hook options", "Tighten the script for 30 seconds", "Write editing notes with a caption plan", "Write the post caption with one CTA"]}
             onApplied={(r) => {
               const next = pick(r);
               reset(next);

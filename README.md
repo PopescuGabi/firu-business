@@ -69,6 +69,19 @@ Your project at <https://console.cloud.google.com>:
 ### 5. Sign in online
 Open your Vercel address, **Continue with Google**, allow Calendar and Drive. Google sign-in isn't copied from this Mac, so connecting once online is expected. Then check Settings → Connections shows your account.
 
+## Reels Brain
+
+Researched short-form video rules (hooks, story, speaking reels, motion, captions, audio, platforms, measuring), built into Clients:
+
+- **Clients → Reels Brain:** the rules with evidence and confidence, the review checklist, hook formulas, caption styles, niche defaults and sources.
+- **Client → Profile:** audience, awareness, offer, voice, brand, constraints and observed results. Opus reads it for every reel and carousel of that client.
+- **Reel → Reels Brain panel:**
+  - **Plan:** objective, promise and payoff, proof, CTA, a caption plan for this video, and one experiment.
+  - **Review:** the checklist plus **Brain review**. Opus returns findings, three aligned hook options and a caption plan, or, without an API key, copies a ready prompt for the Claude app.
+- The Opus editor and Marketing AI (ideas, weekly report) follow the same rules.
+
+The rules live in `src/lib/reels-brain/content.ts`. The full research (sources, experiments, open questions) is the `social-video-brain` skill on this Mac (`~/.claude/skills/social-video-brain/`).
+
 ## Claude (Opus 5.5), optional
 Without an API key, the editor panel runs in **Claude app** mode: it copies a ready prompt (your saved prompts + the reel/carousel + your request), you paste it into the Claude app (covered by your Claude subscription), then paste the reply back and apply it. Adding a key switches on **In this site** mode, where Opus edits directly.
 

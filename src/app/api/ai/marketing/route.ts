@@ -7,6 +7,7 @@ import { engagement, kindLabel, loadGoals, loadPosts, platformLabel, summarize, 
 import { dayItems } from "@/lib/now-next";
 import { getSettings } from "@/lib/settings";
 import { addDays, toHHMM, toMin } from "@/lib/time";
+import { HOOK_FORMULAS } from "@/lib/reels-brain/content";
 import { getWeek, todayIn } from "@/lib/week";
 
 export const maxDuration = 120;
@@ -19,10 +20,12 @@ const body = z.object({
 const SYSTEMS = {
   report: `You are a social media strategist reviewing one creator's posts (their own and their clients').
 Write a short weekly report in plain English: what worked and why (hooks, format, platform, timing), what didn't, and exactly three things to do next week.
-Use only the numbers given. Headings: "What worked", "What didn't", "Next week". Bullets, no fluff.`,
+Use only the numbers given. Headings: "What worked", "What didn't", "Next week". Bullets, no fluff.
+Compare only like with like (platform, format); one post is an anecdote, so say how confident each point is. Diagnose before style: topic → distribution → opening → pacing → payoff/offer.`,
   ideas: `You are a social media strategist. From the creator's best posts, suggest 6 new post ideas.
 For each: a one-line idea, the format (reel / carousel / …), a scroll-stopping hook (first line or first 1–3 seconds) and a caption opener.
-If writing instructions are given, follow their style and language.`,
+If writing instructions are given, follow their style and language.
+Hooks must be true and self-contained, and align what's seen, written and said. Pay off any curiosity. No engagement bait, no invented numbers. Formula ideas: ${HOOK_FORMULAS.map((h) => h.name).join("; ")}.`,
   plan: `You plan when a creator should post during the coming week. Use their best days and hours (from the numbers), spread posts sensibly per client, and only use free times given.
 Return 3 to 7 posts.`,
   summary: `Write a short, friendly performance update a creator can send to their client: what was posted, the results (views, engagement, best post), and what comes next.

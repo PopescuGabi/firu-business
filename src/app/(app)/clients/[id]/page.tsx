@@ -2,7 +2,8 @@ import Link from "next/link";
 import { SegmentedLinks, Slide } from "@/components/motion";
 import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
-import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2, Wallet } from "lucide-react";
+import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
+import { ClientProfileForm } from "@/components/client-profile";
 import { MarketingView } from "@/components/marketing-view";
 import { FinanceView } from "@/components/finance-view";
 import { getSettings } from "@/lib/settings";
@@ -34,6 +35,7 @@ const TABS = [
   { key: "carousels", label: "Carousels", icon: GalleryHorizontalEnd },
   { key: "marketing", label: "Marketing", icon: BarChart3 },
   { key: "finance", label: "Finance", icon: Wallet },
+  { key: "profile", label: "Profile", icon: UserRound },
 ] as const;
 
 const REEL_STATUSES = ["idea", "scripting", "filming", "editing", "review", "posted"];
@@ -100,6 +102,7 @@ export default async function ClientPage({
         {tab === "carousels" && <CarouselsTab userId={user.id} clientId={id} />}
         {tab === "marketing" && <MarketingView uid={user.id} clients={[client]} clientId={id} today={todayIn(settings.timezone)} currency={settings.moneyCurrency} />}
         {tab === "finance" && <FinanceView uid={user.id} clients={[client]} clientId={id} today={todayIn(settings.timezone)} currency={settings.moneyCurrency} />}
+        {tab === "profile" && <ClientProfileForm clientId={id} initial={client.profile} />}
       </Slide>
     </>
   );

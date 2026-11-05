@@ -6,6 +6,7 @@ import { getDb, schema } from "@/lib/db";
 import { assertWithinLimit, claude, describeAiError, FALLBACK_BETA, MODEL, recordUsage } from "@/lib/ai/claude";
 import { carouselProposal, carouselTool, EDITOR_SYSTEM, reelProposal, reelTool, renderPrompts } from "@/lib/ai/editor";
 import { loadPrompts, loadTargetContext } from "@/lib/ai/target";
+import { BRAIN_PROMPT } from "@/lib/reels-brain/prompt";
 
 export const maxDuration = 300;
 
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
           betas: [FALLBACK_BETA],
           fallbacks: "default",
           output_config: { effort: "high" },
-          system: [{ type: "text", text: EDITOR_SYSTEM + renderPrompts(selected), cache_control: { type: "ephemeral" } }],
+          system: [{ type: "text", text: EDITOR_SYSTEM + (targetType === "reel" ? BRAIN_PROMPT : "") + renderPrompts(selected), cache_control: { type: "ephemeral" } }],
           tools: [targetType === "reel" ? reelTool : carouselTool],
           tool_choice: { type: "auto" },
           messages,

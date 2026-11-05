@@ -9,6 +9,7 @@ import type { DriveFile, Slide } from "@/lib/db/schema";
 import { DEFAULT_THEME } from "@/lib/carousel-theme";
 import { carouselProposal, reelProposal } from "@/lib/ai/editor";
 import { getFileMeta } from "@/lib/google/drive";
+import { clientProfile, reelPlan } from "@/lib/reels-brain/types";
 
 const name = z.string().trim().min(1).max(200);
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/).catch("#007AFF");
@@ -347,4 +348,34 @@ export async function quickAddAppUpdate(fd: FormData) {
   const clientId = clientIdFrom(fd);
   await createAppUpdate(clientId, fd);
   redirect(`/clients/${clientId}?tab=app`);
+}
+
+// ── Reels Brain ────────────────────────────────────────────
+/** Saves a client's Reels Brain profile (who the content is for). */
+export async function saveClientProfile(id: number, profile: unknown) {
+  const user = await requireUser();
+  const db = await getDb();
+  const clean = clientProfile.parse(profile);
+  const [c] = await db
+    .update(schema.clients)
+    .set({ profile: clean })
+    .where(and(eq(schema.clients.id, id), eq(schema.clients.userId, user.id)))
+    .returning({ id: schema.clients.id });
+  if (!c) throw new Error("Not found");
+  revalidatePath(`/clients/${id}`);
+  return clean;
+}
+
+/** Saves a reel's plan (diagnosis, caption plan, experiment, review checks). */
+export async function saveReelPlan(id: number, plan: unknown) {
+  const user = await requireUser();
+  const db = await getDb();
+  const clean = reelPlan.parse(plan);
+  const [r] = await db
+    .update(schema.reels)
+    .set({ plan: clean, updatedAt: new Date() })
+    .where(and(eq(schema.reels.id, id), eq(schema.reels.userId, user.id)))
+    .returning({ id: schema.reels.id });
+  if (!r) throw new Error("Not found");
+  return clean;
 }
