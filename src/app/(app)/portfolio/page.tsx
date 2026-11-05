@@ -145,21 +145,24 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
                       <Images size={36} />
                     </div>
                   )}
-                  {item.link && (
-                    <span className="chrome absolute top-3 left-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold">
-                      <ExternalLink size={12} /> Live
-                    </span>
-                  )}
-                  {item.public && (
-                    <span className="chrome absolute top-3 right-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold">
-                      <Globe size={12} /> Public
-                    </span>
-                  )}
                 </div>
                 <div className="p-4">
                   <div className="mb-1 flex items-center gap-2">
                     <Pill color="var(--accent)">{typeLabel(item.type)}</Pill>
                     {item.date && <span className="text-[12px] text-label-2">{fmtDate(item.date, { month: "short", year: "numeric" })}</span>}
+                    {/* Badges sit here, not on the picture, so they never cover the cover's title. */}
+                    <span className="ml-auto flex items-center gap-1.5">
+                      {item.link && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11px] font-semibold text-label-2">
+                          <ExternalLink size={11} /> Live
+                        </span>
+                      )}
+                      {item.public && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11px] font-semibold text-label-2">
+                          <Globe size={11} /> Public
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <p className="truncate text-[16px] font-semibold">{item.title}</p>
                   <p className="truncate text-[13px] text-label-2">
