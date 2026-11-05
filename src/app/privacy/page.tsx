@@ -54,8 +54,11 @@ export default function PrivacyPage() {
       <p>
         If you add your own Anthropic API key, then when you ask for an AI week plan the times and titles of your calendar
         events and your schedule are sent to Anthropic&apos;s Claude API to generate suggestions, and when you ask the AI
-        editor for help the text of that reel or carousel and your saved prompts are sent. This only happens when you request
-        it, and email content is never sent to AI. Google user data is not used to
+        editor for help the text of that reel or carousel and your saved prompts are sent. When you press Summarise or Draft
+        reply on an email, that one email (sender name, subject and text) is sent so Claude can summarise it or draft a reply
+        for you to edit; nothing is sent by AI and no other email is read. The gym coach receives your split, your logged
+        sets and your busy times; finance insights receive your income, spending and budgets totals. This only happens when
+        you request it. Google user data is not used to
         develop, improve or train generalised AI or machine-learning models, and Anthropic doesn&apos;t train models on API
         requests by default.
       </p>

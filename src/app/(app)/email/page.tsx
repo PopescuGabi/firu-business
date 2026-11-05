@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { ChevronLeft, ExternalLink, Mail } from "lucide-react";
 import { MailToTask, ReplyForm } from "@/components/mail-actions";
 import { buttonClass, Card, Empty, PageHeader } from "@/components/ui";
+import { claudeAvailable } from "@/lib/ai/claude";
 import { requireModule } from "@/lib/sections";
 import { getMail, gmailConnected, gmailLink, listInbox } from "@/lib/google/gmail";
 import { getSettings } from "@/lib/settings";
@@ -92,7 +93,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
               </a>
             </div>
             <MailToTask id={open.id} subject={open.subject} />
-            <ReplyForm id={open.id} to={open.fromEmail} />
+            <ReplyForm key={open.id} id={open.id} to={open.fromEmail} ai={await claudeAvailable(user.id)} />
           </Card>
         ) : (
           <Card className="hidden place-items-center p-10 text-[14px] text-label-2 lg:grid">Pick an email to read it.</Card>
