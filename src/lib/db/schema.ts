@@ -362,6 +362,7 @@ export const portfolioItems = pgTable("portfolio_items", {
   description: text("description").notNull().default(""),
   files: jsonb("files").$type<DriveFile[]>().notNull().default([]),
   coverFileId: text("cover_file_id"),
+  link: text("link"), // live website or app, shown as an Open button
   public: boolean("public").notNull().default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),

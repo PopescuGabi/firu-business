@@ -14,6 +14,21 @@ export const PORTFOLIO_TYPES = [
 export type PortfolioType = (typeof PORTFOLIO_TYPES)[number][0];
 export const typeLabel = (t: string) => PORTFOLIO_TYPES.find(([k]) => k === t)?.[1] ?? "Other";
 
+/** An optional https address; anything else (or empty) means none. */
+export function cleanUrl(v: unknown): string | null {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === "https:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The address without https:// and a trailing slash, for buttons. */
+export const shortUrl = (u: string) => u.replace(/^https:\/\//, "").replace(/\/$/, "");
+
 /** The file shown on the card: the chosen cover, else the first image or video. */
 export function coverOf(item: { files: DriveFile[]; coverFileId: string | null }) {
   return (

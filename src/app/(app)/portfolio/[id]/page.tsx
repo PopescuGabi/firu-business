@@ -5,10 +5,11 @@ import { ChevronLeft, ExternalLink, FileText, Film, Image as ImageIcon, Star, X 
 import { detachPortfolioFile, setPortfolioCover, updatePortfolioItem } from "@/app/actions/portfolio";
 import { DeleteItemButton, PortfolioFields, PortfolioUploader, PublicToggle } from "@/components/portfolio";
 import { Submit } from "@/components/submit";
-import { Card, PageHeader, Pill, Section } from "@/components/ui";
+import { buttonClass, Card, PageHeader, Pill, Section } from "@/components/ui";
 import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 import { coverOf, typeLabel } from "@/lib/portfolio";
+import { shortUrl } from "@/lib/portfolio-types";
 
 export const metadata = { title: "Portfolio item" };
 
@@ -34,7 +35,16 @@ export default async function PortfolioItemPage({ params }: { params: Promise<{ 
       <PageHeader
         title={item.title}
         subtitle={<Pill color="var(--accent)">{typeLabel(item.type)}</Pill>}
-        actions={<PublicToggle id={item.id} isPublic={item.public} />}
+        actions={
+          <>
+            {item.link && (
+              <a href={item.link} target="_blank" rel="noreferrer" className={buttonClass("gray")} title={item.link}>
+                <ExternalLink size={16} /> Open {shortUrl(item.link)}
+              </a>
+            )}
+            <PublicToggle id={item.id} isPublic={item.public} />
+          </>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">

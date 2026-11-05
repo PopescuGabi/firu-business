@@ -4,6 +4,7 @@ import { LogoMark } from "@/components/logo";
 import { Bento, Pill, spanStyle } from "@/components/ui";
 import { publicThumbUrl } from "@/lib/google/drive";
 import { coverOf, publicPortfolio, typeLabel } from "@/lib/portfolio";
+import { shortUrl } from "@/lib/portfolio-types";
 import { getSettings } from "@/lib/settings";
 import { fmtDate } from "@/lib/time";
 import { recordShareView } from "@/lib/share-views";
@@ -48,6 +49,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                   {cover && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={publicThumbUrl(cover.id, i === 0 ? 1600 : 900)} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" />
+                  )}
+                  {!cover && item.link && (
+                    <div className="absolute inset-0 flex flex-col justify-end gap-1 bg-[radial-gradient(120%_90%_at_50%_30%,var(--accent-soft),transparent)] p-5">
+                      <span className="text-[26px] leading-tight font-bold tracking-tight">{item.title}</span>
+                      <span className="text-[13px] text-label-2">{shortUrl(item.link)}</span>
+                    </div>
                   )}
                 </div>
                 <div className="p-4">

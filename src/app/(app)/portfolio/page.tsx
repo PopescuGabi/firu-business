@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { and, asc, desc, eq } from "drizzle-orm";
 import clsx from "clsx";
-import { Globe, Images, Plus, Share2 } from "lucide-react";
+import { ExternalLink, Globe, Images, Plus, Share2 } from "lucide-react";
 import { NewPortfolioItem, ShareControls } from "@/components/portfolio";
 import { ContextMenu } from "@/components/context-menu";
 import { deletePortfolioItem } from "@/app/actions/portfolio";
@@ -12,6 +12,7 @@ import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getGoogleAccount } from "@/lib/google/oauth";
 import { coverOf, getShare, PORTFOLIO_TYPES, typeLabel } from "@/lib/portfolio";
+import { shortUrl } from "@/lib/portfolio-types";
 import { fmtDate } from "@/lib/time";
 import { shareStats } from "@/lib/share-views";
 import { LineChart } from "@/components/charts";
@@ -107,7 +108,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
         </div>
       )}
 
-      {!account?.accessToken ? (
+      {!account?.accessToken && items.length === 0 ? (
         <Empty icon={<Images size={36} />} title="Connect Google first">Portfolio files are stored in your Google Drive. Connect Google in Settings.</Empty>
       ) : shown.length === 0 ? (
         <Empty icon={<Images size={36} />} title={items.length ? "Nothing matches" : "Your portfolio is empty"}>
@@ -132,10 +133,20 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
                       loading="lazy"
                       className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]"
                     />
+                  ) : item.link ? (
+                    <div className="absolute inset-0 flex flex-col justify-end gap-1 bg-[radial-gradient(120%_90%_at_50%_30%,var(--accent-soft),transparent)] p-5">
+                      <span className="text-[26px] leading-tight font-bold tracking-tight">{item.title}</span>
+                      <span className="text-[13px] text-label-2">{shortUrl(item.link)}</span>
+                    </div>
                   ) : (
                     <div className="absolute inset-0 grid place-items-center text-label-3">
                       <Images size={36} />
                     </div>
+                  )}
+                  {item.link && (
+                    <span className="chrome absolute top-3 left-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold">
+                      <ExternalLink size={12} /> Live
+                    </span>
                   )}
                   {item.public && (
                     <span className="chrome absolute top-3 right-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold">

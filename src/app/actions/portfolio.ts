@@ -8,6 +8,7 @@ import { getDb, schema } from "@/lib/db";
 import type { DriveFile } from "@/lib/db/schema";
 import { getFileMeta, setLinkSharing } from "@/lib/google/drive";
 import { getShare, newShareToken, PORTFOLIO_TYPES, saveShare } from "@/lib/portfolio";
+import { cleanUrl } from "@/lib/portfolio-types";
 
 const fields = z.object({
   title: z.string().trim().min(1, "Give it a title").max(200),
@@ -16,6 +17,7 @@ const fields = z.object({
   type: z.enum(PORTFOLIO_TYPES.map(([k]) => k) as [string, ...string[]]).catch("other"),
   tags: z.string().max(500).transform((s) => [...new Set(s.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))].slice(0, 20)),
   description: z.string().max(5000),
+  link: z.string().max(500).transform(cleanUrl),
 });
 
 function parse(fd: FormData) {
@@ -26,6 +28,7 @@ function parse(fd: FormData) {
     type: fd.get("type"),
     tags: fd.get("tags") ?? "",
     description: fd.get("description") ?? "",
+    link: fd.get("link") ?? "",
   });
 }
 

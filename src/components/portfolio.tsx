@@ -24,6 +24,7 @@ export type PortfolioValues = {
   type: string;
   tags: string[];
   description: string;
+  link?: string | null;
 };
 
 /** Title, client, date, type, tags and description (shared by the new and edit forms). */
@@ -62,6 +63,9 @@ export function PortfolioFields({ clients, item }: { clients: Client[]; item?: P
       </Field>
       <Field label="Description">
         <textarea name="description" rows={4} maxLength={5000} defaultValue={item?.description} className="field" placeholder="What it is, your role, the result…" />
+      </Field>
+      <Field label="Link" hint="A live website or app (https://…). Shown as an Open button.">
+        <input type="url" name="link" maxLength={500} defaultValue={item?.link ?? ""} className="field" placeholder="https://" />
       </Field>
     </>
   );

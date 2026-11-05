@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ExternalLink } from "lucide-react";
 import { Card, Pill } from "@/components/ui";
 import { publicPreviewUrl, publicThumbUrl } from "@/lib/google/drive";
 import { publicItem, typeLabel } from "@/lib/portfolio";
+import { shortUrl } from "@/lib/portfolio-types";
 import { recordShareView } from "@/lib/share-views";
 import { fmtDate } from "@/lib/time";
 
@@ -27,6 +28,11 @@ export default async function ShareItemPage({ params }: { params: Promise<{ toke
       <h1 className="text-[36px] leading-tight font-bold tracking-tight sm:text-[46px]">{item.title}</h1>
       {item.tags.length > 0 && <p className="mt-2 text-[14px] text-label-2">{item.tags.map((t) => `#${t}`).join("  ")}</p>}
       {item.description && <p className="mt-5 max-w-3xl text-[17px] leading-relaxed whitespace-pre-line">{item.description}</p>}
+      {item.link && (
+        <a href={item.link} target="_blank" rel="noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-[15px] font-semibold text-on-ink">
+          <ExternalLink size={16} /> Open {shortUrl(item.link)}
+        </a>
+      )}
       <div className="mt-8 flex flex-col gap-6">
         {item.files.map((f) =>
           f.mimeType.startsWith("image/") ? (
