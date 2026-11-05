@@ -99,6 +99,13 @@
       "when": 1793884887181,
       "tag": "0013_portfolio_link",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793896939772,
+      "tag": "0014_gym_log",
+      "breakpoints": true
     }
   ]
 }

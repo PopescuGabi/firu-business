@@ -23,6 +23,7 @@ const PER_USER = [
   "planBlocks",
   "schoolDays",
   "schoolClasses",
+  "gymSets",
   "tutoring",
   "gymDays",
   "portfolioItems",

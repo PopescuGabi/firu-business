@@ -37,6 +37,7 @@ const TABLES = [
   ["school_days", schema.schoolDays],
   ["school_classes", schema.schoolClasses],
   ["gym_days", schema.gymDays],
+  ["gym_sets", schema.gymSets],
   ["tutoring", schema.tutoring],
   ["clients", schema.clients],
   ["app_updates", schema.appUpdates],

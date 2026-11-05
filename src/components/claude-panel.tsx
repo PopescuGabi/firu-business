@@ -24,8 +24,11 @@ export function ClaudePanel<T>({
   renderProposal,
   onApplied,
   suggestions,
+  endpoint = "/api/ai/editor",
+  modelLabel = "Opus 5.5",
+  emptyTitle = "Ask for an edit",
 }: {
-  targetType: "reel" | "carousel";
+  targetType: "reel" | "carousel" | "gym";
   targetId: number;
   initialMessages: ChatMessage[];
   prompts: { id: number; name: string; category: string }[];
@@ -33,16 +36,23 @@ export function ClaudePanel<T>({
   renderProposal: (proposal: unknown) => ReactNode;
   onApplied: (record: T) => void;
   suggestions: string[];
+  /** Chat API; the reel/carousel editor by default. */
+  endpoint?: string;
+  modelLabel?: string;
+  emptyTitle?: string;
 }) {
+  // Saved prompts and the Claude-app round trip belong to the reel/carousel editor only.
+  const editor = targetType !== "gym";
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState<number | null>(null);
-  const relevant = prompts.filter((p) => p.category === targetType || p.category === "general");
+  const relevant = editor ? prompts.filter((p) => p.category === targetType || p.category === "general") : [];
   const [selected, setSelected] = useState<number[]>(relevant.map((p) => p.id));
   // "app" = copy a prompt into the Claude app (covered by a Claude subscription); "api" = Opus runs inside the site.
-  const [mode, setMode] = useState<"app" | "api">(claudeConfigured ? "api" : "app");
+  const [mode, setMode] = useState<"app" | "api">(claudeConfigured || !editor ? "api" : "app");
+  const [note, setNote] = useState<string | null>(null);
   const [request, setRequest] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -54,18 +64,33 @@ export function ClaudePanel<T>({
     const message = text.trim();
     if (!message || streaming !== null) return;
     setError(null);
+    setNote(null);
     setInput("");
     setMessages((m) => [...m, { id: -Date.now(), role: "user", content: message, proposal: null, applied: false }]);
     setStreaming("");
     try {
-      const res = await fetch("/api/ai/editor", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetType, targetId, message, promptIds: selected }),
+        body: JSON.stringify(editor ? { targetType, targetId, message, promptIds: selected } : { message }),
       });
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? `Request failed (${res.status})`);
+      }
+      if (res.headers.get("content-type")?.includes("application/json")) {
+        // No Anthropic key: the route returns the prompt for the Claude app instead.
+        const data = await res.json();
+        setMessages((m) => m.slice(0, -1));
+        if (data.prompt) {
+          const copied = await navigator.clipboard.writeText(data.prompt).then(
+            () => true,
+            () => false,
+          );
+          window.open("https://claude.ai/new", "_blank", "noopener");
+          setNote(copied ? "Prompt copied. Paste it into Claude (⌘V). Add your Anthropic key in Settings to chat here." : data.prompt);
+        }
+        return;
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -118,8 +143,8 @@ export function ClaudePanel<T>({
           <Sparkles size={15} />
         </span>
         <div className="flex-1">
-          <p className="text-[15px] font-semibold leading-tight">Opus 5.5</p>
-          <div role="radiogroup" aria-label="Where Claude runs" className={clsx(segmentGroupClass, "mt-1 p-0.5 text-[11px]")}>
+          <p className="text-[15px] font-semibold leading-tight">{modelLabel}</p>
+          {editor && <div role="radiogroup" aria-label="Where Claude runs" className={clsx(segmentGroupClass, "mt-1 p-0.5 text-[11px]")}>
             {(
               [
                 ["app", "Claude app"],
@@ -138,7 +163,7 @@ export function ClaudePanel<T>({
                 {label}
               </button>
             ))}
-          </div>
+          </div>}
         </div>
         {messages.length > 0 && (
           <button
@@ -154,7 +179,7 @@ export function ClaudePanel<T>({
         )}
       </header>
 
-      <div className="border-b border-separator px-4 py-2.5">
+      {editor && <div className="border-b border-separator px-4 py-2.5">
         {relevant.length ? (
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Prompts to use">
             {relevant.map((p) => {
@@ -179,15 +204,17 @@ export function ClaudePanel<T>({
             No saved prompts yet. <Link href="/clients?view=brain#style" className="font-semibold text-blue">Add your prompts</Link> so Opus edits in your style.
           </p>
         )}
-      </div>
+      </div>}
 
       <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
         {messages.length === 0 && streaming === null && (
           <div className="pt-6 text-center">
-            <p className="text-[15px] font-semibold">Ask for an edit</p>
+            <p className="text-[15px] font-semibold">{emptyTitle}</p>
             <p className="mt-1 text-[13px] text-label-2">
-              {mode === "api"
-                ? "Opus proposes changes and you apply them with one tap."
+              {!claudeConfigured && !editor
+                ? "Without an Anthropic key, your question is copied as a prompt for the Claude app."
+                : mode === "api"
+                ? `${modelLabel.split(" ")[0]} proposes changes and you apply them with one tap.`
                 : "Copy a prompt into the Claude app (your Claude subscription), paste the reply back, then apply it with one tap."}
             </p>
             <div className="mt-4 flex flex-col items-center gap-2">
@@ -242,9 +269,10 @@ export function ClaudePanel<T>({
           </div>
         )}
         {error && <p role="alert" className="rounded-lg bg-red/12 px-3 py-2 text-[13px] text-red">{error}</p>}
+        {note && <p role="status" className="rounded-lg bg-well px-3 py-2 text-[13px] whitespace-pre-wrap text-label-2">{note}</p>}
       </div>
 
-      {mode === "app" ? (
+      {mode === "app" && targetType !== "gym" ? (
         <ClaudeAppComposer
           targetType={targetType}
           targetId={targetId}
@@ -273,15 +301,15 @@ export function ClaudePanel<T>({
                 }
               }}
               rows={1}
-              placeholder={claudeConfigured ? "Ask Opus to edit…" : "Claude isn't connected"}
-              disabled={!claudeConfigured}
-              aria-label="Message to Opus"
+              placeholder={claudeConfigured ? `Ask ${modelLabel.split(" ")[0]}…` : editor ? "Claude isn't connected" : "Ask, then paste into the Claude app"}
+              disabled={!claudeConfigured && editor}
+              aria-label={`Message to ${modelLabel.split(" ")[0]}`}
               className="max-h-40 min-h-7 flex-1 resize-none bg-transparent py-1 text-[15px] outline-none [field-sizing:content] placeholder:text-label-3"
             />
             <button
               type="submit"
               aria-label="Send"
-              disabled={!input.trim() || streaming !== null || !claudeConfigured}
+              disabled={!input.trim() || streaming !== null || (!claudeConfigured && editor)}
               className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-blue text-white disabled:bg-fill-2 disabled:text-label-3"
             >
               <ArrowUp size={17} strokeWidth={2.5} />

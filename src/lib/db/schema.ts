@@ -6,6 +6,7 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  real,
   serial,
   text,
   timestamp,
@@ -35,7 +36,8 @@ export type CarouselTheme = {
   align: "left" | "center";
 };
 
-export type Exercise = { name: string; sets: number };
+/** One exercise in a gym day: sets, and the target reps per set (progression adds weight once every set reaches it). */
+export type Exercise = { name: string; sets: number; reps?: number };
 
 const createdAt = () =>
   timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -346,6 +348,22 @@ export const gymDays = pgTable(
     startTime: text("start_time"), // HH:mm, when timing = fixed
   },
   (t) => [primaryKey({ columns: [t.userId, t.weekday] })],
+);
+
+// Every set you log (weight × reps), one row per set; progression and the progress chart read these.
+export const gymSets = pgTable(
+  "gym_sets",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    date: text("date").notNull(), // yyyy-mm-dd, in the person's time zone
+    exercise: text("exercise").notNull(),
+    setNo: integer("set_no").notNull(), // 1-based
+    weight: real("weight").notNull().default(0), // kg; 0 = bodyweight
+    reps: integer("reps").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("gym_sets_one").on(t.userId, t.date, t.exercise, t.setNo), index("gym_sets_exercise").on(t.userId, t.exercise, t.date)],
 );
 
 // Work you show off: files live in the "Portfolio" folder in Drive; public items appear on the share page.
