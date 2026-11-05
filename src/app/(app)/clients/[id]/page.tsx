@@ -231,7 +231,7 @@ async function ReelsTab({ userId, clientId }: { userId: number; clientId: number
                     <Link key={r.id} href={`/clients/${clientId}/reels/${r.id}`}>
                       <Card className="p-3 transition hover:shadow-lg">
                         <p className="line-clamp-2 text-[14px] font-semibold">{r.title}</p>
-                        {r.hook && <p className="mt-1 line-clamp-2 text-[12px] text-label-2">{r.hook}</p>}
+                        {(r.hook || r.notes) && <p className="mt-1 line-clamp-3 text-[12px] text-label-2">{r.hook || r.notes}</p>}
                         <p className="mt-2 flex gap-2 text-[11px] text-label-2">
                           {r.postDate && <span>📅 {r.postDate}</span>}
                           {r.files.length > 0 && <span>📎 {r.files.length}</span>}
