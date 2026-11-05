@@ -3,6 +3,8 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import clsx from "clsx";
 import { Globe, Images, Plus, Share2 } from "lucide-react";
 import { NewPortfolioItem, ShareControls } from "@/components/portfolio";
+import { ContextMenu } from "@/components/context-menu";
+import { deletePortfolioItem } from "@/app/actions/portfolio";
 import { Sheet } from "@/components/sheet";
 import { Bento, buttonClass, Card, Empty, PageHeader, Pill, spanStyle } from "@/components/ui";
 import { requireModule } from "@/lib/sections";
@@ -119,7 +121,8 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
             // Featured look: the newest piece is wide on bigger screens.
             const span = i === 0 && !type && !tag ? { p: 2, t: 6, l: 8, d: 6, rl: 2, rd: 2 } : { p: 2, t: 3, l: 4, d: 3 };
             return (
-              <Link key={item.id} href={`/portfolio/${item.id}`} className="tile glass group flex flex-col overflow-hidden rounded-[24px]" style={spanStyle(span, i)}>
+              <ContextMenu key={item.id} className="tile flex" style={spanStyle(span, i)} items={[{ label: "Delete from portfolio", destructive: true, confirm: `Delete “${item.title}”? Its files stay in your Drive (made private again).`, action: deletePortfolioItem.bind(null, item.id) }]}>
+              <Link href={`/portfolio/${item.id}`} className="glass group flex w-full flex-col overflow-hidden rounded-[24px]">
                 <div className="relative min-h-44 flex-1 overflow-hidden bg-fill">
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -158,6 +161,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
                   </p>
                 </div>
               </Link>
+              </ContextMenu>
             );
           })}
         </Bento>

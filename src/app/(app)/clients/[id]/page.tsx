@@ -5,6 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
 import { ClientProfileForm } from "@/components/client-profile";
 import { MarketingView } from "@/components/marketing-view";
+import { ContextMenu } from "@/components/context-menu";
 import { FinanceView } from "@/components/finance-view";
 import { getSettings } from "@/lib/settings";
 import { todayIn } from "@/lib/week";
@@ -20,6 +21,8 @@ import {
   createCarousel,
   createReel,
   deleteAppUpdate,
+  deleteCarousel,
+  deleteReel,
   editAppUpdate,
   setClientArchived,
   updateClient,
@@ -169,6 +172,7 @@ async function AppTab({ userId, clientId, appName, googleConnected }: { userId: 
           {updates.map((u) => (
             <li key={u.id} className="relative">
               <span className="absolute top-5 -left-[27px] size-3 rounded-full border-2 border-bg" style={{ background: STATUS_COLORS[u.status] }} />
+              <ContextMenu items={[{ label: "Delete update", destructive: true, confirm: `Delete “${u.title}”? Its Drive files stay in Drive.`, action: deleteAppUpdate.bind(null, u.id) }]}>
               <Card className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   {u.version && <span className="rounded-md bg-fill px-1.5 py-0.5 font-mono text-[12px] font-semibold">v{u.version.replace(/^v/i, "")}</span>}
@@ -187,6 +191,7 @@ async function AppTab({ userId, clientId, appName, googleConnected }: { userId: 
                   <DriveFiles clientId={clientId} section="App" target="appUpdate" targetId={u.id} files={u.files} googleConnected={googleConnected} />
                 </div>
               </Card>
+              </ContextMenu>
             </li>
           ))}
         </ol>
@@ -228,7 +233,8 @@ async function ReelsTab({ userId, clientId }: { userId: number; clientId: number
                 </p>
                 <div className="flex flex-col gap-2">
                   {list.map((r) => (
-                    <Link key={r.id} href={`/clients/${clientId}/reels/${r.id}`}>
+                    <ContextMenu key={r.id} items={[{ label: "Delete reel", destructive: true, confirm: `Delete “${r.title}”? Its files stay in your Drive.`, action: deleteReel.bind(null, r.id) }]}>
+                    <Link href={`/clients/${clientId}/reels/${r.id}`}>
                       <Card className="p-3 transition hover:shadow-lg">
                         <p className="line-clamp-2 text-[14px] font-semibold">{r.title}</p>
                         {(r.hook || r.notes) && <p className="mt-1 line-clamp-3 text-[12px] text-label-2">{r.hook || r.notes}</p>}
@@ -238,6 +244,7 @@ async function ReelsTab({ userId, clientId }: { userId: number; clientId: number
                         </p>
                       </Card>
                     </Link>
+                    </ContextMenu>
                   ))}
                 </div>
               </div>
@@ -274,7 +281,8 @@ async function CarouselsTab({ userId, clientId }: { userId: number; clientId: nu
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {carousels.map((c) => (
-            <Link key={c.id} href={`/clients/${clientId}/carousels/${c.id}`} className="group">
+            <ContextMenu key={c.id} items={[{ label: "Delete carousel", destructive: true, confirm: `Delete “${c.title}”? Its files stay in your Drive.`, action: deleteCarousel.bind(null, c.id) }]}>
+            <Link href={`/clients/${clientId}/carousels/${c.id}`} className="group block">
               <Card className="transition group-hover:shadow-lg">
                 <SlidePreview slide={c.slides[0] ?? { heading: "", body: "" }} theme={c.theme} index={0} total={Math.max(1, c.slides.length)} />
                 <div className="p-3">
@@ -286,6 +294,7 @@ async function CarouselsTab({ userId, clientId }: { userId: number; clientId: nu
                 </div>
               </Card>
             </Link>
+            </ContextMenu>
           ))}
         </div>
       )}

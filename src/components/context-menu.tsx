@@ -108,10 +108,10 @@ export function useContextMenu(items: MenuItem[]) {
 }
 
 /** Wraps children so right-clicking anywhere inside opens the menu. */
-export function ContextMenu({ items, children, className }: { items: MenuItem[]; children: ReactNode; className?: string }) {
+export function ContextMenu({ items, children, className, style }: { items: MenuItem[]; children: ReactNode; className?: string; style?: React.CSSProperties }) {
   const { onContextMenu, menu, pending } = useContextMenu(items);
   return (
-    <div onContextMenu={onContextMenu} className={clsx(className, pending && "pointer-events-none opacity-40 transition-opacity")}>
+    <div onContextMenu={onContextMenu} style={style} className={clsx(className, pending && "pointer-events-none opacity-40 transition-opacity")}>
       {children}
       {menu}
     </div>

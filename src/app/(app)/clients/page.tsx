@@ -4,6 +4,7 @@ import { BarChart3, Brain, Briefcase, Plus, Wallet } from "lucide-react";
 import { BrainView } from "@/components/brain-view";
 import { SegmentedLinks, Slide } from "@/components/motion";
 import { MarketingView } from "@/components/marketing-view";
+import { ContextMenu } from "@/components/context-menu";
 import { FinanceView } from "@/components/finance-view";
 import { loadFinance } from "@/lib/finance";
 import { getSettings } from "@/lib/settings";
@@ -70,7 +71,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       ) : (
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {active.map((c) => (
-            <Link key={c.id} href={`/clients/${c.id}`} className="group">
+            <ContextMenu key={c.id} items={[{ label: "Archive client", destructive: true, confirm: `Archive ${c.name}? You can restore it below, under Archived.`, action: setClientArchived.bind(null, c.id, true) }]}>
+            <Link href={`/clients/${c.id}`} className="group block h-full">
               <Card className="h-full p-5 transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
                 <div className="mb-3 grid size-11 place-items-center rounded-xl text-[19px] font-bold text-white" style={{ background: c.color }}>
                   {c.name.slice(0, 1).toUpperCase()}
@@ -84,6 +86,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                 </div>
               </Card>
             </Link>
+            </ContextMenu>
           ))}
         </div>
       )}
