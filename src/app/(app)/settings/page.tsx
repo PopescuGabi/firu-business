@@ -138,7 +138,7 @@ export default async function SettingsPage() {
               <p className="font-medium">Claude</p>
               <p className="text-[13px] text-label-2">
                 {claudeOn
-                  ? `Opus 5.5 for content · Sonnet 5.5 for analysis · Haiku 5.5 for quick jobs · max ${env.aiMaxPerHour()} requests/hour${me?.key ? " · your key" : ""}`
+                  ? `Opus 5.5 for content · Sonnet 5.5 for analysis and the gym coach · Haiku 5.5 for planning, email and finance · max ${env.aiMaxPerHour()} requests/hour${me?.key ? " · your key" : ""}`
                   : "Copy-paste mode (Claude app). Add your own API key below to use Claude inside the site."}
               </p>
             </div>

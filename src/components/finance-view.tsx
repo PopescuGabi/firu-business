@@ -6,6 +6,7 @@ import { CURRENCIES, formatMoney, type Currency } from "@/lib/fx-math";
 import { loadPosts } from "@/lib/marketing";
 import { fmtDate } from "@/lib/time";
 import { Bars, Donut, Meter } from "./charts";
+import { FinanceInsights } from "./finance-insights";
 import { Sheet } from "./sheet";
 import { DeleteFooter, Submit } from "./submit";
 import { buttonClass, Card, Empty, Field, segmentClass, segmentGroupClass } from "./ui";
@@ -142,6 +143,7 @@ export async function FinanceView({ uid, clients, clientId, today, currency }: {
                 })}
               </div>
             </Sheet>
+            {(f.items.length > 0 || f.waiting.length > 0) && <FinanceInsights />}
           </>
         )}
         <div role="radiogroup" aria-label="Show amounts in" className={clsx(segmentGroupClass, "ml-auto p-1")}>

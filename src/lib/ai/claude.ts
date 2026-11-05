@@ -15,8 +15,8 @@ export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
  */
 export const MODELS = {
   content: "claude-opus-5-5", // reel / carousel editor, ideas & hooks for posts
-  analysis: "claude-sonnet-5-5", // Brain review, weekly marketing report
-  quick: "claude-haiku-5-5", // Plan my week, posting plan, route advice, client summary
+  analysis: "claude-sonnet-5-5", // Brain review, weekly marketing report, gym coach
+  quick: "claude-haiku-5-5", // Plan my week, posting plan, route advice, client summary, email, finance insights
 } as const;
 export type Tier = keyof typeof MODELS;
 
