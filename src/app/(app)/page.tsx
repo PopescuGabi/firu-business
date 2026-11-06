@@ -1,6 +1,5 @@
-import { Fragment } from "react";
 import Link from "next/link";
-import { SegmentedLinks, Slide } from "@/components/motion";
+import { Board, type BoardWidget } from "@/components/board/board";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 import clsx from "clsx";
 import {
@@ -11,13 +10,11 @@ import {
   ChevronLeft,
   ChevronRight,
   BookText,
-  CalendarDays,
   Clapperboard,
   FileUp,
   Footprints,
   GalleryHorizontalEnd,
   Hourglass,
-  LayoutGrid,
   Mail,
   ListTodo,
   MessageSquareText,
@@ -44,7 +41,10 @@ import { Sheet } from "@/components/sheet";
 import { Submit } from "@/components/submit";
 import { TaskForm } from "@/components/task-form";
 import { CountUp } from "@/components/count-up";
-import { Bento, buttonClass, Chip, Field, Pill, RouteTimeline, spanStyle, STATUS_COLORS, statusLabel, type Span } from "@/components/ui";
+import { buttonClass, Chip, Field, Pill, RouteTimeline, STATUS_COLORS, statusLabel } from "@/components/ui";
+import { resetHomeBoard, saveHomeBoard } from "@/app/actions/board";
+import { boardIds, HOME_BOARD_KEY, normalizeLayout } from "@/lib/board";
+import { HOME_WIDGETS, homeDefault, pageBlockWidget, type HomeWidget } from "@/lib/home-widgets";
 import { quickAddAppUpdate, quickAddCarousel, quickAddReel } from "@/app/actions/clients";
 import { addFeedback } from "@/app/actions/feedback";
 import { importPromptFiles } from "@/app/actions/prompts";
@@ -63,30 +63,23 @@ import { Bars, Meter, Sparkline } from "@/components/charts";
 import { loadFinance } from "@/lib/finance";
 import { formatMoney } from "@/lib/fx-math";
 import { GOAL_METRICS, goalProgress, loadGoals, loadPosts, needsNumbers, summarize } from "@/lib/marketing";
-import { getPlanAdvice, getSettings } from "@/lib/settings";
+import { getPlanAdvice, getSetting, getSettings } from "@/lib/settings";
 import { addDays, clock, fmtDate, toMin, WEEKDAYS } from "@/lib/time";
 import { countSuggestions, getWeek, nowMinutesIn, todayIn, type DayView } from "@/lib/week";
 
 export const metadata = { title: "Home" };
 
-const TABS = [
-  { key: "overview", label: "Overview", icon: LayoutGrid },
-  { key: "schedule", label: "Schedule", icon: CalendarDays },
-  { key: "work", label: "Work", icon: Wrench },
-] as const;
-type Tab = (typeof TABS)[number]["key"];
-
 const IN_PROGRESS_REEL = ["scripting", "filming", "editing"];
 const daysSince = (d: Date) => Math.max(0, Math.floor((Date.now() - d.getTime()) / 86_400_000));
 
-type Placed = { span: Span; i: number };
+/** A widget's place in the board's entrance animation. */
+type Placed = { i: number };
 
 /**
  * A bento tile: frosted card that fades in after the ones before it and lifts on hover.
  * With `corner`, that button sits in a round notch cut out of the top-right corner.
  */
 function Tile({
-  span,
   i,
   className,
   surface,
@@ -95,9 +88,9 @@ function Tile({
   children,
 }: Placed & { className?: string; surface?: React.CSSProperties; surfaceClass?: string; corner?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="tile relative flex min-w-0 flex-col rounded-[24px] @container" style={spanStyle(span, i)}>
+    <section className="tile relative flex min-w-0 flex-col rounded-[24px] @container" style={{ ["--i" as string]: i }}>
       <div aria-hidden className={clsx("glass absolute inset-0 rounded-[24px]", corner && "notch", surfaceClass)} style={surface} />
-      <div className={clsx("relative flex min-h-0 flex-1 flex-col p-4", className)}>{children}</div>
+      <div className={clsx("relative flex min-h-0 flex-1 flex-col overflow-y-auto p-4", className)}>{children}</div>
       {corner && <div className="notch-slot">{corner}</div>}
     </section>
   );
@@ -125,7 +118,7 @@ function Widget({
         <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</h2>
         {action}
       </header>
-      <div className="min-h-0 flex-1">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </Tile>
   );
 }
@@ -189,27 +182,30 @@ function EmptyLine({ children }: { children: React.ReactNode }) {
   return <p className="py-2 text-[14px] text-label-2">{children}</p>;
 }
 
-/**
- * Spans for a run of tiles that should fill whole rows at every size, however many there are
- * (depends on which sections someone uses): desktop 3 a row, laptop and tablet 2, phone 1.
- */
-function fill(n: number): Span[] {
-  return Array.from({ length: n }, (_, i) => {
-    const lastOfThree = n % 3 === 1 ? i === n - 1 : n % 3 === 2 && i >= n - 2;
-    const loneOfTwo = n % 2 === 1 && i === n - 1;
-    return { p: 2, t: loneOfTwo ? 6 : 3, l: loneOfTwo ? 12 : 6, d: lastOfThree ? (n % 3 === 1 ? 12 : 6) : 4 };
-  });
-}
-
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab: tabParam } = await searchParams;
+export default async function HomePage() {
   const user = await requireUser();
   const on = (m: ModuleKey) => user.modules.includes(m);
-  const tabs = TABS.filter((t) => t.key !== "work" || on("clients"));
-  const tab: Tab = tabs.some((t) => t.key === tabParam) ? (tabParam as Tab) : "overview";
 
   const db = await getDb();
   const settings = await getSettings(user.id);
+
+  // The board first: which widgets this person can use and which are on their Home, so only those load their data.
+  const [pages, mapsOn, savedBoard] = await Promise.all([listPages(user.id), mapsAvailable(user.id), getSetting<unknown>(user.id, HOME_BOARD_KEY)]);
+  const pageBlocks = pages.flatMap((page) =>
+    page.spec.blocks.filter((b) => b.type === "stats" || b.type === "upcoming").map((block) => ({ page, block, widget: pageBlockWidget(page.id, block.id, `${page.title} · ${block.title}`) })),
+  );
+  const catalogue: HomeWidget[] = [
+    ...HOME_WIDGETS.filter((w) => (!w.needs || on(w.needs)) && (!w.needsMaps || mapsOn)),
+    ...pageBlocks.map((b) => b.widget),
+  ];
+  const board = normalizeLayout(
+    savedBoard,
+    catalogue,
+    homeDefault({ clients: on("clients"), email: on("email"), maps: mapsOn, pageBlocks: pageBlocks.filter((b) => b.block.home).map((b) => b.widget.id) }),
+  );
+  const onBoard = new Set(boardIds(board));
+  const shows = (...ids: string[]) => ids.some((id) => onBoard.has(id));
+
   const today = todayIn(settings.timezone);
   const now = nowMinutesIn(settings.timezone);
   const [{ days, calendarError, googleConnected }, tasks, clients, reels, carousels, updates, feedback, advice, suggestions, promptCount, claudeConfigured] =
@@ -227,7 +223,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       claudeAvailable(user.id),
     ]);
   // Marketing and money (the Clients section): this month at a glance.
-  const biz = on("clients")
+  const biz = on("clients") && shows("views", "money", "goals", "needs-numbers", "waiting-money")
     ? await Promise.all([loadPosts(user.id), loadFinance(user.id, today, settings.moneyCurrency), loadGoals(user.id), needsNumbers(user.id)]).then(([posts, money, goals, todo]) => ({
         posts,
         m: summarize(posts, today),
@@ -236,22 +232,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         todo,
       }))
     : null;
-  // The person's own pages: blocks marked "home" (stats, upcoming) become tiles.
+  // Blocks of the person's own pages that are on the board.
   const homeBlocks = await Promise.all(
-    (await listPages(user.id)).flatMap((page) =>
-      page.spec.blocks.filter((b) => (b.type === "stats" || b.type === "upcoming") && b.home).map(async (block) => ({ page, block, items: await pageItems(user.id, page.id) })),
-    ),
+    pageBlocks.filter((b) => onBoard.has(b.widget.id)).map(async ({ page, block, widget }) => ({ page, block, widget, items: await pageItems(user.id, page.id) })),
   );
   // Email tile: a few unread mails from the primary inbox (only when Gmail is connected).
-  const gmail = on("email") && (await gmailConnected(user.id));
+  const gmail = on("email") && shows("inbox") && (await gmailConnected(user.id));
   const inbox = gmail ? await listInbox(user.id, { max: 5, q: "in:inbox is:unread" }).catch(() => null) : null;
 
   const day = days[0];
-  const mapsOn = await mapsAvailable(user.id);
   const routeOpts = { tz: settings.timezone, mode: settings.travelMode };
-  const [{ current, next, leaveBy, live }, route] = mapsOn
-    ? await Promise.all([liveNowAndNext(user.id, day, now, settings.travel, routeOpts), routeForDay(user.id, day, routeOpts).catch(() => null)])
-    : [{ ...nowAndNext(day, now, settings.travel), live: false }, null];
+  const [{ current, next, leaveBy, live }, route] = await Promise.all([
+    mapsOn && shows("hero") ? liveNowAndNext(user.id, day, now, settings.travel, routeOpts) : { ...nowAndNext(day, now, settings.travel), live: false },
+    mapsOn && shows("route") ? routeForDay(user.id, day, routeOpts).catch(() => null) : null,
+  ]);
     const target = advice?.dailyTargets.find((t) => t.date === today);
   const client = (id: number) => clients.find((c) => c.id === id);
   const activeClientIds = new Set(clients.map((c) => c.id));
@@ -321,30 +315,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             );
           })}
           {tasks.length > 5 && <li className="text-[13px] text-label-2">+{tasks.length - 5} more on Today</li>}
-        </ul>
-      )}
-    </Widget>
-  );
-
-  const waitingReview = (p: Placed) => (
-    <Widget {...p} title="Waiting on review" icon={Hourglass} href="/?tab=work">
-      {waiting.length === 0 ? (
-        <EmptyLine>Nothing sent for review. Set a reel or carousel to &ldquo;Review&rdquo; when you send it to the client.</EmptyLine>
-      ) : (
-        <ul className="space-y-2">
-          {waiting.slice(0, 4).map(({ type, row }) => (
-            <li key={`${type}${row.id}`}>
-              <Link href={itemHref(type, row)} className="flex items-center gap-2 rounded-lg px-1 py-0.5 hover:bg-fill">
-                <span className="text-label-2">
-                  <TypeIcon type={type} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[14px]">{row.title}</span>
-                <span className={clsx("text-[12px]", daysSince(row.updatedAt) >= 3 ? "font-semibold text-orange" : "text-label-2")}>
-                  {daysSince(row.updatedAt) === 0 ? "today" : `${daysSince(row.updatedAt)}d`}
-                </span>
-              </Link>
-            </li>
-          ))}
         </ul>
       )}
     </Widget>
@@ -661,13 +631,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <Stat {...p} accent label="Open tasks" value={tasks.length} icon={ListTodo} href="/today" sub={dueToday ? `${dueToday} due today or overdue` : "Nothing due today"} />
     ),
     work: (p: Placed) => (
-      <Stat {...p} label="In progress" value={currentWork.length} icon={Wrench} href="/?tab=work" sub="Reels, carousels and app updates" />
+      <Stat {...p} label="In progress" value={currentWork.length} icon={Wrench} href="/clients" sub="Reels, carousels and app updates" />
     ),
     review: (p: Placed) => (
-      <Stat {...p} label="Waiting on review" value={waiting.length} icon={Hourglass} href="/?tab=work" sub={waiting.length ? `Oldest sent ${oldestWait}d ago` : "Nothing sent"} />
+      <Stat {...p} label="Waiting on review" value={waiting.length} icon={Hourglass} href="/clients" sub={waiting.length ? `Oldest sent ${oldestWait}d ago` : "Nothing sent"} />
     ),
     feedback: (p: Placed) => (
-      <Stat {...p} label="Feedback to fix" value={openFeedback.length} icon={MessageSquareText} href="/?tab=work" sub="Open client notes" />
+      <Stat {...p} label="Feedback to fix" value={openFeedback.length} icon={MessageSquareText} href="/clients" sub="Open client notes" />
     ),
     clients: (p: Placed) => (
       <Stat {...p} label="Active clients" value={clients.length} icon={Clapperboard} href="/clients" sub={`${myReels.length} reels · ${myCarousels.length} carousels open`} />
@@ -901,118 +871,89 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
-  const customTiles = homeBlocks.map(
-    ({ page, block, items }) =>
-      (p: Placed) => (
-        <Widget {...p} title={`${page.title} · ${block.title}`} icon={iconFor(page.icon)} href={`/p/${page.slug}`}>
-          <BlockContent pageId={page.id} spec={page.spec} items={items} today={today} block={block} />
-        </Widget>
-      ),
-  );
-
-  // Each tab's tiles in reading order, with their size on phone / tablet / laptop / desktop.
-  // Laptop and desktop have 12 columns, tablet 6, phone 2; the grid packs them densely.
-  // Each tab's tiles in reading order, with their size on phone / tablet / laptop / desktop, built from the
-  // sections this person uses. Laptop and desktop have 12 columns, tablet 6, phone 2; the grid packs densely.
-  type Tile = [(p: Placed) => React.ReactNode, Span];
-  const flexible = (tiles: ((p: Placed) => React.ReactNode)[]): Tile[] => fill(tiles.length).map((span, i) => [tiles[i], span]);
-  const top: Tile[] = on("clients")
-    ? [
-        [hero, { p: 2, t: 6, l: 6, d: 5, rl: 2, rd: 2 }],
-        [stats.tasks, { p: 1, t: 3, l: 3, d: 2 }],
-        [stats.work, { p: 1, t: 3, l: 3, d: 2 }],
-        [monthStrip, { p: 2, t: 6, l: 6, d: 3, rd: 2 }],
-        [stats.review, { p: 1, t: 3, l: 3, d: 2 }],
-        [stats.feedback, { p: 1, t: 3, l: 3, d: 2 }],
-      ]
-    : [
-        [hero, { p: 2, t: 6, l: 6, d: 6, rl: 2, rd: 2 }],
-        [monthStrip, { p: 2, t: 6, l: 6, d: 6 }],
-        [stats.tasks, { p: 1, t: 3, l: 3, d: 3 }],
-        [stats.suggestions, { p: 1, t: 3, l: 3, d: 3 }],
-      ];
-  const layouts: Record<Tab, Tile[]> = {
-    overview: [
-      ...top,
-      ...flexible([
-        ...(route ? [routeTile] : []),
-        tasksDue,
-        busyWeek,
-        ...(on("clients") ? [waitingReview] : []),
-        ...(on("email") ? [inboxTile] : []),
-        ...(on("clients") ? [quickAdd] : []),
-        ...(on("clients") ? [promptUpload] : []),
-        ...(biz && biz.posts.length ? [viewsTile] : []),
-        ...(biz && (biz.money.items.length || biz.money.waiting.length) ? [moneyTile] : []),
-        ...(biz && biz.goals.length ? [goalsTile] : []),
-        ...customTiles,
-      ]),
-    ],
-    schedule: [
-      [hero, { p: 2, t: 6, l: 7, d: 6 }],
-      [recommended, { p: 2, t: 3, l: 5, d: 3 }],
-      [scheduleShortcuts, { p: 2, t: 3, l: 5, d: 3 }],
-      [todayTimeline, { p: 2, t: 6, l: 7, d: 7, rl: 3, rd: 2 }],
-      [monthStrip, { p: 2, t: 6, l: 5, d: 5 }],
-      [busyWeek, { p: 2, t: 6, l: 5, d: 5 }],
-      ...(route ? ([[routeTile, { p: 2, t: 6, l: 7, d: 7 }]] as Tile[]) : []),
-    ],
-    work: [
-      [stats.work, { p: 1, t: 3, l: 3, d: 3 }],
-      [stats.review, { p: 1, t: 3, l: 3, d: 3 }],
-      [stats.feedback, { p: 1, t: 3, l: 3, d: 3 }],
-      [stats.clients, { p: 1, t: 3, l: 3, d: 3 }],
-      [currentWorkW, { p: 2, t: 6, l: 7, d: 6, rl: 2, rd: 1 }],
-      [waitingW, { p: 2, t: 3, l: 5, d: 3 }],
-      [feedbackW, { p: 2, t: 3, l: 5, d: 3 }],
-      [pipeline, { p: 2, t: 3, l: 6, d: 6 }],
-      [appUpdatesW, { p: 2, t: 3, l: 6, d: 6 }],
-      ...flexible([
-        ...(biz && biz.posts.length ? [viewsTile] : []),
-        ...(biz && (biz.money.items.length || biz.money.waiting.length) ? [moneyTile] : []),
-        ...(biz && biz.goals.length ? [goalsTile] : []),
-        ...(biz && biz.todo.length ? [needsNumbersTile] : []),
-        ...(biz && biz.money.waiting.length ? [waitingMoneyTile] : []),
-      ]),
-    ],
+  // Every widget, rendered only when it's on the board (the library adds one, saves, and the page renders it).
+  const builders: Record<string, (p: Placed) => React.ReactNode> = {
+    hero,
+    "stat-tasks": stats.tasks,
+    "stat-suggestions": stats.suggestions,
+    "stat-work": stats.work,
+    "stat-review": stats.review,
+    "stat-feedback": stats.feedback,
+    "stat-clients": stats.clients,
+    week: monthStrip,
+    tasks: tasksDue,
+    today: todayTimeline,
+    busy: busyWeek,
+    recommended,
+    shortcuts: scheduleShortcuts,
+    route: routeTile,
+    inbox: inboxTile,
+    "current-work": currentWorkW,
+    waiting: waitingW,
+    feedback: feedbackW,
+    pipeline,
+    "app-updates": appUpdatesW,
+    "quick-add": quickAdd,
+    prompts: promptUpload,
+    views: viewsTile,
+    money: moneyTile,
+    "waiting-money": waitingMoneyTile,
+    goals: goalsTile,
+    "needs-numbers": needsNumbersTile,
   };
+  for (const { page, block, widget, items } of homeBlocks)
+    builders[widget.id] = (p: Placed) => (
+      <Widget {...p} title={widget.title} icon={iconFor(page.icon)} href={`/p/${page.slug}`}>
+        <BlockContent pageId={page.id} spec={page.spec} items={items} today={today} block={block} />
+      </Widget>
+    );
+  const widgets: Record<string, React.ReactNode> = {};
+  boardIds(board).forEach((id, i) => {
+    if (builders[id]) widgets[id] = builders[id]({ i });
+  });
+  const icons: Record<string, React.ComponentType<{ size?: number }>> = {
+    hero: Navigation, "stat-tasks": ListTodo, "stat-suggestions": Sparkles, "stat-work": Wrench, "stat-review": Hourglass, "stat-feedback": MessageSquareText,
+    "stat-clients": Clapperboard, week: ChevronRight, tasks: ListTodo, today: Sun, busy: BarChart3, recommended: Sparkles, shortcuts: Sun, route: RouteIcon,
+    inbox: Mail, "current-work": Wrench, waiting: Hourglass, feedback: MessageSquareText, pipeline: Clapperboard, "app-updates": Smartphone, "quick-add": Plus,
+    prompts: BookText, views: BarChart3, money: Wallet, "waiting-money": Wallet, goals: Target, "needs-numbers": BarChart3,
+  };
+  const library: BoardWidget[] = catalogue.map(({ title, hint, group, ...def }) => {
+    const Icon = icons[def.id] ?? (pageBlocks.find((b) => b.widget.id === def.id) ? iconFor(pageBlocks.find((b) => b.widget.id === def.id)!.page.icon) : Sparkles);
+    return { def: { id: def.id, size: def.size, min: def.min, max: def.max, phoneW: def.phoneW, phoneH: def.phoneH, tabletH: def.tabletH }, title, hint, group, icon: <Icon size={17} /> };
+  });
 
   return (
     <>
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 pt-2">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-label-2">{dateLabel}</p>
-          <h1 className="text-[30px] leading-tight font-bold tracking-tight sm:text-[34px]">
-            {greeting}
-            {settings.displayName ? `, ${settings.displayName}` : ""}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <SegmentedLinks
-            label="Home sections"
-            active={tab}
-            items={tabs.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? "/" : `/?tab=${key}`, icon: <Icon size={15} /> }))}
+      <Board
+        notice={
+          <CalendarNotices
+            days={days}
+            googleConnected={googleConnected}
+            calendarError={calendarError}
+            notConnected={<>Google isn&apos;t connected. <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link></>}
           />
-          <Link href="/settings" aria-label="Settings" className="chrome grid size-10 shrink-0 place-items-center rounded-full text-label-2 md:hidden">
-            <Settings size={18} />
-          </Link>
-        </div>
-      </header>
-
-      <CalendarNotices
-        days={days}
-        googleConnected={googleConnected}
-        calendarError={calendarError}
-        notConnected={<>Google isn&apos;t connected. <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link></>}
+        }
+        widgets={widgets}
+        catalogue={library}
+        layout={board}
+        save={saveHomeBoard}
+        reset={resetHomeBoard}
+        resetLabel="Reset to default"
+        header={
+          <div className="flex items-end justify-between gap-3 pt-2">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-label-2">{dateLabel}</p>
+              <h1 className="text-[30px] leading-tight font-bold tracking-tight sm:text-[34px]">
+                {greeting}
+                {settings.displayName ? `, ${settings.displayName}` : ""}
+              </h1>
+            </div>
+            <Link href="/settings" aria-label="Settings" className="chrome grid size-10 shrink-0 place-items-center rounded-full text-label-2 md:hidden">
+              <Settings size={18} />
+            </Link>
+          </div>
+        }
       />
-
-      <Slide group="home-tab" index={tabs.findIndex((t) => t.key === tab)}>
-        <Bento>
-          {layouts[tab].map(([tile, span], i) => (
-            <Fragment key={i}>{tile({ span, i })}</Fragment>
-          ))}
-        </Bento>
-      </Slide>
     </>
   );
 }

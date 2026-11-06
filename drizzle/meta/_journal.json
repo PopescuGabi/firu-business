@@ -148,6 +148,13 @@
       "when": 1793998409423,
       "tag": "0020_remove_school_gym",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793999793991,
+      "tag": "0021_boards",
+      "breakpoints": true
     }
   ]
 }

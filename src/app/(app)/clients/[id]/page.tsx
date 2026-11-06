@@ -239,6 +239,11 @@ async function DashboardAccess({ userId, client, agencyName }: { userId: number;
             : `Invite ${client.name}'s contact: they get their own FIRU Business account, tailored to their business, plus a dashboard from you.`}
         </p>
       </div>
+      {shareable.length > 0 && (
+        <Link href={`/clients/${client.id}/dashboard`} className={`${buttonClass("gray", "sm")} self-start`}>
+          <LayoutDashboard size={14} /> Arrange their dashboard
+        </Link>
+      )}
       <ClientAccess
         clientId={client.id}
         clientName={client.name}

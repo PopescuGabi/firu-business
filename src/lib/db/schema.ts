@@ -143,6 +143,8 @@ export const clients = pgTable(
     businessType: text("business_type").notNull().default(""), // e.g. shop, restaurant, services (lib/client-tools.ts)
     // The tools this client's business needs (lib/client-tools.ts): instagram, content, app, finance.
     features: jsonb("features").$type<string[]>().notNull().default([]),
+    // The layout of this client's shared dashboard as the agency arranged it (lib/board.ts); null = the default.
+    dashboardLayout: jsonb("dashboard_layout"),
     driveFolderId: text("drive_folder_id"),
     archived: boolean("archived").notNull().default(false),
     // Reels Brain: who the content is for (audience, awareness, voice, brand, constraints, observed results)
