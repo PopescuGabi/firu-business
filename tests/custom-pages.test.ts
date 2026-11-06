@@ -108,3 +108,18 @@ test("setup proposal: unknown sections and broken pages are dropped", () => {
   assert.ok(p.dropped.length >= 1);
   assert.deepEqual(tidyProposal("garbage"), { summary: "", modules: [], pages: [], dropped: [] });
 });
+
+test("every ready-made template passes the page rules with no problems", async () => {
+  const { TEMPLATE_GROUPS, templateFor, templateKey } = await import("../src/lib/page-templates.ts");
+  const { MODULES } = await import("../src/lib/modules.ts");
+  assert.equal(TEMPLATE_GROUPS.length, 4);
+  for (const g of TEMPLATE_GROUPS) {
+    assert.ok(g.modules.every((m) => MODULES.some((x) => x.key === m)), `${g.key}: unknown section`);
+    g.pages.forEach((_, i) => {
+      const { draft, problems } = parsePageDraft(templateFor(templateKey(g.key, i)));
+      assert.ok(draft, `${g.key}:${i} should parse`);
+      assert.deepEqual(problems, [], `${g.key}:${i} ${draft?.title}`);
+    });
+  }
+  assert.equal(templateFor("nope:0"), null);
+});

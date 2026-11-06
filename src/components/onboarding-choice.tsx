@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Wand2 } from "lucide-react";
 import { AiSetup } from "./ai-setup";
+import { PageAdders } from "./page-adders";
 import { SectionsForm } from "./sections-form";
 import { buttonClass } from "./ui";
 
@@ -16,7 +17,15 @@ export function OnboardingChoice({ ai, current, name, timezone, today }: { ai: b
           <Wand2 size={14} /> Set up with AI instead
         </button>
       )}
-      <SectionsForm initial={current} onboarding name={name} timezone={timezone} />
+      <section className="flex flex-col gap-2">
+        <h2 className="px-1 text-[13px] font-semibold text-label-2 uppercase">1 · Pages for your work</h2>
+        <p className="px-1 text-[13px] text-label-2">Add ready-made pages for your kind of job, or build your own. You can change or delete them any time.</p>
+        <PageAdders today={today} />
+      </section>
+      <section className="flex flex-col gap-2">
+        <h2 className="px-1 text-[13px] font-semibold text-label-2 uppercase">2 · Sections</h2>
+        <SectionsForm initial={current} onboarding name={name} timezone={timezone} />
+      </section>
     </div>
   );
 }

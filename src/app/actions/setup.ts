@@ -7,6 +7,7 @@ import { createPage } from "@/lib/custom-pages-db";
 import { isModule } from "@/lib/modules";
 import { saveSettings } from "@/lib/settings";
 import { setModules } from "@/lib/users";
+import { templateFor } from "@/lib/page-templates";
 
 const input = z.object({
   modules: z.array(z.string()).max(10),
@@ -41,4 +42,27 @@ export async function applySetup(raw: z.input<typeof input>) {
   if (Object.keys(patch).length) await saveSettings(user.id, patch);
   revalidatePath("/", "layout");
   return { href: created.length ? `/p/${created[0]}` : "/" };
+}
+
+/** Adds ready-made pages (by template key, e.g. "creative:0"). The page content comes from the server's templates only. */
+export async function addTemplatePages(keys: string[]) {
+  const user = await requireUser();
+  const list = z.array(z.string().regex(/^[a-z]+:\d{1,2}$/)).min(1).max(12).parse(keys);
+  const created: string[] = [];
+  for (const key of [...new Set(list)]) {
+    const { draft } = parsePageDraft(templateFor(key));
+    if (draft) created.push((await createPage(user.id, draft)).slug);
+  }
+  revalidatePath("/", "layout");
+  return { added: created.length, href: created.length ? `/p/${created[0]}` : null };
+}
+
+/** A page built by hand in the page builder; checked with the same rules as AI pages. */
+export async function createCustomPage(raw: unknown) {
+  const user = await requireUser();
+  const { draft, problems } = parsePageDraft(raw);
+  if (!draft) return { ok: false as const, message: problems[0] ?? "That page isn't complete yet." };
+  const page = await createPage(user.id, draft);
+  revalidatePath("/", "layout");
+  return { ok: true as const, href: `/p/${page.slug}` };
 }

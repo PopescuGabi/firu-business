@@ -2,6 +2,8 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { ArrowDown, ArrowUp, CalendarDays, FolderOpen, LogOut, Mail, Sparkles, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { iconFor } from "@/components/custom/icons";
+import { PageAdders } from "@/components/page-adders";
+import { todayIn } from "@/lib/week";
 import { movePage } from "@/app/actions/custom-pages";
 import { listPages } from "@/lib/custom-pages-db";
 import { AllowanceForm, AnthropicKeyForm, DeleteAccountForm, InviteForm, RemoveMember, WithdrawInvite } from "@/components/account-forms";
@@ -175,6 +177,10 @@ export default async function SettingsPage() {
         <div id="sections">
           <SectionsForm initial={user.modules} />
         </div>
+      </Section>
+
+      <Section title="Add pages" footer="Ready-made pages for your kind of job, or one you build yourself. Adding pages never changes the ones you have.">
+        <PageAdders today={todayIn(settings.timezone)} existing={myPages.map((p) => p.title)} />
       </Section>
 
       {myPages.length > 0 && (
