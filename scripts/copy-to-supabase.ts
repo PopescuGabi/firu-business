@@ -38,6 +38,8 @@ const TABLES = [
   ["school_classes", schema.schoolClasses],
   ["gym_days", schema.gymDays],
   ["gym_sets", schema.gymSets],
+  ["custom_pages", schema.customPages],
+  ["custom_items", schema.customItems],
   ["tutoring", schema.tutoring],
   ["clients", schema.clients],
   ["app_updates", schema.appUpdates],

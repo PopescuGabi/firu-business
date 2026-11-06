@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
+import { iconFor } from "./custom/icons";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
 import { Briefcase, CalendarDays, Dumbbell, GraduationCap, House, Images, LayoutGrid, Mail, Settings, Sun } from "lucide-react";
@@ -17,7 +18,12 @@ const ALL_ITEMS = [
   { href: "/clients", label: "Clients", icon: Briefcase, module: "clients" },
   { href: "/portfolio", label: "Portfolio", icon: Images, module: "portfolio" },
 ];
-const itemsFor = (modules: string[]) => ALL_ITEMS.filter((i) => !i.module || modules.includes(i.module));
+/** A person's own pages (custom pages), shown after the built-in sections. */
+export type NavPage = { slug: string; title: string; icon: string };
+const itemsFor = (modules: string[], pages: NavPage[] = []) => [
+  ...ALL_ITEMS.filter((i) => !i.module || modules.includes(i.module)),
+  ...pages.map((p) => ({ href: `/p/${p.slug}`, label: p.title, icon: iconFor(p.icon) })),
+];
 
 const isActive = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 /** The one link to highlight: the most specific match (a client over "Clients"). */
@@ -137,10 +143,10 @@ const HOME_SUBS: Sub[] = [
 ];
 
 /** Floating pill rail (tablet and up): sections (clients in the Clients menu), settings. */
-export function Sidebar({ clients, modules }: { clients: { id: number; name: string; color: string }[]; modules: string[] }) {
+export function Sidebar({ clients, modules, pages = [] }: { clients: { id: number; name: string; color: string }[]; modules: string[]; pages?: NavPage[] }) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
-  const ITEMS = itemsFor(modules);
+  const ITEMS = itemsFor(modules, pages);
   const hrefs = [...ITEMS.map((i) => i.href), "/settings"];
   const active = activeOf(path, hrefs);
   const { register, blob, box } = useGlide(active, RAIL_SQUASH);
@@ -190,11 +196,11 @@ export function Sidebar({ clients, modules }: { clients: { id: number; name: str
 const DOCK = ["/", "/today", "/calendar", "/email"];
 
 /** Floating glass dock (phones): Home, Today, Calendar, Email, and More for the rest. */
-export function TabBar({ modules, clients }: { modules: string[]; clients: { id: number; name: string; color: string }[] }) {
+export function TabBar({ modules, clients, pages = [] }: { modules: string[]; clients: { id: number; name: string; color: string }[]; pages?: NavPage[] }) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
   const [open, setOpen] = useState(false);
-  const all = itemsFor(modules);
+  const all = itemsFor(modules, pages);
   const items = all.filter((i) => DOCK.includes(i.href));
   const more = [...all.filter((i) => !DOCK.includes(i.href)), { href: "/settings", label: "Settings", icon: Settings }];
   const inMore = more.some((i) => isActive(path, i.href));

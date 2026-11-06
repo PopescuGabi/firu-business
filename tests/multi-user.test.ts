@@ -24,6 +24,8 @@ const PER_USER = [
   "schoolDays",
   "schoolClasses",
   "gymSets",
+  "customPages",
+  "customItems",
   "tutoring",
   "gymDays",
   "portfolioItems",

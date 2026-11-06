@@ -1,5 +1,9 @@
 import { and, eq, gte, sql } from "drizzle-orm";
-import { CalendarDays, FolderOpen, LogOut, Mail, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, FolderOpen, LogOut, Mail, Sparkles, Wand2 } from "lucide-react";
+import Link from "next/link";
+import { iconFor } from "@/components/custom/icons";
+import { movePage } from "@/app/actions/custom-pages";
+import { listPages } from "@/lib/custom-pages-db";
 import { AllowanceForm, AnthropicKeyForm, DeleteAccountForm, InviteForm, RemoveMember, WithdrawInvite } from "@/components/account-forms";
 import { BackgroundPicker } from "@/components/background-picker";
 import { AddressList, MapsKeyForm } from "@/components/maps-settings";
@@ -40,6 +44,7 @@ export default async function SettingsPage() {
   const [me] = await db.select({ key: schema.users.anthropicKey }).from(schema.users).where(eq(schema.users.id, user.id));
   const gmailOn = GMAIL_SCOPES.every((s) => hasScope(account, s));
   const owner = user.role === "owner";
+  const myPages = await listPages(user.id);
   const members = owner ? await listMembers() : null;
   const allowance = await aiAllowanceUsd();
   // Everyone shares the owner's key: members see what's left of their monthly allowance; the owner sees each member's spend.
@@ -157,11 +162,51 @@ export default async function SettingsPage() {
         )}
       </Section>
 
-      <Section title="Sections" className="scroll-mt-6" footer="Turned-off sections disappear from the sidebar and Home; their data stays.">
+      <Section
+        title="Sections"
+        className="scroll-mt-6"
+        footer="Turned-off sections disappear from the sidebar and Home; their data stays."
+        action={
+          <Link href="/setup" className={buttonClass("tinted", "sm")}>
+            <Wand2 size={14} /> Set up with AI
+          </Link>
+        }
+      >
         <div id="sections">
           <SectionsForm initial={user.modules} />
         </div>
       </Section>
+
+      {myPages.length > 0 && (
+        <Section title="Your pages" footer="Pages built for your work. Open one to add entries; its ⚙︎ button renames or deletes it.">
+          <List>
+            {myPages.map((p, i) => {
+              const Icon = iconFor(p.icon);
+              return (
+                <Row key={p.id}>
+                  <span className="grid size-8 place-items-center rounded-lg text-white" style={{ background: p.color }}>
+                    <Icon size={17} />
+                  </span>
+                  <Link href={`/p/${p.slug}`} className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{p.title}</p>
+                    {p.description && <p className="truncate text-[13px] text-label-2">{p.description}</p>}
+                  </Link>
+                  <form action={movePage.bind(null, p.id, -1)}>
+                    <button disabled={i === 0} aria-label={`Move ${p.title} up`} className={buttonClass("plain", "sm")}>
+                      <ArrowUp size={14} />
+                    </button>
+                  </form>
+                  <form action={movePage.bind(null, p.id, 1)}>
+                    <button disabled={i === myPages.length - 1} aria-label={`Move ${p.title} down`} className={buttonClass("plain", "sm")}>
+                      <ArrowDown size={14} />
+                    </button>
+                  </form>
+                </Row>
+              );
+            })}
+          </List>
+        </Section>
+      )}
 
       <Section title="Appearance" footer="Auto follows your device's light or dark mode. Your own photo stays private to you. Browsers can't read your desktop wallpaper directly, so “Use my wallpaper” opens your Pictures folder to pick its file.">
         <Card className="p-4">

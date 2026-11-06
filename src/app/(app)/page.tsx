@@ -38,6 +38,9 @@ import { TypeIn } from "@/components/type-in";
 import { FeedbackCheck, TaskCheck } from "@/components/check";
 import { PlanButton } from "@/components/plan-button";
 import { MailToTask } from "@/components/mail-actions";
+import { BlockContent } from "@/components/custom/blocks";
+import { iconFor } from "@/components/custom/icons";
+import { listPages, pageItems } from "@/lib/custom-pages-db";
 import { Sheet } from "@/components/sheet";
 import { Submit } from "@/components/submit";
 import { TaskForm } from "@/components/task-form";
@@ -236,6 +239,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         todo,
       }))
     : null;
+  // The person's own pages: blocks marked "home" (stats, upcoming) become tiles.
+  const homeBlocks = await Promise.all(
+    (await listPages(user.id)).flatMap((page) =>
+      page.spec.blocks.filter((b) => (b.type === "stats" || b.type === "upcoming") && b.home).map(async (block) => ({ page, block, items: await pageItems(user.id, page.id) })),
+    ),
+  );
   // Email tile: a few unread mails from the primary inbox (only when Gmail is connected).
   const gmail = on("email") && (await gmailConnected(user.id));
   const inbox = gmail ? await listInbox(user.id, { max: 5, q: "in:inbox is:unread" }).catch(() => null) : null;
@@ -902,6 +911,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     </Widget>
   );
 
+  const customTiles = homeBlocks.map(
+    ({ page, block, items }) =>
+      (p: Placed) => (
+        <Widget {...p} title={`${page.title} · ${block.title}`} icon={iconFor(page.icon)} href={`/p/${page.slug}`}>
+          <BlockContent pageId={page.id} spec={page.spec} items={items} today={today} block={block} />
+        </Widget>
+      ),
+  );
+
   // Each tab's tiles in reading order, with their size on phone / tablet / laptop / desktop.
   // Laptop and desktop have 12 columns, tablet 6, phone 2; the grid packs them densely.
   // Each tab's tiles in reading order, with their size on phone / tablet / laptop / desktop, built from the
@@ -937,6 +955,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         ...(biz && biz.posts.length ? [viewsTile] : []),
         ...(biz && (biz.money.items.length || biz.money.waiting.length) ? [moneyTile] : []),
         ...(biz && biz.goals.length ? [goalsTile] : []),
+        ...customTiles,
       ]),
     ],
     schedule: [

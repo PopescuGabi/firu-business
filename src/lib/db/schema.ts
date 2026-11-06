@@ -45,6 +45,7 @@ const updatedAt = () =>
   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 
 import type { ClientProfile, ReelPlan } from "../reels-brain/types";
+import type { Spec as CustomSpec } from "../custom-pages";
 
 export type Role = "owner" | "member";
 
@@ -364,6 +365,43 @@ export const gymSets = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("gym_sets_one").on(t.userId, t.date, t.exercise, t.setNo), index("gym_sets_exercise").on(t.userId, t.exercise, t.date)],
+);
+
+// Pages each person builds for their own work (often with the AI setup): a JSON spec rendered from fixed blocks.
+export const customPages = pgTable(
+  "custom_pages",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    icon: text("icon").notNull().default("list"),
+    color: text("color").notNull().default("#0A84FF"),
+    description: text("description").notNull().default(""),
+    position: integer("position").notNull().default(0),
+    spec: jsonb("spec").$type<CustomSpec>().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("custom_pages_slug").on(t.userId, t.slug)],
+);
+
+// Entries on a custom page (a shoot, a project, a link, the notes text), keyed by collection inside the spec.
+export const customItems = pgTable(
+  "custom_items",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => customPages.id, { onDelete: "cascade" }),
+    collection: text("collection").notNull(),
+    data: jsonb("data").$type<Record<string, string | number | boolean | null>>().notNull().default({}),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("custom_items_page").on(t.userId, t.pageId, t.collection)],
 );
 
 // Work you show off: files live in the "Portfolio" folder in Drive; public items appear on the share page.
