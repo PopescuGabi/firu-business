@@ -23,8 +23,38 @@ const TYPE_LABEL: Record<FieldType, string> = {
   rating: "Rating ★",
 };
 
+/** "Total" stays "Total"; "Price" becomes "Total price". */
+const totalLabel = (l: string) => (/^total/i.test(l.trim()) ? l.trim() : `Total ${l.trim().toLowerCase()}`);
+
 type F = { id: number; label: string; type: FieldType; options: string; unit: string };
 let nextId = 10;
+
+function BlockToggle({ on, onToggle, label, children, disabled }: { on: boolean; onToggle: () => void; label: string; children?: React.ReactNode; disabled?: string }) {
+  return (
+    <div className={clsx("flex flex-wrap items-center gap-2 rounded-[14px] px-2 py-1.5", disabled && "opacity-50")}>
+      <label className="flex cursor-pointer items-center gap-2 text-[14px] font-medium">
+        <input type="checkbox" checked={on && !disabled} disabled={Boolean(disabled)} onChange={onToggle} className="size-4 accent-[var(--accent)]" />
+        {label}
+      </label>
+      {children}
+      {disabled && <span className="text-[12px] text-label-3">{disabled}</span>}
+    </div>
+  );
+}
+
+function FieldSelect({ value, onChange, list, label }: { value: string; onChange: (v: string) => void; list: { key: string; label: string }[]; label: string }) {
+  if (list.length > 1)
+    return (
+      <select value={value || list[0]?.key} onChange={(e) => onChange(e.target.value)} aria-label={label} className="h-8 rounded-[10px] bg-fill px-2 text-[13px]">
+        {list.map((f) => (
+          <option key={f.key} value={f.key}>
+            {f.label}
+          </option>
+        ))}
+      </select>
+    );
+  return list[0] ? <span className="text-[13px] text-label-2">{list[0].label}</span> : null;
+}
 
 /**
  * Build a page by hand: one list with your own fields, then the blocks to show it. The result is the same
@@ -85,7 +115,7 @@ export function PageBuilder({ today, onDone }: { today: string; onDone?: () => v
         stats: [
           { label: listName || "Items", op: "count" },
           ...(date ? [{ label: "This month", op: "count", period: "month" }] : []),
-          ...(sum ? [{ label: `Total ${keyed.find((f) => f.key === sum)!.label.toLowerCase()}`, op: "sum", field: sum }] : []),
+          ...(sum ? [{ label: totalLabel(keyed.find((f) => f.key === sum)!.label), op: "sum", field: sum }] : []),
         ],
       });
     if (blocks.chart && date) b.push({ type: "chart", id: "chart", title: sum ? `${keyed.find((f) => f.key === sum)!.label} by month` : "Per month", collection: col, op: sum ? "sum" : "count", field: sum, by: "month", dateField: date });
@@ -138,29 +168,6 @@ export function PageBuilder({ today, onDone }: { today: string; onDone?: () => v
     router.push(r.href);
     router.refresh();
   }
-
-  const BlockToggle = ({ k, label, children, disabled }: { k: keyof typeof blocks; label: string; children?: React.ReactNode; disabled?: string }) => (
-    <div className={clsx("flex flex-wrap items-center gap-2 rounded-[14px] px-2 py-1.5", disabled && "opacity-50")}>
-      <label className="flex cursor-pointer items-center gap-2 text-[14px] font-medium">
-        <input type="checkbox" checked={blocks[k] && !disabled} disabled={Boolean(disabled)} onChange={() => toggle(k)} className="size-4 accent-[var(--accent)]" />
-        {label}
-      </label>
-      {children}
-      {disabled && <span className="text-[12px] text-label-3">{disabled}</span>}
-    </div>
-  );
-  const FieldSelect = ({ value, onChange, list, label }: { value: string; onChange: (v: string) => void; list: { key: string; label: string }[]; label: string }) =>
-    list.length > 1 ? (
-      <select value={value || list[0]?.key} onChange={(e) => onChange(e.target.value)} aria-label={label} className="field h-8 w-auto py-0 text-[13px]">
-        {list.map((f) => (
-          <option key={f.key} value={f.key}>
-            {f.label}
-          </option>
-        ))}
-      </select>
-    ) : list[0] ? (
-      <span className="text-[13px] text-label-2">{list[0].label}</span>
-    ) : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -220,14 +227,14 @@ export function PageBuilder({ today, onDone }: { today: string; onDone?: () => v
 
       <section className="flex flex-col gap-1">
         <h3 className="text-[13px] font-semibold text-label-2 uppercase">Show it as</h3>
-        <BlockToggle k="board" label="Board grouped by" disabled={of(["select"]).length ? undefined : "needs a Choice field"}>
+        <BlockToggle on={blocks.board} onToggle={() => toggle("board")} label="Board grouped by" disabled={of(["select"]).length ? undefined : "needs a Choice field"}>
           <FieldSelect value={boardBy} onChange={setBoardBy} list={of(["select"])} label="Group the board by" />
         </BlockToggle>
-        <BlockToggle k="upcoming" label="Coming up, by" disabled={of(["date", "datetime"]).length ? undefined : "needs a Date field"}>
+        <BlockToggle on={blocks.upcoming} onToggle={() => toggle("upcoming")} label="Coming up, by" disabled={of(["date", "datetime"]).length ? undefined : "needs a Date field"}>
           <FieldSelect value={dateBy} onChange={setDateBy} list={of(["date", "datetime"])} label="Date field" />
         </BlockToggle>
-        <BlockToggle k="stats" label="Totals, and the sum of">
-          <select value={sumBy} onChange={(e) => setSumBy(e.target.value)} aria-label="Field to add up" className="field h-8 w-auto py-0 text-[13px]">
+        <BlockToggle on={blocks.stats} onToggle={() => toggle("stats")} label="Totals, and the sum of">
+          <select value={sumBy} onChange={(e) => setSumBy(e.target.value)} aria-label="Field to add up" className="h-8 rounded-[10px] bg-fill px-2 text-[13px]">
             <option value="">nothing</option>
             {of(["number", "money", "rating"]).map((f) => (
               <option key={f.key} value={f.key}>
@@ -236,14 +243,14 @@ export function PageBuilder({ today, onDone }: { today: string; onDone?: () => v
             ))}
           </select>
         </BlockToggle>
-        <BlockToggle k="chart" label="Chart per month" disabled={of(["date", "datetime"]).length ? undefined : "needs a Date field"} />
-        <BlockToggle k="checklist" label="Checklist ticked by" disabled={of(["checkbox"]).length ? undefined : "needs a Yes / no field"}>
+        <BlockToggle on={blocks.chart} onToggle={() => toggle("chart")} label="Chart per month" disabled={of(["date", "datetime"]).length ? undefined : "needs a Date field"} />
+        <BlockToggle on={blocks.checklist} onToggle={() => toggle("checklist")} label="Checklist ticked by" disabled={of(["checkbox"]).length ? undefined : "needs a Yes / no field"}>
           <FieldSelect value={doneBy} onChange={setDoneBy} list={of(["checkbox"])} label="Checkbox field" />
         </BlockToggle>
-        <BlockToggle k="table" label="Table" />
-        <BlockToggle k="cards" label="Cards" />
-        <BlockToggle k="notes" label="Notes" />
-        <BlockToggle k="links" label="Links" />
+        <BlockToggle on={blocks.table} onToggle={() => toggle("table")} label="Table" />
+        <BlockToggle on={blocks.cards} onToggle={() => toggle("cards")} label="Cards" />
+        <BlockToggle on={blocks.notes} onToggle={() => toggle("notes")} label="Notes" />
+        <BlockToggle on={blocks.links} onToggle={() => toggle("links")} label="Links" />
       </section>
 
       <section className="flex flex-col gap-2">
