@@ -1,5 +1,5 @@
 import { and, eq, gte, sql } from "drizzle-orm";
-import { ArrowDown, ArrowUp, CalendarDays, FolderOpen, LogOut, Mail, Sparkles, Wand2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, CalendarDays, FolderOpen, LogOut, Mail, Sparkles, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { iconFor } from "@/components/custom/icons";
 import { PageAdders } from "@/components/page-adders";
@@ -17,6 +17,7 @@ import { Submit } from "@/components/submit";
 import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
 import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
 import { claudeAvailable, MODELS, monthSpend, PRICES } from "@/lib/ai/claude";
+import { instagramConfigured } from "@/lib/instagram/api";
 import { usd } from "@/lib/ai/allowance";
 import { requireUser } from "@/lib/auth";
 import { photoVersion } from "@/lib/background";
@@ -225,6 +226,31 @@ export default async function SettingsPage() {
           <Card className="p-4">
             <AnthropicKeyForm isSet={Boolean(me?.key)} />
           </Card>
+        </Section>
+      )}
+
+      {owner && (
+        <Section title="Instagram (Meta app)" className="scroll-mt-6" footer="One Meta app for the whole hub. Until Meta approves it (App Review), only accounts added as Instagram testers on the app can connect.">
+          <div id="instagram">
+            <List>
+              <Row>
+                <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-purple to-pink text-white">
+                  <BarChart3 size={17} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">Instagram API with Instagram Login</p>
+                  <p className="text-[13px] text-label-2">
+                    {instagramConfigured() ? "Set up: INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET are present." : "Not set up yet: add INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET to Vercel (see the guide)."}
+                    {!process.env.CRON_SECRET && " Daily updates also need CRON_SECRET."}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-[12px] text-label-3">Redirect URL: {env.appUrl()}/api/instagram/callback</p>
+                </div>
+                <a href="https://github.com/PopescuGabi/personal-hub/blob/main/docs/instagram-setup.md" target="_blank" rel="noreferrer" className={buttonClass("gray", "sm")}>
+                  Guide
+                </a>
+              </Row>
+            </List>
+          </div>
         </Section>
       )}
 

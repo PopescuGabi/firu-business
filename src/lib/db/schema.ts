@@ -406,6 +406,88 @@ export const customItems = pgTable(
   (t) => [index("custom_items_page").on(t.userId, t.pageId, t.collection)],
 );
 
+// ── Instagram analytics (Instagram API with Instagram Login) ──
+// The account belongs to whoever connected it (userId); clientId links it to one of that person's clients.
+export const instagramAccounts = pgTable(
+  "instagram_accounts",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
+    igUserId: text("ig_user_id").notNull(), // the professional account id (insights)
+    appUserId: text("app_user_id"), // app-scoped id (Meta data-deletion requests)
+    username: text("username").notNull(),
+    name: text("name").notNull().default(""),
+    picture: text("picture"),
+    accountType: text("account_type").notNull().default(""), // BUSINESS | MEDIA_CREATOR
+    accessToken: text("access_token").notNull(), // encrypted, long-lived (60 days)
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }).notNull(),
+    status: text("status").notNull().default("ok"), // ok | expired | error
+    lastError: text("last_error"),
+    lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("instagram_accounts_one").on(t.userId, t.igUserId)],
+);
+
+/** One post (feed photo, carousel or Reel) and its latest insights. null = not available from Instagram. */
+export type IgMetrics = {
+  views: number | null;
+  reach: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  interactions: number | null;
+  follows: number | null; // posts and carousels only, not Reels
+  profileVisits: number | null;
+  avgWatchMs: number | null; // Reels only
+};
+export const igMedia = pgTable(
+  "ig_media",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => instagramAccounts.id, { onDelete: "cascade" }),
+    mediaId: text("media_id").notNull(),
+    kind: text("kind").notNull(), // reel | carousel | photo | video
+    caption: text("caption").notNull().default(""),
+    permalink: text("permalink").notNull().default(""),
+    thumbnail: text("thumbnail"),
+    postedAt: timestamp("posted_at", { withTimezone: true }).notNull(),
+    metrics: jsonb("metrics").$type<IgMetrics>().notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ig_media_one").on(t.accountId, t.mediaId), index("ig_media_account").on(t.userId, t.accountId, t.postedAt)],
+);
+
+/** One day of account totals. Followers is our own daily snapshot (Instagram doesn't keep history). */
+export const igDaily = pgTable(
+  "ig_daily",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => instagramAccounts.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // yyyy-mm-dd (UTC day as reported by Instagram)
+    followers: integer("followers"),
+    reach: integer("reach"),
+    views: integer("views"),
+    interactions: integer("interactions"),
+    likes: integer("likes"),
+    comments: integer("comments"),
+    shares: integer("shares"),
+    saves: integer("saves"),
+    follows: integer("follows"),
+    unfollows: integer("unfollows"),
+    profileLinkTaps: integer("profile_link_taps"),
+  },
+  (t) => [uniqueIndex("ig_daily_one").on(t.accountId, t.date)],
+);
+
 // Work you show off: files live in the "Portfolio" folder in Drive; public items appear on the share page.
 export const portfolioItems = pgTable("portfolio_items", {
   id: serial("id").primaryKey(),

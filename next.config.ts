@@ -7,7 +7,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com",
+  "img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com https://*.cdninstagram.com https://*.fbcdn.net",
   "font-src 'self' data:",
   // blob: lets the AI video maker read picked clips; remotion.pro receives the free-licence render count (no content).
   "connect-src 'self' blob: data: https://www.googleapis.com https://www.remotion.pro",

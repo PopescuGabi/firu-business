@@ -5,6 +5,7 @@ export const MODULES = [
   { key: "gym", label: "Gym", description: "Your training split, planned into free time." },
   { key: "clients", label: "Client work", description: "Clients, app updates, reels, carousels and their feedback, with an AI editor that follows your saved prompts." },
   { key: "portfolio", label: "Portfolio", description: "Your best work from Drive, with an optional public page." },
+  { key: "instagram", label: "Instagram analytics", description: "Your Instagram professional account: reach, views, followers, best posts and formats, posting rhythm." },
   { key: "email", label: "Email", description: "Your Gmail inbox: important mail at a glance, reply, turn emails into tasks." },
 ] as const;
 

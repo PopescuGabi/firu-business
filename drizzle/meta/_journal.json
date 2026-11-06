@@ -120,6 +120,13 @@
       "when": 1793989409795,
       "tag": "0016_reel_video",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793991654231,
+      "tag": "0017_instagram",
+      "breakpoints": true
     }
   ]
 }

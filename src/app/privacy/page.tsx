@@ -64,6 +64,16 @@ export default function PrivacyPage() {
         requests by default.
       </p>
 
+      <h2 id="instagram">Instagram analytics</h2>
+      <p>
+        If you connect an Instagram professional account, Personal Hub uses Meta&apos;s official Instagram API (with your
+        permission, which you can withdraw at any time) to read your profile name and picture, your follower count, your posts
+        (type, caption, link, thumbnail and date) and their statistics, and your account&apos;s daily totals. They are stored in
+        your hub to show your dashboard and, if you choose to share it, to the business you work with. The access token is
+        encrypted. Disconnecting the account, or removing the app in your Instagram settings, deletes everything stored for
+        it. This data is never sold, shared with anyone else or used to train AI models.
+      </p>
+
       <h2>Your public portfolio page</h2>
       <p>
         If you turn on your portfolio share link, visits to it are counted so you can see how many people look and

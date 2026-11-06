@@ -42,6 +42,9 @@ export async function writeVercelEnvFile(appUrl: string) {
     `DATABASE_URL=${read("SUPABASE_DATABASE_URL")}`,
     `AI_MAX_REQUESTS_PER_HOUR=${read("AI_MAX_REQUESTS_PER_HOUR") || "60"}`,
     ...(read("ANTHROPIC_API_KEY") ? [`ANTHROPIC_API_KEY=${read("ANTHROPIC_API_KEY")}`] : []),
+    // Instagram analytics: the Meta app's keys (docs/instagram-setup.md) and the secret Vercel Cron sends.
+    ...(read("INSTAGRAM_APP_ID") ? [`INSTAGRAM_APP_ID=${read("INSTAGRAM_APP_ID")}`, `INSTAGRAM_APP_SECRET=${read("INSTAGRAM_APP_SECRET")}`] : []),
+    `CRON_SECRET=${read("CRON_SECRET") || randomBytes(24).toString("base64url")}`,
   ];
   const file = path.join(process.cwd(), ".env.vercel");
   writeFileSync(file, `${lines.join("\n")}\n`, { mode: 0o600 });

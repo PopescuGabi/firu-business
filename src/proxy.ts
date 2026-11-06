@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session";
 
-const PUBLIC = ["/login", "/welcome", "/privacy", "/terms", "/api/auth/google", "/api/auth/callback", "/api/auth/dev"];
+// Cron and Meta's data-deletion callback check their own secret / signature.
+const PUBLIC = ["/login", "/welcome", "/privacy", "/terms", "/api/auth/google", "/api/auth/callback", "/api/auth/dev", "/api/cron/instagram", "/api/instagram/deletion"];
 
 // Simple per-IP limiter for API calls (each instance keeps its own window).
 const hits = new Map<string, { count: number; reset: number }>();

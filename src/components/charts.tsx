@@ -239,3 +239,91 @@ export function Sparkline({ values, className }: { values: number[]; className?:
     </svg>
   );
 }
+
+/** Bars (e.g. posts per week) with a line on its own scale (e.g. reach in the same week). */
+export function ComboChart({
+  labels,
+  bars,
+  line,
+  format = compact,
+  height = 170,
+}: {
+  labels: string[];
+  bars: { label: string; values: number[]; color?: string };
+  line: { label: string; values: (number | null)[]; color?: string };
+  format?: Fmt;
+  height?: number;
+}) {
+  const W = 600;
+  const H = 200;
+  const barTop = niceMax(Math.max(1, ...bars.values));
+  const lineVals = line.values.map((v) => v ?? 0);
+  const lineTop = niceMax(Math.max(1, ...lineVals));
+  const n = Math.max(1, labels.length);
+  const pts = lineVals.map((v, i) => ({ x: ((i + 0.5) / n) * W, y: H - (Math.max(0, v) / lineTop) * H }));
+  const barColor = bars.color ?? CHART_COLORS[0];
+  const lineColor = line.color ?? CHART_COLORS[3];
+  const every = Math.max(1, Math.ceil(labels.length / 8));
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="relative" style={{ height }}>
+        <div className="absolute inset-0 grid items-end gap-1.5" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+          {labels.map((l, i) => (
+            <div key={i} className="chart-hit flex h-full items-end justify-center" title={`${l}: ${bars.label} ${format(bars.values[i] ?? 0)}, ${line.label} ${line.values[i] == null ? "–" : format(line.values[i]!)}`}>
+              <span className="bar w-full max-w-7 rounded-t-[6px] rounded-b-[3px]" style={{ height: `${Math.max(2, ((bars.values[i] ?? 0) / barTop) * 100)}%`, background: barColor, opacity: 0.55, ["--i" as string]: i }} />
+            </div>
+          ))}
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden style={{ color: lineColor }}>
+          <path d={linePath(pts)} pathLength={1} className="chart-line" />
+        </svg>
+      </div>
+      <div className="grid gap-1.5 text-center text-[10px] text-label-3" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+        {labels.map((l, i) => (
+          <span key={i} className={clsx("truncate", (labels.length - 1 - i) % every ? "invisible" : "")}>
+            {l}
+          </span>
+        ))}
+      </div>
+      <Legend items={[{ label: bars.label, color: barColor }, { label: line.label, color: lineColor }]} />
+    </div>
+  );
+}
+
+/** Days of a period in weeks (Monday first); each day shows a dot per post, coloured by its kind. */
+export function PostingCalendar({ days, colors, labels }: { days: { date: string; posts: string[] }[]; colors: Record<string, string>; labels: Record<string, string> }) {
+  if (!days.length) return null;
+  const lead = (new Date(`${days[0].date}T12:00:00Z`).getUTCDay() + 6) % 7;
+  const cells: ({ date: string; posts: string[] } | null)[] = [...Array(lead).fill(null), ...days];
+  const kinds = [...new Set(days.flatMap((d) => d.posts))];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-label-3">
+        {DAYS.map((d) => (
+          <span key={d}>{d}</span>
+        ))}
+        {cells.map((c, i) =>
+          c ? (
+            <div
+              key={c.date}
+              className={clsx("flex aspect-square min-h-7 flex-col items-center justify-center gap-0.5 rounded-[8px]", c.posts.length ? "bg-accent-soft" : "bg-well")}
+              title={`${c.date}: ${c.posts.length ? c.posts.map((p) => labels[p] ?? p).join(", ") : "no posts"}`}
+            >
+              <span className={clsx("text-[10px] leading-none", c.posts.length ? "font-semibold text-label" : "text-label-3")}>{Number(c.date.slice(8))}</span>
+              {c.posts.length > 0 && (
+                <span className="flex gap-0.5">
+                  {c.posts.slice(0, 3).map((p, k) => (
+                    <span key={k} className="size-1.5 rounded-full" style={{ background: colors[p] ?? CHART_COLORS[0] }} />
+                  ))}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span key={`x${i}`} />
+          ),
+        )}
+      </div>
+      {kinds.length > 0 && <Legend items={kinds.map((k) => ({ label: labels[k] ?? k, color: colors[k] ?? CHART_COLORS[0] }))} />}
+    </div>
+  );
+}
