@@ -48,7 +48,7 @@ export type SetupQuestion = { text: string; multi: boolean; options: string[] };
 export const tidyQuestions = (q: z.infer<typeof questionsOut>): SetupQuestion[] =>
   q.questions.slice(0, 7).map((x) => ({ text: x.text, multi: x.multi, options: [...new Set(x.options)].slice(0, 6) }));
 
-export const PROPOSE_SYSTEM = `You design someone's personal organiser from their profession and answers. Call propose_setup once.
+export const PROPOSE_SYSTEM = `You design someone's personal organiser from their profession and answers. Always answer by calling the propose_setup tool exactly once, with no text before it.
 
 Built-in sections (turn on only those that clearly fit):
 ${MODULES.map((m) => `- ${m.key}: ${m.description}`).join("\n")}

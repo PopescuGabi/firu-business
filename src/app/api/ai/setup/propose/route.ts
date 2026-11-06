@@ -35,7 +35,8 @@ export async function POST(req: Request) {
         output_config: { effort: "medium" },
         system: PROPOSE_SYSTEM,
         tools: [proposeTool],
-        tool_choice: { type: "tool", name: proposeTool.name },
+        // Sonnet 5.5 doesn't accept a forced tool; the system prompt asks for exactly one propose_setup call.
+        tool_choice: { type: "auto" },
         messages: [{ role: "user", content: prompt }],
       })
       .finalMessage();
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
     if (final.stop_reason === "refusal") throw new Error("Claude declined this one. Try describing your work differently.");
     if (final.stop_reason === "max_tokens") throw new Error("The proposal was too long. Try again.");
     const tool = final.content.find((b) => b.type === "tool_use");
-    if (!tool || tool.type !== "tool_use") throw new Error("Claude didn't return a setup. Try again.");
+    if (!tool || tool.type !== "tool_use") throw new Error("Claude answered without a setup. Press Build my pages again.");
     const proposal = tidyProposal(tool.input);
     if (!proposal.pages.length && !proposal.modules.length) throw new Error("That setup didn't work out. Try again.");
     return Response.json({ proposal });
