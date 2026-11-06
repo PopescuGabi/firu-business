@@ -11,8 +11,8 @@ export default function TermsPage() {
         account in Settings.
       </p>
       <p>
-        It&apos;s provided free, as is, without warranties. The owner may change or shut it down at any time. AI features use
-        your own Anthropic API key, billed to you by Anthropic; you&apos;re responsible for what you send with Gmail.
+        It&apos;s provided free, as is, without warranties. The owner may change or shut it down at any time. AI features run on
+        the hub&apos;s Anthropic API key, with a monthly allowance per person set by the owner; you&apos;re responsible for what you send with Gmail.
       </p>
       <p>
         See the <a href="/privacy" className="text-blue">privacy policy</a> for what data it uses.

@@ -1,7 +1,7 @@
 "use client";
 import { useActionState, useTransition } from "react";
 import { Trash2, UserPlus } from "lucide-react";
-import { deleteMyAccount, inviteMember, removeMember, saveAnthropicKey, withdrawInvite, type FormState } from "@/app/actions/account";
+import { deleteMyAccount, inviteMember, removeMember, saveAiAllowance, saveAnthropicKey, withdrawInvite, type FormState } from "@/app/actions/account";
 import { Submit } from "./submit";
 import { buttonClass, Field } from "./ui";
 
@@ -50,7 +50,7 @@ export function AnthropicKeyForm({ isSet }: { isSet: boolean }) {
   const [state, act] = useActionState(saveAnthropicKey, null);
   return (
     <form action={act} className="flex flex-col gap-2">
-      <Field label="Anthropic API key" hint={isSet ? "A key is saved (encrypted). Paste a new one to replace it." : "From console.anthropic.com → API keys. Usage is billed to your Anthropic account; set a spend limit there."}>
+      <Field label="Anthropic API key" hint={isSet ? "A key is saved (encrypted). Everyone in your hub uses it, within their monthly allowance. Paste a new one to replace it." : "From console.anthropic.com → API keys. Everyone in your hub uses it, billed to your Anthropic account; set a spend limit there too."}>
         <input name="key" type="password" autoComplete="off" placeholder={isSet ? "Paste a new key to replace it" : "sk-ant-…"} className="field font-mono" />
       </Field>
       <div className="flex items-center justify-end gap-2">
@@ -81,6 +81,20 @@ export function DeleteAccountForm({ email }: { email: string }) {
       <button className={buttonClass("destructive") + " self-end"}>
         <Trash2 size={15} /> Delete my account
       </button>
+    </form>
+  );
+}
+
+/** Owner: how much AI each member may use per month on the hub's key. */
+export function AllowanceForm({ usd }: { usd: number }) {
+  const [state, act] = useActionState(saveAiAllowance, null);
+  return (
+    <form action={act} className="flex flex-wrap items-end gap-2">
+      <Field label="AI allowance per member, per month ($)" hint="Estimated from list prices; resets on the 1st. You have no limit.">
+        <input name="usd" inputMode="decimal" defaultValue={usd} required aria-label="AI allowance in dollars" className="field w-32" />
+      </Field>
+      <Submit variant="gray">Save</Submit>
+      <Message state={state} />
     </form>
   );
 }

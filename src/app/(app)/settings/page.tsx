@@ -1,6 +1,6 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { CalendarDays, FolderOpen, LogOut, Mail, Sparkles } from "lucide-react";
-import { AnthropicKeyForm, DeleteAccountForm, InviteForm, RemoveMember, WithdrawInvite } from "@/components/account-forms";
+import { AllowanceForm, AnthropicKeyForm, DeleteAccountForm, InviteForm, RemoveMember, WithdrawInvite } from "@/components/account-forms";
 import { BackgroundPicker } from "@/components/background-picker";
 import { AddressList, MapsKeyForm } from "@/components/maps-settings";
 import { SectionsForm } from "@/components/sections-form";
@@ -10,7 +10,8 @@ import { VercelEnvForm } from "@/components/vercel-env-form";
 import { Submit } from "@/components/submit";
 import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
 import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
-import { claudeAvailable, MODELS, PRICES } from "@/lib/ai/claude";
+import { claudeAvailable, MODELS, monthSpend, PRICES } from "@/lib/ai/claude";
+import { usd } from "@/lib/ai/allowance";
 import { requireUser } from "@/lib/auth";
 import { photoVersion } from "@/lib/background";
 import { mapsAvailable, TRAVEL_MODES } from "@/lib/google/maps";
@@ -21,7 +22,7 @@ import { env } from "@/lib/env";
 import { listCalendars, type CalendarInfo } from "@/lib/google/calendar";
 import { folderUrl } from "@/lib/google/drive";
 import { GMAIL_SCOPES, getGoogleAccount, GOOGLE_SCOPES, hasScope } from "@/lib/google/oauth";
-import { listMembers } from "@/lib/users";
+import { aiAllowanceUsd, listMembers } from "@/lib/users";
 import { canEditLocalEnv, LOCAL_KEYS, type LocalKey } from "@/lib/local-env";
 import { getSettings } from "@/lib/settings";
 
@@ -38,7 +39,12 @@ export default async function SettingsPage() {
   const [mapsOn, savedPlaces] = await Promise.all([mapsAvailable(user.id), listPlaces(user.id)]);
   const [me] = await db.select({ key: schema.users.anthropicKey }).from(schema.users).where(eq(schema.users.id, user.id));
   const gmailOn = GMAIL_SCOPES.every((s) => hasScope(account, s));
-  const members = user.role === "owner" ? await listMembers() : null;
+  const owner = user.role === "owner";
+  const members = owner ? await listMembers() : null;
+  const allowance = await aiAllowanceUsd();
+  // Everyone shares the owner's key: members see what's left of their monthly allowance; the owner sees each member's spend.
+  const spentThisMonth = owner ? 0 : await monthSpend(user.id);
+  const memberSpend = new Map(members ? await Promise.all(members.users.filter((m) => m.role !== "owner").map(async (m) => [m.id, await monthSpend(m.id)] as const)) : []);
   const connected = Boolean(account?.accessToken);
   const missingScopes = connected ? GOOGLE_SCOPES.filter((s) => s.startsWith("https") && !account?.scope?.includes(s)) : [];
 
@@ -138,8 +144,10 @@ export default async function SettingsPage() {
               <p className="font-medium">Claude</p>
               <p className="text-[13px] text-label-2">
                 {claudeOn
-                  ? `Opus 5.5 for content · Sonnet 5.5 for analysis and the gym coach · Haiku 5.5 for planning, email and finance · max ${env.aiMaxPerHour()} requests/hour${me?.key ? " · your key" : ""}`
-                  : "Copy-paste mode (Claude app). Add your own API key below to use Claude inside the site."}
+                  ? `Opus 5.5 for content · Sonnet 5.5 for analysis and the gym coach · Haiku 5.5 for planning, email and finance · max ${env.aiMaxPerHour()} requests/hour${owner ? (me?.key ? " · your key, shared with your hub" : "") : ` · ${usd(spentThisMonth)} of ${usd(allowance)} used this month`}`
+                  : owner
+                    ? "Copy-paste mode (Claude app). Add your API key below to use Claude inside the site, for everyone in your hub."
+                    : "Copy-paste mode (Claude app) until the hub's owner adds a key."}
               </p>
             </div>
           </Row>
@@ -161,16 +169,19 @@ export default async function SettingsPage() {
         </Card>
       </Section>
 
-      <Section title="Your Anthropic key">
-        <Card className="p-4">
-          <AnthropicKeyForm isSet={Boolean(me?.key)} />
-        </Card>
-      </Section>
+      {owner && (
+        <Section title="Anthropic key" footer="One key for the whole hub: members use Claude on it within their monthly allowance (Members below).">
+          <Card className="p-4">
+            <AnthropicKeyForm isSet={Boolean(me?.key)} />
+          </Card>
+        </Section>
+      )}
 
       {members && (
         <Section title="Members" footer="Personal Hub is invite only: people sign in with the Google account you invite. Each person only sees their own data.">
           <Card className="flex flex-col gap-4 p-4">
             <InviteForm />
+            <AllowanceForm usd={allowance} />
             <List className="!shadow-none">
               {members.users.map((m) => (
                 <Row key={m.id}>
@@ -178,6 +189,7 @@ export default async function SettingsPage() {
                     <p className="truncate font-medium">{m.name || m.email}</p>
                     <p className="truncate text-[13px] text-label-2">
                       {m.email} · {m.role === "owner" ? "Owner" : m.onboarded ? "Member" : "Invited, setting up"}
+                      {m.role !== "owner" && ` · AI ${usd(memberSpend.get(m.id) ?? 0)} of ${usd(allowance)} this month`}
                     </p>
                   </div>
                   {m.role !== "owner" && <RemoveMember uid={m.id} email={m.email} />}

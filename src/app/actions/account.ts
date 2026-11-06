@@ -7,7 +7,7 @@ import { requireOwner, requireUser } from "@/lib/auth";
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { revokeGoogle } from "@/lib/google/oauth";
 import { isModule } from "@/lib/modules";
-import { saveSettings } from "@/lib/settings";
+import { saveSettings, setSetting } from "@/lib/settings";
 import { cancelInvite, deleteUser, invite, setAnthropicKey, setModules } from "@/lib/users";
 
 export type FormState = { ok: boolean; message: string } | null;
@@ -64,6 +64,8 @@ export async function saveSections(fd: FormData) {
 
 export async function saveAnthropicKey(_prev: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
+  // One key for the whole hub: only the owner sets it.
+  if (user.role !== "owner") return { ok: false, message: "Only the owner sets the hub's key." };
   if (fd.get("remove") === "1") {
     await setAnthropicKey(user.id, null);
     revalidatePath("/", "layout");
@@ -73,7 +75,7 @@ export async function saveAnthropicKey(_prev: FormState, fd: FormData): Promise<
   if (!key.success) return { ok: false, message: key.error.issues[0].message };
   await setAnthropicKey(user.id, key.data);
   revalidatePath("/", "layout");
-  return { ok: true, message: "Saved. Claude now works inside the site for you." };
+  return { ok: true, message: "Saved. Claude now works inside the site for everyone in your hub." };
 }
 
 /** Deletes your account and everything you stored here, and disconnects Google. */
@@ -87,3 +89,14 @@ export async function deleteMyAccount(fd: FormData) {
   redirect("/login");
 }
 
+
+/** Owner: each member's AI allowance per month (USD), since everyone uses the owner's key. */
+export async function saveAiAllowance(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (user.role !== "owner") return { ok: false, message: "Only the owner can change this." };
+  const v = z.coerce.number().min(0).max(1000).safeParse(String(fd.get("usd") ?? "").replace(",", "."));
+  if (!v.success) return { ok: false, message: "Enter an amount from 0 to 1000." };
+  await setSetting(user.id, "aiAllowanceUsd", Math.round(v.data * 100) / 100);
+  revalidatePath("/settings");
+  return { ok: true, message: "Saved." };
+}

@@ -5,6 +5,7 @@ import { getDb, schema } from "./db";
 import { decrypt, encrypt } from "./crypto";
 import { env } from "./env";
 import { ALL_MODULES, isModule } from "./modules";
+import { DEFAULT_ALLOWANCE_USD } from "./ai/allowance";
 
 const normal = (email: string) => email.trim().toLowerCase();
 
@@ -91,18 +92,29 @@ export async function setModules(uid: number, modules: string[], onboarded = tru
     .where(eq(schema.users.id, uid));
 }
 
-// Their own Anthropic key (encrypted). The owner can also use the deployment's ANTHROPIC_API_KEY.
+// The hub's Anthropic key: the owner's (encrypted), used for everyone's AI. Members don't bring their own.
 export async function setAnthropicKey(uid: number, key: string | null) {
   const db = await getDb();
   await db.update(schema.users).set({ anthropicKey: key ? encrypt(key) : null }).where(eq(schema.users.id, uid));
 }
 
-export async function anthropicKeyFor(uid: number) {
+export async function anthropicKeyFor(_uid: number) {
   const db = await getDb();
-  const [u] = await db.select({ key: schema.users.anthropicKey, role: schema.users.role }).from(schema.users).where(eq(schema.users.id, uid));
-  if (u?.key) return decrypt(u.key);
-  if (u?.role === "owner") return process.env.ANTHROPIC_API_KEY || null;
-  return null;
+  const [owner] = await db.select({ key: schema.users.anthropicKey }).from(schema.users).where(eq(schema.users.role, "owner")).orderBy(asc(schema.users.id)).limit(1);
+  if (owner?.key) return decrypt(owner.key);
+  return process.env.ANTHROPIC_API_KEY || null;
+}
+
+/** Each member's monthly AI allowance in USD, set by the owner in Settings → Members. */
+export async function aiAllowanceUsd() {
+  const db = await getDb();
+  const [row] = await db
+    .select({ value: schema.settings.value })
+    .from(schema.settings)
+    .innerJoin(schema.users, eq(schema.users.id, schema.settings.userId))
+    .where(and(eq(schema.users.role, "owner"), eq(schema.settings.key, "aiAllowanceUsd")));
+  const v = Number(row?.value);
+  return Number.isFinite(v) && v >= 0 ? v : DEFAULT_ALLOWANCE_USD;
 }
 
 // Their own Google Maps key (encrypted); never sent to the browser.

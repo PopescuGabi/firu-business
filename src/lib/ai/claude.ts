@@ -3,7 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { env } from "../env";
-import { anthropicKeyFor } from "../users";
+import { anthropicKeyFor, aiAllowanceUsd } from "../users";
+import { costUsd, monthStart, usd } from "./allowance";
 
 export const MODEL = "claude-opus-5-5";
 // Server-side refusal fallback: if the model declines, Anthropic re-runs on its recommended fallback model.
@@ -27,20 +28,15 @@ export function modelFor(tier: Tier) {
     : { model: MODELS[tier], betas: [FALLBACK_BETA], fallbacks: "default" as const };
 }
 
-/** List prices, USD per million tokens (input, output), for the usage estimate in Settings. */
-export const PRICES: Record<string, [number, number]> = {
-  "claude-opus-5-5": [4, 20],
-  "claude-sonnet-5-5": [2, 10],
-  "claude-haiku-5-5": [0.1, 0.5],
-};
+export { PRICES } from "./allowance";
 
-// One client per key (each person brings their own; the owner may also use the deployment's key).
+// One client per key (everyone uses the owner's key; see anthropicKeyFor).
 const clients = new Map<string, Anthropic>();
 
-/** Claude for this person, with their own key. */
+/** Claude for this person, on the hub's key. */
 export async function claude(uid: number) {
   const key = await anthropicKeyFor(uid);
-  if (!key) throw new AiError("Add your Anthropic API key in Settings to use Claude here, or use the Claude app mode.", 503);
+  if (!key) throw new AiError("Claude isn't set up in this hub yet. Use the Claude app mode for now.", 503);
   let c = clients.get(key);
   if (!c) clients.set(key, (c = new Anthropic({ apiKey: key })));
   return c;
@@ -68,6 +64,28 @@ export async function assertWithinLimit(uid: number) {
   if (n >= env.aiMaxPerHour()) {
     throw new AiError(`Hourly Claude limit reached (${env.aiMaxPerHour()}/h). Try again later.`, 429);
   }
+  // Everyone shares the owner's key, so members have a monthly allowance; the owner has none.
+  const [u] = await db.select({ role: schema.users.role }).from(schema.users).where(eq(schema.users.id, uid));
+  if (u?.role === "owner") return;
+  const [spent, allowance] = await Promise.all([monthSpend(uid), aiAllowanceUsd()]);
+  if (spent >= allowance) {
+    throw new AiError(`You've used this month's AI allowance (${usd(allowance)}). It resets on the 1st.`, 429);
+  }
+}
+
+/** Estimated USD this person's AI use has cost since the 1st of this month (UTC). */
+export async function monthSpend(uid: number) {
+  const db = await getDb();
+  const rows = await db
+    .select({
+      model: schema.aiUsage.model,
+      input: sql<number>`coalesce(sum(${schema.aiUsage.inputTokens}), 0)::int`,
+      output: sql<number>`coalesce(sum(${schema.aiUsage.outputTokens}), 0)::int`,
+    })
+    .from(schema.aiUsage)
+    .where(and(eq(schema.aiUsage.userId, uid), gte(schema.aiUsage.createdAt, monthStart(new Date()))))
+    .groupBy(schema.aiUsage.model);
+  return costUsd(rows);
 }
 
 export async function recordUsage(uid: number, kind: string, usage: { input_tokens: number; output_tokens: number } | undefined, model: string = MODEL) {

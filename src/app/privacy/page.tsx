@@ -52,12 +52,13 @@ export default function PrivacyPage() {
 
       <h2>AI features</h2>
       <p>
-        If you add your own Anthropic API key, then when you ask for an AI week plan the times and titles of your calendar
+        AI features run on Anthropic&apos;s Claude API through the hub owner&apos;s key. When you ask for an AI week plan the times and titles of your calendar
         events and your schedule are sent to Anthropic&apos;s Claude API to generate suggestions, and when you ask the AI
         editor for help the text of that reel or carousel and your saved prompts are sent. When you press Summarise or Draft
         reply on an email, that one email (sender name, subject and text) is sent so Claude can summarise it or draft a reply
         for you to edit; nothing is sent by AI and no other email is read. The gym coach receives your split, your logged
-        sets and your busy times; finance insights receive your income, spending and budgets totals. This only happens when
+        sets and your busy times; finance insights receive your income, spending and budgets totals; the AI setup receives your profession and your
+        answers, and a custom page&apos;s AI editor receives that page&apos;s layout (not its entries). This only happens when
         you request it. Google user data is not used to
         develop, improve or train generalised AI or machine-learning models, and Anthropic doesn&apos;t train models on API
         requests by default.
@@ -82,7 +83,7 @@ export default function PrivacyPage() {
       <h2>Where data is stored</h2>
       <p>
         What you store in your hub (schedule, tasks, clients, reels, carousels, prompts, notes) is kept in Personal Hub&apos;s
-        database, separated per person. Google sign-in tokens and your Anthropic and Google Maps keys are encrypted (AES-256-GCM). Files stay
+        database, separated per person. Google sign-in tokens, the hub&apos;s Anthropic key and Google Maps keys are encrypted (AES-256-GCM). Files stay
         in your own Google Drive. Calendar events and emails are read when a page needs them and aren&apos;t stored, except
         the events this app created itself.
       </p>
