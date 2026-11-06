@@ -13,6 +13,7 @@ import { gymProposal } from "@/lib/gym";
 import { parsePageDraft } from "@/lib/custom-pages";
 import { mutateSchedule } from "@/lib/mutate";
 import { clientProfile, reelPlan } from "@/lib/reels-brain/types";
+import { videoSpec } from "@/lib/video/spec";
 
 const name = z.string().trim().min(1).max(200);
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/).catch("#007AFF");
@@ -411,6 +412,23 @@ export async function saveReelPlan(id: number, plan: unknown) {
   const [r] = await db
     .update(schema.reels)
     .set({ plan: clean, updatedAt: new Date() })
+    .where(and(eq(schema.reels.id, id), eq(schema.reels.userId, user.id)))
+    .returning({ id: schema.reels.id });
+  if (!r) throw new Error("Not found");
+  return clean;
+}
+
+/** Saves the AI video maker's brief and spec for a reel (the spec is re-validated; attachments stay in the browser). */
+export async function saveReelVideo(id: number, video: { brief?: string; spec?: unknown }) {
+  const user = await requireUser();
+  const db = await getDb();
+  const clean = {
+    brief: z.string().max(8000).catch("").parse(video.brief ?? ""),
+    spec: video.spec === undefined ? undefined : videoSpec.parse(video.spec),
+  };
+  const [r] = await db
+    .update(schema.reels)
+    .set({ video: clean, updatedAt: new Date() })
     .where(and(eq(schema.reels.id, id), eq(schema.reels.userId, user.id)))
     .returning({ id: schema.reels.id });
   if (!r) throw new Error("Not found");

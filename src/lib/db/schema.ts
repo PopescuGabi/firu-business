@@ -189,6 +189,8 @@ export const reels = pgTable(
     files: jsonb("files").$type<DriveFile[]>().notNull().default([]),
     // Reels Brain: diagnosis, caption plan, one experiment and the review checklist for this reel
     plan: jsonb("plan").$type<Partial<ReelPlan>>().notNull().default({}),
+    // AI video maker: the brief Gabi gave and the last video spec Opus wrote (rendered in the browser)
+    video: jsonb("video").$type<{ brief?: string; spec?: unknown }>().notNull().default({}),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

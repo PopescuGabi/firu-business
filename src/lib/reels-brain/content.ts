@@ -148,6 +148,12 @@ export const RULES: RuleGroup[] = [
         evidence: "S: BBC 9:16 · P (secondary): Meta safe-zone conversions",
         confidence: "Medium",
       },
+      {
+        title: "Minimum text size",
+        body: "Text the viewer must read (hook, captions, claims, CTA) ≥ 46 px at 1080 width (iOS 17 pt body); never below 30 px (iOS 11 pt minimum); 60–80 px for hooks and cards. Double for 4K. Smaller UI or scene text is decoration: the message must not depend on it.",
+        evidence: "P: Apple HIG typography (17 pt default, 11 pt min) · S: BBC subtitles (phones use the authored size) · inference: 1 pt ≈ 2.6 px at 1080 width",
+        confidence: "Medium",
+      },
     ],
   },
   {
@@ -196,6 +202,18 @@ export const RULES: RuleGroup[] = [
         evidence: "S: CMR Decision 14/2026 amending 20/2025 (read in full)",
         confidence: "High",
       },
+      {
+        title: "YouTube Shorts over 60 s",
+        body: "A Short longer than 1 minute with ANY active copyright claim is blocked worldwide. Over 60 s use only original or YouTube-cleared music; for a trending sound cut a ≤ 60 s version.",
+        evidence: "P: YouTube Help 15424877 (three-minute Shorts), read 2026-11-05",
+        confidence: "High",
+      },
+      {
+        title: "App and product demos",
+        body: "Rebuild the UI with example data (label analytics 'Demo data'); never capture real accounts. Join screens with motion (element grows into the next screen, zoom between levels, camera follows the tap) and keep every tap inside the safe box. A small idle float keeps the frame alive.",
+        evidence: "O: Personal Hub promo reel (2026-11-05)",
+        confidence: "Medium",
+      },
     ],
   },
   {
@@ -204,8 +222,8 @@ export const RULES: RuleGroup[] = [
     rules: [
       {
         title: "One hypothesis, one variable",
-        body: "Write the hypothesis before changing anything; compare only with the same client's similar posts (platform, format, length, paid vs organic). Hook tests: Instagram Trial Reels, first 3 s only.",
-        evidence: "P: YouTube compare similar formats · P: Instagram Trial Reels · H",
+        body: "Write the hypothesis before changing anything; compare only with the same client's similar posts (platform, format, length, paid vs organic). Hook tests: Instagram Trial Reels, first 3 s only, read after ≥ 24 h, with auto-share OFF (auto-share judges only views in the first 72 h). Followers can still meet a trial via shares or the audio page.",
+        evidence: "P: YouTube compare similar formats · P: Meta Newsroom + Instagram Creators blog, Trial reels (Dec 2024, upd. Jun 2025) · H",
         confidence: "High",
       },
       {
