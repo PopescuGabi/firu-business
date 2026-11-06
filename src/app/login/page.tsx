@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
+import { APP_NAME } from "@/lib/brand";
 import { env } from "@/lib/env";
 import { LogoMark } from "@/components/logo";
 import { GoogleButton } from "@/components/google-button";
@@ -9,7 +10,7 @@ export const metadata = { title: "Sign in" };
 
 const ERRORS: Record<string, string> = {
   not_allowed: "Google couldn't confirm this account's email address.",
-  not_invited: "Personal Hub is invite only. Ask the owner to invite this Google account, then try again.",
+  not_invited: "FIRU Business is invite only. Ask the owner to invite this Google account, then try again.",
   invalid_state: "The sign-in link expired. Please try again.",
   google_denied: "Google sign-in was cancelled.",
   oauth_failed: "Google sign-in failed. Please try again.",
@@ -23,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="grid min-h-dvh place-items-center px-4">
       <div className="glass w-full max-w-sm rounded-[28px] px-6 py-9 text-center">
         <LogoMark size={72} className="mx-auto mb-5" />
-        <h1 className="text-[28px] font-bold tracking-tight">Personal Hub</h1>
+        <h1 className="text-[28px] font-bold tracking-tight">{APP_NAME}</h1>
         <p className="mt-1 text-[15px] text-label-2">Your own private hub. Invite only.</p>
 
         {error && (
@@ -43,7 +44,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </div>
         <p className="mt-6 text-[12px] text-label-2">
           Signing in also connects Google Calendar (to plan around your events and add the blocks you accept) and Google Drive
-          (only the files this app creates). <a href="/welcome" className="text-blue">What is Personal Hub?</a>
+          (only the files this app creates). <a href="/welcome" className="text-blue">What is FIRU Business?</a>
         </p>
         <p className="mt-3 text-[12px] text-label-2">
           <a href="/privacy" className="hover:text-label">Privacy</a> · <a href="/terms" className="hover:text-label">Terms</a>

@@ -91,13 +91,13 @@ export async function createVercelEnvFile(_prev: KeyFormState, fd: FormData): Pr
 
 export type SyncFormState = { ok: boolean; message: string } | null;
 
-/** Turns two-way sync with the "Personal Hub" Google calendar on/off and runs it straight away. */
+/** Turns two-way sync with the "FIRU Business" Google calendar on/off and runs it straight away. */
 export async function saveCalendarSync(_prev: SyncFormState, fd: FormData): Promise<SyncFormState> {
   const user = await requireUser();
   const calendarSync = fd.get("calendarSync") === "on";
   await saveSettings(user.id, { calendarSync });
   revalidatePath("/", "layout");
-  if (!calendarSync) return { ok: true, message: "Sync is off. Events already in the Personal Hub calendar stay there but stop updating." };
+  if (!calendarSync) return { ok: true, message: "Sync is off. Events already in the FIRU Business calendar stay there but stop updating." };
   const { runSync } = await import("@/lib/calendar-sync");
   return runSync(user.id);
 }

@@ -4,9 +4,9 @@ export const metadata = { title: "Terms", robots: { index: false, follow: false 
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms" updated="3 November 2026">
+    <LegalPage title="Terms" updated="6 November 2026">
       <p>
-        Personal Hub is a personal organiser run by its owner for the people they invite. There is no public sign-up: only
+        FIRU Business is a marketing workspace run by its owner for the people they invite. There is no public sign-up: only
         invited Google accounts can use it, and the owner can remove an account at any time. You can delete your own
         account in Settings.
       </p>

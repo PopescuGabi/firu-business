@@ -8,7 +8,7 @@ export const DEFAULT_SETTINGS = {
   dayEnd: "20:00",
   // Google Calendar ids to read events from (empty = all calendars you can see).
   calendarIds: [] as string[],
-  // Two-way sync with a Google calendar named "Personal Hub" (turn on in Settings).
+  // Two-way sync with a Google calendar named "FIRU Business" (turn on in Settings).
   calendarSync: false,
   // Minutes from one place to another ("from>to"), e.g. home > a client's office. Set yours in Settings → Travel times.
   travel: {} as Record<string, number>,

@@ -1,3 +1,4 @@
+import { APP_NAME, pickHubCalendar } from "@/lib/brand";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { ArrowDown, ArrowUp, BarChart3, CalendarDays, FolderOpen, LogOut, Mail, Sparkles, Wand2 } from "lucide-react";
 import Link from "next/link";
@@ -23,11 +24,11 @@ import { requireUser } from "@/lib/auth";
 import { photoVersion } from "@/lib/background";
 import { mapsAvailable, TRAVEL_MODES } from "@/lib/google/maps";
 import { listPlaces } from "@/lib/places";
-import { HUB_CALENDAR_NAME, lastSyncInfo } from "@/lib/calendar-sync";
+import { lastSyncInfo } from "@/lib/calendar-sync";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { listCalendars, type CalendarInfo } from "@/lib/google/calendar";
-import { folderUrl } from "@/lib/google/drive";
+import { DRIVE_ROOT_NAME, folderUrl } from "@/lib/google/drive";
 import { GMAIL_SCOPES, getGoogleAccount, GOOGLE_SCOPES, hasScope } from "@/lib/google/oauth";
 import { aiAllowanceUsd, listMembers } from "@/lib/users";
 import { canEditLocalEnv, LOCAL_KEYS, type LocalKey } from "@/lib/local-env";
@@ -121,7 +122,7 @@ export default async function SettingsPage() {
               <span className="grid size-8 place-items-center rounded-lg bg-green text-white">
                 <FolderOpen size={17} />
               </span>
-              <p className="flex-1 font-medium">Drive folder “Personal Hub”</p>
+              <p className="flex-1 font-medium">Drive folder “{DRIVE_ROOT_NAME}”</p>
               <a href={folderUrl(account.rootFolderId)} target="_blank" rel="noreferrer" className={buttonClass("plain", "sm")}>
                 Open
               </a>
@@ -244,7 +245,7 @@ export default async function SettingsPage() {
                   </p>
                   <p className="mt-1 truncate font-mono text-[12px] text-label-3">Redirect URL: {env.appUrl()}/api/instagram/callback</p>
                 </div>
-                <a href="https://github.com/PopescuGabi/personal-hub/blob/main/docs/instagram-setup.md" target="_blank" rel="noreferrer" className={buttonClass("gray", "sm")}>
+                <a href="https://github.com/PopescuGabi/firu-business/blob/main/docs/instagram-setup.md" target="_blank" rel="noreferrer" className={buttonClass("gray", "sm")}>
                   Guide
                 </a>
               </Row>
@@ -254,7 +255,7 @@ export default async function SettingsPage() {
       )}
 
       {members && (
-        <Section title="Members" footer="Personal Hub is invite only: people sign in with the Google account you invite. Each person only sees their own data.">
+        <Section title="Members" footer={`${APP_NAME} is invite only: people sign in with the Google account you invite. Each person only sees their own data.`}>
           <Card className="flex flex-col gap-4 p-4">
             <InviteForm />
             <AllowanceForm usd={allowance} />
@@ -365,12 +366,12 @@ export default async function SettingsPage() {
       {connected && !calendarError && (
         <Section
           title="Calendar sync"
-          footer={`Accepted plan blocks and task due dates go to your “${HUB_CALENDAR_NAME}” Google calendar, so they're on your phone. Moving, renaming or deleting them there updates the app too.`}
+          footer={`Accepted plan blocks and task due dates go to your “${APP_NAME}” Google calendar, so they're on your phone. Moving, renaming or deleting them there updates the app too.`}
         >
           <Card className="p-4">
             <CalendarSyncForm
               enabled={settings.calendarSync}
-              hasCalendar={calendars.some((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase())}
+              calendarName={pickHubCalendar(calendars)?.name.trim() ?? null}
               lastSync={(await lastSyncInfo(user.id)).at}
             />
           </Card>
@@ -456,7 +457,7 @@ export default async function SettingsPage() {
       </form>
 
       {user.role !== "owner" && (
-        <Section title="Delete account" footer="Deletes everything you stored in Personal Hub and disconnects your Google account. Files in your Google Drive and events in your calendar stay yours.">
+        <Section title="Delete account" footer={`Deletes everything you stored in ${APP_NAME} and disconnects your Google account. Files in your Google Drive and events in your calendar stay yours.`}>
           <Card className="p-4">
             <DeleteAccountForm email={user.email} />
           </Card>

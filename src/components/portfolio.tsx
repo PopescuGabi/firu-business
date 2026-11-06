@@ -71,7 +71,7 @@ export function PortfolioFields({ clients, item }: { clients: Client[]; item?: P
   );
 }
 
-/** Drop or pick files from your laptop; they upload straight to Drive (Personal Hub/Portfolio). */
+/** Drop or pick files from your laptop; they upload straight to Drive (FIRU Business/Portfolio). */
 function DropZone({ files, onFiles, disabled }: { files: File[]; onFiles: (f: File[]) => void; disabled?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);

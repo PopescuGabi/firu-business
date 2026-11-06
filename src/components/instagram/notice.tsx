@@ -5,7 +5,7 @@ export function IgNotice({ flag }: { flag?: string }) {
     denied: ["You cancelled the Instagram sign-in. Nothing was connected.", "orange"],
     personal: ["That's a personal Instagram account. Switch it to a Professional account (Business or Creator) in the Instagram app → Settings → Account type, then connect again.", "orange"],
     failed: ["Instagram didn't let us connect. Try again; if it keeps failing, the account may need to be added as a tester on the Meta app.", "red"],
-    not_configured: ["Instagram isn't set up in Personal Hub yet (the Meta app keys are missing).", "orange"],
+    not_configured: ["Instagram isn't set up in FIRU Business yet (the Meta app keys are missing).", "orange"],
   };
   const t = flag ? text[flag] : undefined;
   if (!t) return null;

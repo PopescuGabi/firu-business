@@ -34,7 +34,7 @@ export function IgAccountActions({ accountId, username }: { accountId: number; u
         disabled={busy}
         className={buttonClass("plain", "sm")}
         onClick={() => {
-          if (!confirm(`Disconnect @${username}? Its stored posts and numbers are deleted from Personal Hub.`)) return;
+          if (!confirm(`Disconnect @${username}? Its stored posts and numbers are deleted from FIRU Business.`)) return;
           start(async () => {
             await disconnectInstagram(accountId);
             router.refresh();

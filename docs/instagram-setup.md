@@ -1,6 +1,6 @@
 # Instagram analytics: setting up the Meta app
 
-Personal Hub reads Instagram statistics through Meta's official **Instagram API with Instagram Login**. It works for
+FIRU Business reads Instagram statistics through Meta's official **Instagram API with Instagram Login**. It works for
 **Business and Creator** accounts (not personal ones) and needs no Facebook Page. You create one free Meta app for the
 whole hub; every person then connects their own account from **Instagram** in the sidebar.
 
@@ -8,15 +8,15 @@ whole hub; every person then connects their own account from **Instagram** in th
 
 1. Go to <https://developers.facebook.com/apps> and sign in with your Facebook account. If asked, register as a developer (free).
 2. **Create app** → use case **"Manage messaging & content on Instagram"** (or "Other" → type **Business**) → name it
-   `Personal Hub` → create.
+   `FIRU Business` → create.
 3. In the app's dashboard, open **Instagram** → **API setup with Instagram login**.
 4. Under **Set up Instagram business login** → **Business login settings**, add the redirect URL exactly as Settings shows it:
-   `https://mypersonal-hub.vercel.app/api/instagram/callback`
+   `https://firu-business.vercel.app/api/instagram/callback`
 5. Copy the **Instagram app ID** and **Instagram app secret** from the same page (they are different from the Facebook app ID).
 
 ## 2. Add the keys to Vercel
 
-In Vercel → the `personal-hub` project → **Settings → Environment Variables**, add:
+In Vercel → the `firu-business` project → **Settings → Environment Variables**, add:
 
 | Name | Value |
 |---|---|
@@ -24,7 +24,7 @@ In Vercel → the `personal-hub` project → **Settings → Environment Variable
 | `INSTAGRAM_APP_SECRET` | the Instagram app secret |
 | `CRON_SECRET` | any long random text (at least 16 characters); Vercel Cron sends it to the daily update |
 
-Then **Redeploy**. Settings → Instagram in Personal Hub should now say "Set up".
+Then **Redeploy**. Settings → Instagram in FIRU Business should now say "Set up".
 
 ## 3. Let the first accounts in (testers)
 
@@ -33,7 +33,7 @@ While the app isn't reviewed by Meta, only people with a role on it can connect:
 1. App dashboard → **App roles → Roles** → **Add people** → **Instagram tester** → type the Instagram username (e.g. the pilot account).
 2. The account owner accepts it in the Instagram app: **Settings → Apps and websites → Tester invites → Accept**
    (or on the web: instagram.com → Settings → Apps and websites).
-3. That person opens Personal Hub → **Instagram → Connect Instagram** and allows access.
+3. That person opens FIRU Business → **Instagram → Connect Instagram** and allows access.
 
 The account must be **Professional** (Instagram app → Settings → Account type and tools → Switch to professional account).
 
@@ -41,8 +41,8 @@ The account must be **Professional** (Instagram app → Settings → Account typ
 
 App dashboard → **App settings → Basic**:
 
-- **Privacy policy URL**: `https://mypersonal-hub.vercel.app/privacy`
-- **User data deletion** → **Data deletion callback URL**: `https://mypersonal-hub.vercel.app/api/instagram/deletion`
+- **Privacy policy URL**: `https://firu-business.vercel.app/privacy`
+- **User data deletion** → **Data deletion callback URL**: `https://firu-business.vercel.app/api/instagram/deletion`
 - An app icon (1024 × 1024) and a category.
 
 ## 5. Later: let any client connect (App Review)

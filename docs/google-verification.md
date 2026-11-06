@@ -26,11 +26,11 @@ Google shows an "unverified app" screen until the app passes verification for it
 | Scope | Sensitivity | Justification |
 |---|---|---|
 | `openid`, `email`, `profile` | non-sensitive | Signs the person in and checks their Google account was invited (the app is invite only); shows their name. |
-| `https://www.googleapis.com/auth/calendar.readonly` | sensitive | The Calendar and Today screens show the user's events from all their calendars, and the week planner reads event times so it can suggest study, gym and project blocks only in free time, including the travel time between places. It needs every calendar the user selects in Settings; `calendar.events.readonly` alone can't list the calendars and their colours, and the user chooses which calendars count. |
-| `https://www.googleapis.com/auth/calendar.events` | sensitive | The Calendar page lets the user add, edit and delete events in their own calendars (for example a game from 22:00 to 00:00), including right-click → Delete. With calendar sync on (Settings → Calendar sync), the app also keeps the user's school classes, gym, tutoring, accepted plan blocks and task due dates in a "Personal Hub" calendar the user created, so they're on their phone, and applies edits made there back in the app. The app only changes an event when the user saves, accepts or deletes it in the app, or when it is one of the events the app manages in the "Personal Hub" calendar. Read-only access would make this impossible. |
-| `https://www.googleapis.com/auth/drive.file` | non-sensitive | Saves files the user uploads (footage, screenshots) and exported carousel images into a "Personal Hub" folder the app creates. The narrowest Drive scope; it can't see other files. |
+| `https://www.googleapis.com/auth/calendar.readonly` | sensitive | The Calendar and Today screens show the user's events from all their calendars, and the week planner reads event times so it can suggest project and content work blocks only in free time, including the travel time between places. It needs every calendar the user selects in Settings; `calendar.events.readonly` alone can't list the calendars and their colours, and the user chooses which calendars count. |
+| `https://www.googleapis.com/auth/calendar.events` | sensitive | The Calendar page lets the user add, edit and delete events in their own calendars (for example a game from 22:00 to 00:00), including right-click → Delete. With calendar sync on (Settings → Calendar sync), the app also keeps the user's accepted plan blocks and task due dates in a "FIRU Business" calendar the user created, so they're on their phone, and applies edits made there back in the app. The app only changes an event when the user saves, accepts or deletes it in the app, or when it is one of the events the app manages in the "FIRU Business" calendar. Read-only access would make this impossible. |
+| `https://www.googleapis.com/auth/drive.file` | non-sensitive | Saves files the user uploads (footage, screenshots) and exported carousel images into a "FIRU Business" folder the app creates. The narrowest Drive scope; it can't see other files. |
 
-**What breaks with narrower scopes:** without `calendar.readonly` the planner can't see existing commitments (tutoring, events) and would schedule on top of them; without `calendar.events` the user's schedule can't appear in their calendar on their phone.
+**What breaks with narrower scopes:** without `calendar.readonly` the planner can't see existing commitments (client meetings, events) and would schedule on top of them; without `calendar.events` the user's schedule can't appear in their calendar on their phone.
 
 ## Demo video
 
@@ -38,14 +38,14 @@ A finished, edited demo (about 1½ minutes, English captions, real footage of ea
 
 ## Demo video shot list (2–3 minutes, English)
 
-Record the screen with sound off or a short English narration. Keep the app's name "Personal Hub" visible.
+Record the screen with sound off or a short English narration. Keep the app's name "FIRU Business" visible.
 
 1. **Homepage:** open the site address logged out; scroll the homepage; click **Privacy policy** and show the Limited Use paragraph; go back.
 2. **Consent screen:** click **Sign in with Google**, pick the account. At the bottom-left of Google's screens set the language to **English (United States)**. Show the full consent screen, scrolling so every requested permission is visible, then allow.
 3. **calendar.readonly:** open **Calendar**: show existing Google Calendar events appearing in the week view. Open **Settings → Calendars** to show the calendar list.
 4. **Planner:** on **Today** or **Home → Schedule**, tap **Plan my week**; show suggestions placed around existing events with travel time.
-5. **calendar.events:** in **Settings → Calendar sync** tap **Sync now**; switch to Google Calendar and show the classes, gym and tutoring in the "Personal Hub" calendar. Accept a suggestion and show it appear there; move an event in Google Calendar, reload Personal Hub and show the new time.
-6. **drive.file:** open a reel → **Upload to Drive**, pick a file; open the Drive folder link and show the file inside "Personal Hub".
+5. **calendar.events:** in **Settings → Calendar sync** tap **Sync now**; switch to Google Calendar and show the accepted plan blocks and task due dates in the "FIRU Business" calendar. Accept a suggestion and show it appear there; move an event in Google Calendar, reload FIRU Business and show the new time.
+6. **drive.file:** open a reel → **Upload to Drive**, pick a file; open the Drive folder link and show the file inside "FIRU Business".
 7. End on **Settings → Your Google data** (privacy link, revoke access).
 
 Upload to YouTube as **Unlisted** and paste the link in the verification form.

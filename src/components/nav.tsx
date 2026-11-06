@@ -181,7 +181,7 @@ export function Sidebar({ clients, modules, pages = [], shared = [] }: { clients
           className="absolute rounded-full transition-[top,left,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
           style={{ background: "var(--orb)", boxShadow: "var(--glow)", ...(box ? { ...box, opacity: 1 } : { opacity: 0, width: 40, height: 40 }) }}
         />
-        <Link href="/" aria-label="Personal Hub" className="mb-2 grid size-10 place-items-center">
+        <Link href="/" aria-label="FIRU Business" className="mb-2 grid size-10 place-items-center">
           <LogoMark size={24} />
         </Link>
         <nav className="flex flex-col items-center gap-1.5" aria-label="Main">

@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { APP_NAME } from "@/lib/brand";
 import { THEME_SCRIPT } from "@/lib/theme";
 
 export const metadata: Metadata = {
-  title: { default: "Personal Hub", template: "%s · Personal Hub" },
+  title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
   robots: { index: false, follow: false },
   // Google Search Console ownership check (needed for Google's OAuth app verification).
   verification: process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : undefined,
-  appleWebApp: { capable: true, title: "Hub", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "FIRU", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

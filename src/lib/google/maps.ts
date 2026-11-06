@@ -35,7 +35,7 @@ function count(uid: number) {
   const k = `${uid}:${new Date().toISOString().slice(0, 10)}`;
   const n = (counts.get(k) ?? 0) + 1;
   counts.set(k, n);
-  if (n > DAILY_LIMIT) throw new MapsError(`Personal Hub's daily limit of ${DAILY_LIMIT} Google Maps lookups is reached. It resets tomorrow.`, 429);
+  if (n > DAILY_LIMIT) throw new MapsError(`FIRU Business's daily limit of ${DAILY_LIMIT} Google Maps lookups is reached. It resets tomorrow.`, 429);
 }
 
 async function call(uid: number, url: string, { body, fieldMask }: { body?: unknown; fieldMask?: string } = {}) {

@@ -43,7 +43,7 @@ export async function inviteClient(clientId: number, _prev: FormState, fd: FormD
 
   if (send) {
     try {
-      await sendMessage(user.id, email.data, `${client.name}: your dashboard in Personal Hub`, message.data!);
+      await sendMessage(user.id, email.data, `${client.name}: your dashboard in FIRU Business`, message.data!);
       await db.update(schema.clientInvites).set({ sentAt: new Date() }).where(and(eq(schema.clientInvites.clientId, client.id), eq(schema.clientInvites.userId, user.id)));
     } catch (err) {
       revalidatePath(`/clients/${client.id}`);

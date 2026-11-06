@@ -235,8 +235,8 @@ async function DashboardAccess({ userId, client, agencyName }: { userId: number;
         <h2 className="text-[17px] font-semibold">Their dashboard</h2>
         <p className="text-[13px] text-label-2">
           {access.link
-            ? `${client.name} sees this in their own Personal Hub, under “From ${agencyName}”.`
-            : `Invite ${client.name}'s contact: they get their own Personal Hub, tailored to their business, plus a dashboard from you.`}
+            ? `${client.name} sees this in their own FIRU Business account, under “From ${agencyName}”.`
+            : `Invite ${client.name}'s contact: they get their own FIRU Business account, tailored to their business, plus a dashboard from you.`}
         </p>
       </div>
       <ClientAccess

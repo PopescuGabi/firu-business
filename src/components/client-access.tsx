@@ -34,7 +34,7 @@ export function ClientAccess({
   const [state, act, pending] = useActionState(inviteClient.bind(null, clientId), null);
   const [email, setEmail] = useState(access.invite?.email ?? "");
   const [message, setMessage] = useState(
-    `Hi!\n\nI've set up a dashboard for ${clientName} in Personal Hub, where you can see your Instagram results and the work we do together, any time.\n\nSign in with your Google account (this email address): ${appUrl}\n\n${agencyName}`,
+    `Hi!\n\nI've set up a dashboard for ${clientName} in FIRU Business, where you can see your Instagram results and the work we do together, any time.\n\nSign in with your Google account (this email address): ${appUrl}\n\n${agencyName}`,
   );
   const [copied, setCopied] = useState(false);
   const [busy, start] = useTransition();

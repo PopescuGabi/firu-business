@@ -43,7 +43,7 @@ export default async function InstagramPage({ searchParams }: { searchParams: Pr
       <IgNotice flag={typeof sp.ig === "string" ? sp.ig : undefined} />
       {!configured && (
         <p className="mb-4 rounded-[14px] bg-well px-3 py-2 text-[13px] text-label-2">
-          Instagram isn&apos;t connected to Personal Hub yet: the Meta app keys are missing.{" "}
+          Instagram isn&apos;t connected to FIRU Business yet: the Meta app keys are missing.{" "}
           {user.role === "owner" ? (
             <Link href="/settings#instagram" className="font-semibold text-accent">
               How to set it up

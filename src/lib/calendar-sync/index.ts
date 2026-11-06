@@ -3,6 +3,7 @@ import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
 import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
+import { APP_NAME, pickHubCalendar } from "../brand";
 import { getDb, schema } from "../db";
 import { getAccessToken } from "../google/oauth";
 import {
@@ -16,9 +17,9 @@ import {
   type RawEvent,
 } from "../google/calendar";
 import { getSetting, getSettings, setSetting } from "../settings";
-import { buildDesired, changeFromRemote, MARK, sameSignature, signature, type DesiredEvent, type HubChange, type Signature } from "./model";
+import { buildDesired, changeFromRemote, hasMark, sameSignature, signature, type DesiredEvent, type HubChange, type Signature } from "./model";
 
-export const HUB_CALENDAR_NAME = "Personal Hub";
+export const HUB_CALENDAR_NAME = APP_NAME;
 
 export type SyncResult = {
   ok: boolean;
@@ -89,7 +90,7 @@ async function releaseLock(uid: number) {
 
 export async function findHubCalendar(uid: number) {
   const calendars = await listCalendars(uid);
-  return calendars.find((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase()) ?? null;
+  return pickHubCalendar(calendars);
 }
 
 async function loadHub(uid: number, tz: string) {
@@ -161,7 +162,7 @@ export async function runSync(uid: number, { waitMs = 0 } = {}): Promise<SyncRes
       const changed = await changedEvents(uid, cal.id, since);
       // New series that "this and following events" edits create (Google copies our description into them).
       const orphans = changed.filter(
-        (e) => e.status !== "cancelled" && !byEvent.has(e.id) && !e.recurringEventId && e.recurrence?.length && (e.description ?? "").includes(MARK),
+        (e) => e.status !== "cancelled" && !byEvent.has(e.id) && !e.recurringEventId && e.recurrence?.length && hasMark(e.description),
       );
       const deletes: string[] = [];
       for (let e of changed) {
@@ -212,7 +213,7 @@ export async function runSync(uid: number, { waitMs = 0 } = {}): Promise<SyncRes
     // Our events without a link (a run cut off between writing an event and saving its link): reuse or remove them.
     const linkedIds = new Set([...links.values()].map((l) => l.eventId));
     const strays = (await changedEvents(uid, cal.id)).filter(
-      (e) => e.status !== "cancelled" && !e.recurringEventId && !linkedIds.has(e.id) && (e.description ?? "").includes(MARK),
+      (e) => e.status !== "cancelled" && !e.recurringEventId && !linkedIds.has(e.id) && hasMark(e.description),
     );
     await pool(desired, 5, async (d) => {
       const sig = signature(d, toLocal);

@@ -3,7 +3,7 @@ import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { syncIfStale } from "./calendar-sync";
-import { MARK as SYNC_MARK } from "./calendar-sync/model";
+import { hasMark } from "./calendar-sync/model";
 import { getDb, schema } from "./db";
 import { getSettings } from "./settings";
 import { listEvents, type CalendarEvent } from "./google/calendar";
@@ -72,7 +72,7 @@ export async function getWeek(uid: number, weekStart: string, numDays = 7) {
     const timed: DayEvent[] = [];
     const allDay: CalendarEvent[] = [];
     for (const e of events) {
-      if (mirrored.has(e.id) || (e.recurringEventId && mirrored.has(e.recurringEventId)) || e.description.includes(SYNC_MARK)) continue;
+      if (mirrored.has(e.id) || (e.recurringEventId && mirrored.has(e.recurringEventId)) || hasMark(e.description)) continue;
       if (e.allDay) {
         if (e.start <= date && date < e.end) allDay.push(e);
         continue;

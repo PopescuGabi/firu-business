@@ -4,9 +4,9 @@ export const metadata = { title: "Privacy policy" };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy" updated="3 November 2026">
+    <LegalPage title="Privacy policy" updated="6 November 2026">
       <p>
-        Personal Hub is a personal organiser. It is invite only: its owner invites people by their Google account, and only
+        FIRU Business is a marketing workspace for businesses and their clients. It is invite only: its owner invites people by their Google account, and only
         those accounts can sign in. Each person has their own private hub; nobody else, including the owner, can see what you
         store in yours.
       </p>
@@ -24,11 +24,11 @@ export default function PrivacyPage() {
         <li>
           <strong>Google Calendar events (calendar.events):</strong> to add, edit and delete events when you do so on the
           Calendar page, and, when you turn on calendar sync, to keep your accepted plan blocks
-          and task due dates in a &ldquo;Personal Hub&rdquo; calendar you create and bring the changes you make to those events
+          and task due dates in a &ldquo;FIRU Business&rdquo; calendar you create and bring the changes you make to those events
           back into the app. It never changes an event unless you ask it to, or it is one the app manages in that calendar.
         </li>
         <li>
-          <strong>Google Drive, app files only (drive.file):</strong> to create a &ldquo;Personal Hub&rdquo; folder and save the
+          <strong>Google Drive, app files only (drive.file):</strong> to create a &ldquo;FIRU Business&rdquo; folder and save the
           files you upload or export there. It can&apos;t see or change any other file in your Drive.
         </li>
         <li>
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
 
       <h2>Limited Use</h2>
       <p>
-        Personal Hub&apos;s use and transfer of information received from Google APIs adheres to the{" "}
+        FIRU Business&apos;s use and transfer of information received from Google APIs adheres to the{" "}
         <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-blue">
           Google API Services User Data Policy
         </a>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
 
       <h2 id="instagram">Instagram analytics</h2>
       <p>
-        If you connect an Instagram professional account, Personal Hub uses Meta&apos;s official Instagram API (with your
+        If you connect an Instagram professional account, FIRU Business uses Meta&apos;s official Instagram API (with your
         permission, which you can withdraw at any time) to read your profile name and picture, your follower count, your posts
         (type, caption, link, thumbnail and date) and their statistics, and your account&apos;s daily totals. They are stored in
         your hub to show your dashboard and, if you choose to share it, to the business you work with. The access token is
@@ -91,7 +91,7 @@ export default function PrivacyPage() {
 
       <h2>Where data is stored</h2>
       <p>
-        What you store in your hub (schedule, tasks, clients, reels, carousels, prompts, notes) is kept in Personal Hub&apos;s
+        What you store in your hub (schedule, tasks, clients, reels, carousels, prompts, notes) is kept in FIRU Business&apos;s
         database, separated per person. Google sign-in tokens, the hub&apos;s Anthropic key and Google Maps keys are encrypted (AES-256-GCM). Files stay
         in your own Google Drive. Calendar events and emails are read when a page needs them and aren&apos;t stored, except
         the events this app created itself.

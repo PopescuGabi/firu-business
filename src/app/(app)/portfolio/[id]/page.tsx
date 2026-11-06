@@ -58,7 +58,7 @@ export default async function PortfolioItemPage({ params }: { params: Promise<{ 
             )}
           </Card>
 
-          <Section title={`Files (${item.files.length})`} footer="Files go to Personal Hub/Portfolio in your Drive. Removing one here keeps it in Drive.">
+          <Section title={`Files (${item.files.length})`} footer="Files go to FIRU Business/Portfolio in your Drive. Removing one here keeps it in Drive.">
             <div className="flex flex-col gap-3">
               {item.files.length > 0 && (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

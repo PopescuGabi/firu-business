@@ -1,11 +1,12 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
+import { APP_NAME, LEGACY_APP_NAME } from "../brand";
 import { getDb, schema } from "../db";
 import { googleFetch } from "./oauth";
 
 const API = "https://www.googleapis.com/drive/v3";
 const FOLDER = "application/vnd.google-apps.folder";
-export const DRIVE_ROOT_NAME = "Personal Hub";
+export const DRIVE_ROOT_NAME = APP_NAME;
 
 async function createFolder(uid: number, name: string, parent?: string) {
   const res = await googleFetch(uid, `${API}/files?fields=id`, {
@@ -23,18 +24,34 @@ async function findFolder(uid: number, name: string, parent: string) {
 }
 
 async function folderExists(uid: number, id: string) {
+  return (await folderInfo(uid, id)) !== null;
+}
+
+async function folderInfo(uid: number, id: string): Promise<{ name: string } | null> {
   try {
-    const res = await googleFetch(uid, `${API}/files/${id}?fields=id,trashed`);
-    return !((await res.json()) as { trashed?: boolean }).trashed;
+    const res = await googleFetch(uid, `${API}/files/${id}?fields=id,name,trashed`);
+    const f = (await res.json()) as { name?: string; trashed?: boolean };
+    return f.trashed ? null : { name: f.name ?? "" };
   } catch {
-    return false;
+    return null;
   }
 }
 
 export async function ensureRootFolder(uid: number) {
   const db = await getDb();
   const [acc] = await db.select().from(schema.googleAccount).where(eq(schema.googleAccount.id, uid));
-  if (acc?.rootFolderId && (await folderExists(uid, acc.rootFolderId))) return acc.rootFolderId;
+  const existing = acc?.rootFolderId ? await folderInfo(uid, acc.rootFolderId) : null;
+  if (acc?.rootFolderId && existing) {
+    // Made before the rename: give the folder the new name once (drive.file may rename files the app created).
+    if (existing.name === LEGACY_APP_NAME) {
+      await googleFetch(uid, `${API}/files/${acc.rootFolderId}?fields=id`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: DRIVE_ROOT_NAME }),
+      }).catch(() => {}); // the old name is only cosmetic
+    }
+    return acc.rootFolderId;
+  }
   const id = await createFolder(uid, DRIVE_ROOT_NAME);
   await db.update(schema.googleAccount).set({ rootFolderId: id }).where(eq(schema.googleAccount.id, uid));
   return id;
@@ -58,7 +75,7 @@ export async function ensureSectionFolder(uid: number, clientId: number, section
   return (await findFolder(uid, section, clientFolder)) ?? (await createFolder(uid, section, clientFolder));
 }
 
-/** "Personal Hub/Portfolio": where portfolio uploads go. */
+/** "FIRU Business/Portfolio": where portfolio uploads go. */
 export async function ensurePortfolioFolder(uid: number) {
   const root = await ensureRootFolder(uid);
   return (await findFolder(uid, "Portfolio", root)) ?? (await createFolder(uid, "Portfolio", root));

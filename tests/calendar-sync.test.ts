@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildDesired, changeFromRemote, sameSignature, signature, type HubData } from "../src/lib/calendar-sync/model.ts";
+import { pickHubCalendar } from "../src/lib/brand.ts";
+import { buildDesired, changeFromRemote, hasMark, MARK, sameSignature, signature, type HubData } from "../src/lib/calendar-sync/model.ts";
 
 // Google echoes local times with the calendar's offset; the local part is what matters here.
 const toLocal = (iso: string) => ({ date: iso.slice(0, 10), hm: iso.slice(11, 16) });
@@ -45,4 +46,15 @@ test("phone edits map back to blocks and tasks; old school / gym / tutoring keys
     title: "Edit reel v2",
   });
   for (const key of ["class:1:0", "gym:6", "tutoring:7"]) assert.equal(changeFromRemote(key, moved, toLocal), null, key);
+});
+
+test("after the rename: the new calendar wins, the old one still works, old sync notes are still ours", () => {
+  assert.equal(pickHubCalendar([{ name: "Work" }, { name: "Personal Hub " }])?.name, "Personal Hub ");
+  assert.equal(pickHubCalendar([{ name: "Personal Hub" }, { name: "firu business" }])?.name, "firu business");
+  assert.equal(pickHubCalendar([{ name: "Work" }]), null);
+  assert.equal(MARK, "Synced from FIRU Business.");
+  assert.ok(hasMark("Due Friday\n\nSynced from Personal Hub."));
+  assert.ok(hasMark(`Notes\n\n${MARK}`));
+  assert.ok(!hasMark("My own event"));
+  assert.ok(!hasMark(null));
 });

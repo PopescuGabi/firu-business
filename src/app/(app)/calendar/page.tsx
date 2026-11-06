@@ -1,3 +1,4 @@
+import { pickHubCalendar } from "@/lib/brand";
 import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -16,7 +17,6 @@ import { buttonClass, PageHeader } from "@/components/ui";
 import { claudeAvailable } from "@/lib/ai/claude";
 import { requireUser } from "@/lib/auth";
 import { listCalendars, type CalendarEvent } from "@/lib/google/calendar";
-import { HUB_CALENDAR_NAME } from "@/lib/calendar-sync";
 import { KIND_COLORS } from "@/lib/kinds";
 import { getSettings } from "@/lib/settings";
 import { addDays, clock, fmtDate, mondayOf, toMin, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/time";
@@ -146,7 +146,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const { days, calendarError, googleConnected } = await getWeek(user.id, start, 7);
   const now = nowMinutesIn(settings.timezone);
   const writable = googleConnected && !calendarError ? (await listCalendars(user.id)).filter((c) => c.writable) : [];
-  const hubCal = writable.find((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase());
+  const hubCal = pickHubCalendar(writable);
   const formProps = {
     calendars: writable.map(({ id, name, color }) => ({ id, name, color })),
     defaultCalendarId: hubCal?.id ?? writable.find((c) => c.primary)?.id ?? writable[0]?.id ?? "primary",

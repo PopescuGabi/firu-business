@@ -1,10 +1,11 @@
 /**
- * Pure mapping between Personal Hub items and Google Calendar events (no I/O, unit-tested).
+ * Pure mapping between the app's items and Google Calendar events (no I/O, unit-tested).
  *
  * Each synced item has a stable key:
  *   block:<id>                one accepted plan block
  *   task:<id>                 all-day reminder on the due date
  */
+import { APP_NAME, LEGACY_APP_NAME } from "../brand.ts";
 import { addDays, toHHMM, weekdayOf } from "../time.ts";
 
 export type EventTime = { date?: string; dateTime?: string; timeZone?: string };
@@ -38,7 +39,10 @@ export type HubData = {
   tasks: { id: number; title: string; notes: string; due: string | null; done: boolean }[];
 };
 
-export const MARK = "Synced from Personal Hub.";
+export const MARK = `Synced from ${APP_NAME}.`;
+/** True for events this app wrote, including ones written under its old name. */
+export const hasMark = (description: string | null | undefined) =>
+  !!description && (description.includes(MARK) || description.includes(`Synced from ${LEGACY_APP_NAME}.`));
 const dt = (date: string, hm: string, tz: string): EventTime => ({ dateTime: `${date}T${hm}:00`, timeZone: tz });
 
 export function buildDesired(h: HubData): DesiredEvent[] {

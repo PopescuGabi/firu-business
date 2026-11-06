@@ -18,7 +18,7 @@ export default async function OnboardingPage() {
       <LogoMark size={44} />
       <h1 className="mt-5 text-[34px] leading-tight font-bold tracking-tight">Welcome{first ? `, ${first}` : ""}</h1>
       <p className="mt-2 mb-8 text-[16px] text-label-2">
-        {ai ? "Tell us what you do and Personal Hub builds pages for your work." : "What do you want Personal Hub for? Pick a starting point; it only shows the sections you choose."}
+        {ai ? "Tell us what you do and FIRU Business builds pages for your work." : "What do you want FIRU Business for? Pick a starting point; it only shows the sections you choose."}
       </p>
       <OnboardingChoice
         ai={ai}

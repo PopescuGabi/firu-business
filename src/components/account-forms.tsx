@@ -30,7 +30,7 @@ export function RemoveMember({ uid, email }: { uid: number; email: string }) {
       type="button"
       disabled={pending}
       className={buttonClass("destructive", "sm")}
-      onClick={() => confirm(`Remove ${email}? Everything they stored in Personal Hub is deleted. Their Google files stay in their Google account.`) && start(() => removeMember(uid))}
+      onClick={() => confirm(`Remove ${email}? Everything they stored in FIRU Business is deleted. Their Google files stay in their Google account.`) && start(() => removeMember(uid))}
     >
       <Trash2 size={13} /> {pending ? "Removing…" : "Remove"}
     </button>
@@ -72,7 +72,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
       action={deleteMyAccount}
       className="flex flex-col gap-3"
       onSubmit={(e) => {
-        if (!confirm("Delete your Personal Hub account and everything in it? This can't be undone.")) e.preventDefault();
+        if (!confirm("Delete your FIRU Business account and everything in it? This can't be undone.")) e.preventDefault();
       }}
     >
       <Field label={`Type ${email} to confirm`}>

@@ -25,7 +25,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
       <>
         <PageHeader title="Email" />
         <Empty icon={<Mail size={36} />} title="Connect your Gmail">
-          <p>See important mail at a glance, reply, and turn emails into tasks. Google will ask you to allow reading and sending email for Personal Hub.</p>
+          <p>See important mail at a glance, reply, and turn emails into tasks. Google will ask you to allow reading and sending email for FIRU Business.</p>
           <a href="/api/auth/google?gmail=1" className={clsx(buttonClass("filled"), "mt-4")}>
             Connect Gmail
           </a>

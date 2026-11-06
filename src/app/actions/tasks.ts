@@ -62,7 +62,7 @@ export async function deleteTask(id: number) {
   await mutateSchedule((db, uid) => db.delete(schema.tasks).where(and(eq(schema.tasks.id, id), eq(schema.tasks.userId, uid))));
 }
 
-/** Accepting a block puts it in the Personal Hub calendar (when calendar sync is on). */
+/** Accepting a block puts it in the FIRU Business calendar (when calendar sync is on). */
 export async function acceptBlock(id: number) {
   await mutateSchedule((db, uid) =>
     db

@@ -78,7 +78,7 @@ export default async function TodayPage() {
 
       <div className="grid gap-x-8 lg:grid-cols-[1fr_340px]">
         <div>
-          <Section title="Schedule" footer={hasPending ? "Tap ✓ to accept a suggestion, or right-click an event or suggestion to delete it. Accepted blocks go to your Personal Hub calendar when sync is on." : undefined}>
+          <Section title="Schedule" footer={hasPending ? "Tap ✓ to accept a suggestion, or right-click an event or suggestion to delete it. Accepted blocks go to your FIRU Business calendar when sync is on." : undefined}>
             <Timeline day={day} now={now} />
           </Section>
 
