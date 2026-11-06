@@ -857,7 +857,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             const statuses = [...new Set([...r, ...k].map((x) => x.status))];
             return (
               <li key={c.id}>
-                <Link href={`/clients/${c.id}?tab=reels`} className="flex items-center gap-2 text-[14px] font-medium hover:text-blue">
+                <Link href={`/clients/${c.id}?tab=content`} className="flex items-center gap-2 text-[14px] font-medium hover:text-blue">
                   <span className="size-2.5 rounded-full" style={{ background: c.color }} />
                   {c.name}
                   <span className="ml-auto text-[12px] font-normal text-label-2">

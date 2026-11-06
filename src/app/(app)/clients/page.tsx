@@ -1,48 +1,56 @@
 import Link from "next/link";
-import { asc, count, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { BarChart3, Brain, Briefcase, Plus, Wallet } from "lucide-react";
 import { BrainView } from "@/components/brain-view";
-import { PromptsPanel } from "@/components/prompts-panel";
-import { SegmentedLinks, Slide } from "@/components/motion";
-import { MarketingView } from "@/components/marketing-view";
+import { Sparkline } from "@/components/charts";
+import { ClientForm } from "@/components/client-form";
 import { ContextMenu } from "@/components/context-menu";
 import { FinanceView } from "@/components/finance-view";
-import { loadFinance } from "@/lib/finance";
-import { getSettings } from "@/lib/settings";
-import { todayIn } from "@/lib/week";
-import { ClientForm } from "@/components/client-form";
+import { MarketingView } from "@/components/marketing-view";
+import { SegmentedLinks, Slide } from "@/components/motion";
+import { PromptsPanel } from "@/components/prompts-panel";
 import { Sheet } from "@/components/sheet";
 import { buttonClass, Card, Empty, List, PageHeader, Row, Section } from "@/components/ui";
 import { createClient, setClientArchived } from "@/app/actions/clients";
-import { requireModule } from "@/lib/sections";
+import { claudeAvailable } from "@/lib/ai/claude";
+import { businessLabel, CLIENT_TOOLS } from "@/lib/client-tools";
 import { getDb, schema } from "@/lib/db";
+import { loadFinance } from "@/lib/finance";
+import { clientSnapshots } from "@/lib/instagram/data";
+import { fmt } from "@/lib/instagram/stats";
+import { requireModule } from "@/lib/sections";
+import { getSettings } from "@/lib/settings";
+import { todayIn } from "@/lib/week";
 
 export const metadata = { title: "Clients" };
 
-const VIEWS = [
-  { key: "clients", label: "Clients", icon: Briefcase },
-  { key: "marketing", label: "Marketing", icon: BarChart3 },
-  { key: "finance", label: "Finance", icon: Wallet },
-  { key: "brain", label: "Brain", icon: Brain },
-] as const;
-type View = (typeof VIEWS)[number]["key"];
+type View = "clients" | "analytics" | "finance" | "brain" | "marketing";
 
+/** Clients: one card per business you work for; each opens a page with only the tools that business needs. */
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ new?: string; view?: string }> }) {
   const user = await requireModule("clients");
   const db = await getDb();
   const { new: openNew, view: viewParam } = await searchParams;
-  const view: View = VIEWS.some((v) => v.key === viewParam) ? (viewParam as View) : "clients";
   const settings = await getSettings(user.id);
   const today = todayIn(settings.timezone);
-  const [clients, reels, carousels, updates] = await Promise.all([
+  const [clients, snaps, aiOn] = await Promise.all([
     db.select().from(schema.clients).where(eq(schema.clients.userId, user.id)).orderBy(asc(schema.clients.name)),
-    db.select({ clientId: schema.reels.clientId, n: count() }).from(schema.reels).where(eq(schema.reels.userId, user.id)).groupBy(schema.reels.clientId),
-    db.select({ clientId: schema.carousels.clientId, n: count() }).from(schema.carousels).where(eq(schema.carousels.userId, user.id)).groupBy(schema.carousels.clientId),
-    db.select({ clientId: schema.appUpdates.clientId, n: count() }).from(schema.appUpdates).where(eq(schema.appUpdates.userId, user.id)).groupBy(schema.appUpdates.clientId),
+    clientSnapshots(user.id),
+    claudeAvailable(user.id),
   ]);
-  const n = (list: { clientId: number; n: number }[], id: number) => list.find((x) => x.clientId === id)?.n ?? 0;
   const active = clients.filter((c) => !c.archived);
   const archived = clients.filter((c) => c.archived);
+  const any = (tool: string) => active.some((c) => c.features.includes(tool));
+
+  // Only the views someone's clients actually use.
+  const views = [
+    { key: "clients" as const, label: "Clients", icon: Briefcase },
+    ...(any("instagram") ? [{ key: "analytics" as const, label: "Analytics", icon: BarChart3 }] : []),
+    ...(any("finance") ? [{ key: "finance" as const, label: "Finance", icon: Wallet }] : []),
+    ...(any("content") ? [{ key: "brain" as const, label: "Brain", icon: Brain }] : []),
+  ];
+  const view: View = viewParam === "marketing" ? "marketing" : (views.find((v) => v.key === viewParam)?.key ?? "clients");
+  const toolLabel = (k: string) => CLIENT_TOOLS.find((t) => t.key === k)?.label ?? k;
 
   return (
     <>
@@ -50,69 +58,134 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         title="Clients"
         actions={
           <Sheet title="New client" defaultOpen={openNew === "1"} trigger={<><Plus size={16} /> New client</>} triggerClassName={buttonClass("filled")}>
-            <ClientForm action={createClient} />
+            <ClientForm action={createClient} aiOn={aiOn} />
           </Sheet>
         }
       />
-      <SegmentedLinks
-        label="Clients sections"
-        className="mb-6"
-        active={view}
-        items={VIEWS.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "clients" ? "/clients" : `/clients?view=${key}`, icon: <Icon size={15} /> }))}
-      />
-      <Slide group="clients-view" index={VIEWS.findIndex((v) => v.key === view)}>
-      {view === "marketing" && (
-        <MarketingView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} incomeThisMonth={(await loadFinance(user.id, today, settings.moneyCurrency)).incomeThisMonth} />
+      {views.length > 1 && (
+        <SegmentedLinks
+          label="Clients sections"
+          className="mb-6"
+          active={view === "marketing" ? "analytics" : view}
+          items={views.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "clients" ? "/clients" : `/clients?view=${key}`, icon: <Icon size={15} /> }))}
+        />
       )}
-      {view === "finance" && <FinanceView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} />}
-      {view === "brain" && (
-        <>
-          <PromptsPanel uid={user.id} clients={active} />
-          <h2 className="mb-3 text-[22px] font-bold">Researched rules</h2>
-          <BrainView />
-        </>
-      )}
-      {view === "clients" && (<>
-      {active.length === 0 ? (
-        <Empty icon={<Briefcase size={36} />} title="No clients yet">Add a client to track their app, reels and carousels.</Empty>
-      ) : (
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {active.map((c) => (
-            <ContextMenu key={c.id} items={[{ label: "Archive client", destructive: true, confirm: `Archive ${c.name}? You can restore it below, under Archived.`, action: setClientArchived.bind(null, c.id, true) }]}>
-            <Link href={`/clients/${c.id}`} className="group block h-full">
-              <Card className="h-full p-5 transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
-                <div className="mb-3 grid size-11 place-items-center rounded-xl text-[19px] font-bold text-white" style={{ background: c.color }}>
-                  {c.name.slice(0, 1).toUpperCase()}
-                </div>
-                <p className="text-[19px] font-semibold">{c.name}</p>
-                {c.description && <p className="mt-0.5 line-clamp-2 text-[14px] text-label-2">{c.description}</p>}
-                <div className="mt-4 flex gap-4 text-[13px] text-label-2">
-                  {c.appName && <span><strong className="text-label">{n(updates, c.id)}</strong> app updates</span>}
-                  <span><strong className="text-label">{n(reels, c.id)}</strong> reels</span>
-                  <span><strong className="text-label">{n(carousels, c.id)}</strong> carousels</span>
-                </div>
-              </Card>
-            </Link>
-            </ContextMenu>
-          ))}
-        </div>
-      )}
-      {archived.length > 0 && (
-        <Section title="Archived">
-          <List>
-            {archived.map((c) => (
-              <Row key={c.id}>
-                <span className="size-2.5 rounded-full" style={{ background: c.color }} />
-                <Link href={`/clients/${c.id}`} className="flex-1">{c.name}</Link>
-                <form action={setClientArchived.bind(null, c.id, false)}>
-                  <button className={buttonClass("plain", "sm")}>Restore</button>
-                </form>
-              </Row>
-            ))}
-          </List>
-        </Section>
-      )}
-      </>)}
+      <Slide group="clients-view" index={Math.max(0, views.findIndex((v) => v.key === view))}>
+        {view === "analytics" && (
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {active
+                .filter((c) => c.features.includes("instagram"))
+                .map((c) => {
+                  const s = snaps.get(c.id);
+                  return (
+                    <Link key={c.id} href={`/clients/${c.id}?tab=instagram`} className="glass flex flex-col gap-2 rounded-[24px] p-4 transition hover:-translate-y-0.5">
+                      <p className="flex items-center gap-2 text-[16px] font-semibold">
+                        <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+                        {c.name}
+                      </p>
+                      {s ? (
+                        <>
+                          <p className="text-[13px] text-label-2">
+                            @{s.username} · {s.followers === null ? "–" : fmt(s.followers)} followers · {s.reach30 === null ? "–" : fmt(s.reach30)} reach in 30 days
+                          </p>
+                          {s.spark.length > 1 && <Sparkline values={s.spark} className="text-accent" />}
+                        </>
+                      ) : (
+                        <p className="text-[13px] text-label-3">Instagram not connected yet</p>
+                      )}
+                    </Link>
+                  );
+                })}
+            </div>
+            <p className="text-[13px] text-label-2">
+              Posts on other platforms are logged by hand:{" "}
+              <Link href="/clients?view=marketing" className="font-semibold text-accent">
+                Manual post stats
+              </Link>
+            </p>
+          </div>
+        )}
+        {view === "marketing" && (
+          <MarketingView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} incomeThisMonth={(await loadFinance(user.id, today, settings.moneyCurrency)).incomeThisMonth} />
+        )}
+        {view === "finance" && <FinanceView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} />}
+        {view === "brain" && (
+          <>
+            <PromptsPanel uid={user.id} clients={active} />
+            <h2 className="mb-3 text-[22px] font-bold">Researched rules</h2>
+            <BrainView />
+          </>
+        )}
+        {view === "clients" && (
+          <>
+            {active.length === 0 ? (
+              <Empty icon={<Briefcase size={36} />} title="No clients yet">
+                Add a business you work for. Pick its type and the tools it needs; its page shows only those.
+              </Empty>
+            ) : (
+              <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {active.map((c) => {
+                  const s = c.features.includes("instagram") ? snaps.get(c.id) : undefined;
+                  return (
+                    <ContextMenu key={c.id} items={[{ label: "Archive client", destructive: true, confirm: `Archive ${c.name}? You can restore it below, under Archived.`, action: setClientArchived.bind(null, c.id, true) }]}>
+                      <Link href={`/clients/${c.id}`} className="group block h-full">
+                        <Card className="flex h-full flex-col gap-3 p-5 transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="grid size-11 shrink-0 place-items-center rounded-xl text-[19px] font-bold text-white" style={{ background: c.color }}>
+                              {c.name.slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-[18px] font-semibold">{c.name}</p>
+                              <p className="truncate text-[13px] text-label-2">{businessLabel(c.businessType) || "Business"}</p>
+                            </div>
+                          </div>
+                          {c.description && <p className="line-clamp-2 text-[14px] text-label-2">{c.description}</p>}
+                          {s && (
+                            <div className="rounded-[16px] bg-well px-3 py-2">
+                              <p className="text-[12px] text-label-2">
+                                @{s.username} · <strong className="text-label">{s.followers === null ? "–" : fmt(s.followers)}</strong> followers
+                              </p>
+                              {s.spark.length > 1 && <Sparkline values={s.spark} className="text-accent" />}
+                            </div>
+                          )}
+                          <div className="mt-auto flex flex-wrap gap-1.5">
+                            {c.features.length ? (
+                              c.features.map((f) => (
+                                <span key={f} className="chip !h-6 !text-[12px]">
+                                  {toolLabel(f)}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[12px] text-label-3">No tools yet</span>
+                            )}
+                          </div>
+                        </Card>
+                      </Link>
+                    </ContextMenu>
+                  );
+                })}
+              </div>
+            )}
+            {archived.length > 0 && (
+              <Section title="Archived">
+                <List>
+                  {archived.map((c) => (
+                    <Row key={c.id}>
+                      <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+                      <Link href={`/clients/${c.id}`} className="flex-1">
+                        {c.name}
+                      </Link>
+                      <form action={setClientArchived.bind(null, c.id, false)}>
+                        <button className={buttonClass("plain", "sm")}>Restore</button>
+                      </form>
+                    </Row>
+                  ))}
+                </List>
+              </Section>
+            )}
+          </>
+        )}
       </Slide>
     </>
   );

@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import type { DriveFile, Slide } from "@/lib/db/schema";
 import { DEFAULT_THEME } from "@/lib/carousel-theme";
+import { BUSINESS_TYPES, isClientTool } from "@/lib/client-tools";
 import { carouselProposal, reelProposal } from "@/lib/ai/editor";
 import { getFileMeta } from "@/lib/google/drive";
 import { gymProposal } from "@/lib/gym";
@@ -52,12 +53,18 @@ async function assertOwnClient(uid: number, clientId: number) {
   if (!c) throw new Error("Client not found");
 }
 
-const clientFromForm = (fd: FormData) => ({
-  name: name.parse(fd.get("name")),
-  description: String(fd.get("description") ?? "").slice(0, 1000),
-  appName: String(fd.get("appName") ?? "").slice(0, 200),
-  color: color.parse(fd.get("color")),
-});
+const clientFromForm = (fd: FormData) => {
+  const features = [...new Set(fd.getAll("features").map(String).filter(isClientTool))];
+  return {
+    name: name.parse(fd.get("name")),
+    description: String(fd.get("description") ?? "").slice(0, 1000),
+    // The app name only matters with the app tool.
+    appName: features.includes("app") ? String(fd.get("appName") ?? "").slice(0, 200) : "",
+    color: color.parse(fd.get("color")),
+    businessType: BUSINESS_TYPES.some((t) => t.key === fd.get("businessType")) ? String(fd.get("businessType")) : "",
+    features,
+  };
+};
 
 // ── Clients ────────────────────────────────────────────────
 export async function createClient(fd: FormData) {
@@ -176,7 +183,7 @@ export async function deleteReel(id: number) {
     .returning();
   if (!r) throw new Error("Not found");
   await deleteItemExtras(user.id, "reel", id);
-  redirect(`/clients/${r.clientId}?tab=reels`);
+  redirect(`/clients/${r.clientId}?tab=content`);
 }
 
 // ── Carousels ──────────────────────────────────────────────
@@ -238,7 +245,7 @@ export async function deleteCarousel(id: number) {
     .returning();
   if (!c) throw new Error("Not found");
   await deleteItemExtras(user.id, "carousel", id);
-  redirect(`/clients/${c.clientId}?tab=carousels`);
+  redirect(`/clients/${c.clientId}?tab=content`);
 }
 
 // ── Claude proposals ───────────────────────────────────────

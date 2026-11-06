@@ -78,3 +78,33 @@ export async function accountData(uid: number, accountId: number): Promise<{ pos
     })),
   };
 }
+
+export type IgSnapshot = { accountId: number; username: string; followers: number | null; reach30: number | null; spark: number[]; status: string };
+
+/** For the clients overview: each client's connected account with followers and the last 30 days of reach. */
+export async function clientSnapshots(uid: number): Promise<Map<number, IgSnapshot>> {
+  const db = await getDb();
+  const accounts = (await allAccounts(uid)).filter((a) => a.clientId !== null);
+  const out = new Map<number, IgSnapshot>();
+  if (!accounts.length) return out;
+  const since = new Date(Date.now() - 31 * 86_400_000).toISOString().slice(0, 10);
+  const days = await db
+    .select({ accountId: schema.igDaily.accountId, date: schema.igDaily.date, followers: schema.igDaily.followers, reach: schema.igDaily.reach })
+    .from(schema.igDaily)
+    .where(and(eq(schema.igDaily.userId, uid), gte(schema.igDaily.date, since)))
+    .orderBy(asc(schema.igDaily.date));
+  for (const a of accounts) {
+    if (out.has(a.clientId!)) continue;
+    const mine = days.filter((d) => d.accountId === a.id);
+    const reach = mine.map((d) => d.reach).filter((v): v is number => v !== null);
+    out.set(a.clientId!, {
+      accountId: a.id,
+      username: a.username,
+      followers: [...mine].reverse().find((d) => d.followers !== null)?.followers ?? null,
+      reach30: reach.length ? reach.reduce((x, y) => x + y, 0) : null,
+      spark: reach,
+      status: a.status,
+    });
+  }
+  return out;
+}

@@ -142,6 +142,9 @@ export const clients = pgTable(
     description: text("description").notNull().default(""),
     color: text("color").notNull().default("#007AFF"),
     appName: text("app_name").notNull().default(""),
+    businessType: text("business_type").notNull().default(""), // e.g. shop, restaurant, services (lib/client-tools.ts)
+    // The tools this client's business needs (lib/client-tools.ts): instagram, content, app, finance.
+    features: jsonb("features").$type<string[]>().notNull().default([]),
     driveFolderId: text("drive_folder_id"),
     archived: boolean("archived").notNull().default(false),
     // Reels Brain: who the content is for (audience, awareness, voice, brand, constraints, observed results)

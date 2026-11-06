@@ -62,7 +62,7 @@ export function ReelEditor({
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <Link href={`/clients/${reel.clientId}?tab=reels`} className="flex items-center text-[15px] text-blue">
+        <Link href={`/clients/${reel.clientId}?tab=content`} className="flex items-center text-[15px] text-blue">
           <ChevronLeft size={20} /> {clientName} reels
         </Link>
         <div className="flex items-center gap-3">

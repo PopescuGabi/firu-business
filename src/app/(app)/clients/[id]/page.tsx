@@ -1,21 +1,22 @@
 import Link from "next/link";
-import { SegmentedLinks, Slide } from "@/components/motion";
 import { notFound } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
-import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, Pencil, Plus, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
-import { ClientProfileForm } from "@/components/client-profile";
-import { MarketingView } from "@/components/marketing-view";
-import { ContextMenu } from "@/components/context-menu";
-import { FinanceView } from "@/components/finance-view";
-import { getSettings } from "@/lib/settings";
-import { todayIn } from "@/lib/week";
+import { and, count, desc, eq, ne } from "drizzle-orm";
+import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, LayoutDashboard, Pencil, Plus, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
 import { ClientForm } from "@/components/client-form";
+import { ClientProfileForm } from "@/components/client-profile";
+import { ContextMenu } from "@/components/context-menu";
 import { DriveFiles } from "@/components/drive-files";
 import { DriveFolderButton } from "@/components/drive-folder-button";
+import { FinanceView } from "@/components/finance-view";
+import { IgAccountActions } from "@/components/instagram/actions";
+import { InstagramDashboard } from "@/components/instagram/dashboard";
+import { IgNotice } from "@/components/instagram/notice";
+import { SegmentedLinks, Slide } from "@/components/motion";
 import { Sheet } from "@/components/sheet";
 import { SlidePreview } from "@/components/slide-preview";
 import { DeleteFooter, Submit } from "@/components/submit";
 import { buttonClass, Card, Empty, Field, PageHeader, Pill, STATUS_COLORS, statusLabel } from "@/components/ui";
+import { Sparkline } from "@/components/charts";
 import {
   createAppUpdate,
   createCarousel,
@@ -27,21 +28,34 @@ import {
   setClientArchived,
   updateClient,
 } from "@/app/actions/clients";
-import { requireModule } from "@/lib/sections";
+import { claudeAvailable } from "@/lib/ai/claude";
+import { businessLabel } from "@/lib/client-tools";
 import { getDb, schema } from "@/lib/db";
+import { loadFinance } from "@/lib/finance";
+import { formatMoney } from "@/lib/fx-math";
 import { folderUrl } from "@/lib/google/drive";
 import { getGoogleAccount } from "@/lib/google/oauth";
+import { instagramConfigured } from "@/lib/instagram/api";
+import { accountData, clientSnapshots, listAccounts } from "@/lib/instagram/data";
+import { DEMO_ACCOUNT, demoData } from "@/lib/instagram/demo";
+import { dashHref, dashQuery } from "@/lib/instagram/query";
+import { buildDashboard, fmt } from "@/lib/instagram/stats";
+import { requireModule } from "@/lib/sections";
+import { getSettings } from "@/lib/settings";
+import { todayIn } from "@/lib/week";
 
-const TABS = [
-  { key: "app", label: "App", icon: Smartphone },
-  { key: "reels", label: "Reels", icon: Clapperboard },
-  { key: "carousels", label: "Carousels", icon: GalleryHorizontalEnd },
-  { key: "marketing", label: "Marketing", icon: BarChart3 },
-  { key: "finance", label: "Finance", icon: Wallet },
-  { key: "profile", label: "Profile", icon: UserRound },
+// Tabs appear only for the tools this client's business needs (lib/client-tools.ts).
+const ALL_TABS = [
+  { key: "overview", label: "Overview", icon: LayoutDashboard, tool: null },
+  { key: "instagram", label: "Instagram", icon: BarChart3, tool: "instagram" },
+  { key: "content", label: "Content", icon: Clapperboard, tool: "content" },
+  { key: "app", label: "App", icon: Smartphone, tool: "app" },
+  { key: "finance", label: "Finance", icon: Wallet, tool: "finance" },
+  { key: "profile", label: "Brand profile", icon: UserRound, tool: "content" },
 ] as const;
 
 const REEL_STATUSES = ["idea", "scripting", "filming", "editing", "review", "posted"];
+type SP = Record<string, string | string[] | undefined>;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireModule("clients");
@@ -53,34 +67,29 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: c?.name ?? "Client" };
 }
 
-export default async function ClientPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
-}) {
+export default async function ClientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
   const user = await requireModule("clients");
   const db = await getDb();
   const [client] = await db.select().from(schema.clients).where(and(eq(schema.clients.id, id), eq(schema.clients.userId, user.id)));
   if (!client) notFound();
-  const { tab: tabParam } = await searchParams;
-  const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : client.appName ? "app" : "reels";
-  const googleConnected = Boolean((await getGoogleAccount(user.id))?.accessToken);
-  const settings = await getSettings(user.id);
+  const sp = await searchParams;
+  const tabs = ALL_TABS.filter((t) => !t.tool || client.features.includes(t.tool));
+  const tab = tabs.find((t) => t.key === sp.tab)?.key ?? "overview";
+  const [googleConnected, settings, aiOn] = await Promise.all([getGoogleAccount(user.id).then((a) => Boolean(a?.accessToken)), getSettings(user.id), claudeAvailable(user.id)]);
+  const today = todayIn(settings.timezone);
 
   return (
     <>
       <PageHeader
-        subtitle={client.archived ? "Archived client" : "Client"}
+        subtitle={client.archived ? "Archived client" : businessLabel(client.businessType) || "Client"}
         title={client.name}
         actions={
           <>
             {googleConnected && <DriveFolderButton clientId={id} url={client.driveFolderId ? folderUrl(client.driveFolderId) : null} />}
             <Sheet title="Edit client" trigger={<Pencil size={16} />} triggerLabel="Edit client" triggerClassName={buttonClass("gray") + " !px-3"}>
-              <ClientForm action={updateClient.bind(null, id)} client={client} submitLabel="Save" />
+              <ClientForm action={updateClient.bind(null, id)} client={client} submitLabel="Save" aiOn={aiOn} />
               {!client.archived && (
                 <DeleteFooter action={setClientArchived.bind(null, id, true)} message={`Archive ${client.name}? You can restore it from the Clients page.`}>
                   <Archive size={15} /> Archive client
@@ -92,21 +101,157 @@ export default async function ClientPage({
       />
       {client.description && <p className="-mt-3 mb-5 text-[15px] text-label-2">{client.description}</p>}
 
-      <SegmentedLinks
-        label="Sections"
-        className="mb-6"
-        active={tab}
-        items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, href: `/clients/${id}?tab=${key}`, icon: <Icon size={15} /> }))}
-      />
+      {tabs.length > 1 && (
+        <SegmentedLinks
+          label="Sections"
+          className="mb-6"
+          active={tab}
+          items={tabs.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? `/clients/${id}` : `/clients/${id}?tab=${key}`, icon: <Icon size={15} /> }))}
+        />
+      )}
 
-      <Slide group={`client-tab-${id}`} index={TABS.findIndex((t) => t.key === tab)}>
+      <Slide group={`client-tab-${id}`} index={tabs.findIndex((t) => t.key === tab)}>
+        {tab === "overview" && <OverviewTab userId={user.id} client={client} today={today} currency={settings.moneyCurrency} />}
+        {tab === "instagram" && <InstagramTab userId={user.id} clientId={id} sp={sp} today={today} tz={settings.timezone} />}
+        {tab === "content" && (
+          <div className="flex flex-col gap-8">
+            <ReelsTab userId={user.id} clientId={id} />
+            <CarouselsTab userId={user.id} clientId={id} />
+          </div>
+        )}
         {tab === "app" && <AppTab userId={user.id} clientId={id} appName={client.appName} googleConnected={googleConnected} />}
-        {tab === "reels" && <ReelsTab userId={user.id} clientId={id} />}
-        {tab === "carousels" && <CarouselsTab userId={user.id} clientId={id} />}
-        {tab === "marketing" && <MarketingView uid={user.id} clients={[client]} clientId={id} today={todayIn(settings.timezone)} currency={settings.moneyCurrency} />}
-        {tab === "finance" && <FinanceView uid={user.id} clients={[client]} clientId={id} today={todayIn(settings.timezone)} currency={settings.moneyCurrency} />}
+        {tab === "finance" && <FinanceView uid={user.id} clients={[client]} clientId={id} today={today} currency={settings.moneyCurrency} />}
         {tab === "profile" && <ClientProfileForm clientId={id} initial={client.profile} />}
       </Slide>
+    </>
+  );
+}
+
+type ClientRow = typeof schema.clients.$inferSelect;
+
+/** One look at the client: only the tools they have, each with its key numbers and a link. */
+async function OverviewTab({ userId, client, today, currency }: { userId: number; client: ClientRow; today: string; currency: "RON" | "EUR" }) {
+  const db = await getDb();
+  const has = (t: string) => client.features.includes(t);
+  const [snap, reelsOpen, reelsPosted, carousels, lastUpdate, money] = await Promise.all([
+    has("instagram") ? clientSnapshots(userId).then((m) => m.get(client.id)) : undefined,
+    has("content") ? db.select({ n: count() }).from(schema.reels).where(and(eq(schema.reels.userId, userId), eq(schema.reels.clientId, client.id), ne(schema.reels.status, "posted"))).then((r) => r[0].n) : 0,
+    has("content") ? db.select({ n: count() }).from(schema.reels).where(and(eq(schema.reels.userId, userId), eq(schema.reels.clientId, client.id), eq(schema.reels.status, "posted"))).then((r) => r[0].n) : 0,
+    has("content") ? db.select({ n: count() }).from(schema.carousels).where(and(eq(schema.carousels.userId, userId), eq(schema.carousels.clientId, client.id))).then((r) => r[0].n) : 0,
+    has("app")
+      ? db.select().from(schema.appUpdates).where(and(eq(schema.appUpdates.userId, userId), eq(schema.appUpdates.clientId, client.id))).orderBy(desc(schema.appUpdates.date), desc(schema.appUpdates.id)).limit(1).then((r) => r[0])
+      : undefined,
+    has("finance") ? loadFinance(userId, today, currency, client.id) : undefined,
+  ]);
+  const tile = "glass flex flex-col gap-2 rounded-[24px] p-4 transition hover:-translate-y-0.5";
+  const base = `/clients/${client.id}`;
+  if (!client.features.length) {
+    return (
+      <Empty title="No tools for this client yet">
+        Open <strong>Edit client</strong> and tick what you do for them: Instagram analytics, content, app work or finance.
+      </Empty>
+    );
+  }
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {has("instagram") && (
+        <Link href={`${base}?tab=instagram`} className={tile}>
+          <p className="flex items-center gap-2 text-[15px] font-semibold">
+            <BarChart3 size={16} className="text-label-2" /> Instagram
+          </p>
+          {snap ? (
+            <>
+              <p className="text-[13px] text-label-2">@{snap.username}</p>
+              <p className="text-[28px] leading-none font-bold tracking-tight tabular-nums">{snap.followers === null ? "–" : fmt(snap.followers)}</p>
+              <p className="text-[12px] text-label-2">followers · {snap.reach30 === null ? "–" : fmt(snap.reach30)} reach in 30 days</p>
+              {snap.spark.length > 1 && <Sparkline values={snap.spark} className="text-accent" />}
+            </>
+          ) : (
+            <p className="text-[14px] text-label-2">Not connected yet. Open to connect their account (or see a demo).</p>
+          )}
+        </Link>
+      )}
+      {has("content") && (
+        <Link href={`${base}?tab=content`} className={tile}>
+          <p className="flex items-center gap-2 text-[15px] font-semibold">
+            <Clapperboard size={16} className="text-label-2" /> Content
+          </p>
+          <p className="text-[28px] leading-none font-bold tabular-nums">{reelsOpen}</p>
+          <p className="text-[12px] text-label-2">
+            reels in progress · {reelsPosted} posted · {carousels} carousel{carousels === 1 ? "" : "s"}
+          </p>
+        </Link>
+      )}
+      {has("app") && (
+        <Link href={`${base}?tab=app`} className={tile}>
+          <p className="flex items-center gap-2 text-[15px] font-semibold">
+            <Smartphone size={16} className="text-label-2" /> {client.appName || "App"}
+          </p>
+          {lastUpdate ? (
+            <>
+              <p className="text-[15px] font-medium">
+                {lastUpdate.version && `${lastUpdate.version} · `}
+                {lastUpdate.title}
+              </p>
+              <Pill color={STATUS_COLORS[lastUpdate.status]}>{statusLabel(lastUpdate.status)}</Pill>
+            </>
+          ) : (
+            <p className="text-[14px] text-label-2">No updates logged yet.</p>
+          )}
+        </Link>
+      )}
+      {has("finance") && money && (
+        <Link href={`${base}?tab=finance`} className={tile}>
+          <p className="flex items-center gap-2 text-[15px] font-semibold">
+            <Wallet size={16} className="text-label-2" /> Finance
+          </p>
+          <p className="text-[28px] leading-none font-bold tabular-nums">{formatMoney(money.incomeThisMonth, currency, { compact: true })}</p>
+          <p className="text-[12px] text-label-2">
+            paid this month · {formatMoney(money.waitingTotal, currency, { compact: true })} waiting{money.overdue.length ? ` (${money.overdue.length} overdue)` : ""}
+          </p>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** The client's Instagram: the account you connected for them, or a marked demo until then. */
+async function InstagramTab({ userId, clientId, sp, today, tz }: { userId: number; clientId: number; sp: SP; today: string; tz: string }) {
+  const accounts = await listAccounts(userId, clientId);
+  const picked = accounts.find((a) => String(a.id) === sp.account) ?? accounts[0];
+  const q = dashQuery(sp, today);
+  const source = picked ? await accountData(userId, picked.id) : demoData(today);
+  const data = buildDashboard({ ...source, from: q.from, to: q.to, kind: q.kind, tz });
+  const back = `/clients/${clientId}?tab=instagram`;
+  const href = dashHref(`/clients/${clientId}`, { tab: "instagram", account: picked && accounts.length > 1 ? String(picked.id) : undefined }, q);
+  return (
+    <>
+      <IgNotice flag={typeof sp.ig === "string" ? sp.ig : undefined} />
+      {!picked && (
+        <Card className="mb-4 flex flex-col gap-2 p-4 text-[14px] text-label-2">
+          <p className="text-[15px] font-semibold text-label">Connect their Instagram</p>
+          <p>
+            Their account must be a <strong>professional</strong> (Business or Creator) account. Connect it here by signing in to their Instagram, or invite them to their
+            dashboard so they connect it themselves.
+          </p>
+        </Card>
+      )}
+      <InstagramDashboard
+        data={data}
+        account={picked ? { ...picked } : DEMO_ACCOUNT}
+        query={q}
+        href={href}
+        actions={
+          <>
+            {picked && <IgAccountActions accountId={picked.id} username={picked.username} />}
+            {instagramConfigured() && (
+              <a href={`/api/instagram/connect?for=client:${clientId}&back=${encodeURIComponent(back)}`} className={buttonClass(picked ? "gray" : "filled", "sm")}>
+                <Plus size={14} /> {picked ? "Add account" : "Connect their Instagram"}
+              </a>
+            )}
+          </>
+        }
+      />
     </>
   );
 }

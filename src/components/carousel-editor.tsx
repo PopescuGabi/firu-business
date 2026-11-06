@@ -128,7 +128,7 @@ export function CarouselEditor({
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <Link href={`/clients/${carousel.clientId}?tab=carousels`} className="flex items-center text-[15px] text-blue">
+        <Link href={`/clients/${carousel.clientId}?tab=content`} className="flex items-center text-[15px] text-blue">
           <ChevronLeft size={20} /> {clientName} carousels
         </Link>
         <div className="flex items-center gap-3">

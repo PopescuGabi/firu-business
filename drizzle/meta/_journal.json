@@ -127,6 +127,13 @@
       "when": 1793991654231,
       "tag": "0017_instagram",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793992275989,
+      "tag": "0018_client_tools",
+      "breakpoints": true
     }
   ]
 }
