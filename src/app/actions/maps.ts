@@ -27,7 +27,7 @@ export async function saveMapsKey(_prev: MapsState, fd: FormData): Promise<MapsS
 
 const placeName = z.string().trim().min(1).max(60).refine((n) => !n.includes(">") && n !== "online" && n !== "any", "That name can't have an address");
 
-/** Saves the address picked from Google's suggestions for a place name (home, school, a tutoring place…). */
+/** Saves the address picked from Google's suggestions for a place name (home, a client's office…). */
 export async function setPlaceAddress(name: string, placeId: string, sessionToken?: string): Promise<MapsState> {
   const user = await requireUser();
   try {
@@ -51,14 +51,13 @@ export async function saveTravelPrefs(fd: FormData) {
   const mode = String(fd.get("travelMode"));
   await saveSettings(user.id, {
     travelMode: (TRAVEL_MODES.some((m) => m.key === mode) ? mode : "transit") as TravelMode,
-    gymExtraMinutes: z.coerce.number().int().min(0).max(120).catch(15).parse(fd.get("gymExtraMinutes")),
   });
   revalidatePath("/", "layout");
 }
 
 /**
  * Asks Google for the travel time between every pair of saved addresses and writes them into the
- * travel-times table (gym → anywhere adds your shower/changing minutes). Other rows stay.
+ * travel-times table. Other rows stay.
  */
 export async function fillTravelFromMaps(_prev: MapsState): Promise<MapsState> {
   const user = await requireUser();
@@ -73,7 +72,7 @@ export async function fillTravelFromMaps(_prev: MapsState): Promise<MapsState> {
       places.forEach((b, j) => {
         const cell = matrix[i][j];
         if (i === j || !cell) return;
-        travel[`${a.name}>${b.name}`] = cell.minutes + (a.name === "gym" ? settings.gymExtraMinutes : 0);
+        travel[`${a.name}>${b.name}`] = cell.minutes;
         filled++;
       }),
     );

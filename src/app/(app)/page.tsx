@@ -13,7 +13,6 @@ import {
   BookText,
   CalendarDays,
   Clapperboard,
-  Dumbbell,
   FileUp,
   Footprints,
   GalleryHorizontalEnd,
@@ -177,12 +176,10 @@ function Stat({
   );
 }
 
-/** Minutes of fixed things in a day: school, events, gym, tutoring and accepted blocks. */
+/** Minutes of fixed things in a day: calendar events and accepted blocks. */
 function busyMinutes(d: DayView) {
-  let m = d.school.length ? d.school.at(-1)!.end - d.school[0].start : 0;
+  let m = 0;
   for (const e of d.events) m += e.endMin - e.startMin;
-  if (d.gymFixed) m += d.gymFixed.end - d.gymFixed.start;
-  for (const t of d.tutoring) m += toMin(t.end) - toMin(t.start);
   for (const b of d.blocks) if (b.status === "accepted") m += toMin(b.end) - toMin(b.start);
   return m;
 }
@@ -251,7 +248,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const day = days[0];
   const mapsOn = await mapsAvailable(user.id);
-  const routeOpts = { tz: settings.timezone, mode: settings.travelMode, gymExtraMinutes: settings.gymExtraMinutes };
+  const routeOpts = { tz: settings.timezone, mode: settings.travelMode };
   const [{ current, next, leaveBy, live }, route] = mapsOn
     ? await Promise.all([liveNowAndNext(user.id, day, now, settings.travel, routeOpts), routeForDay(user.id, day, routeOpts).catch(() => null)])
     : [{ ...nowAndNext(day, now, settings.travel), live: false }, null];
@@ -451,7 +448,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           {target.note && <p className="mt-3 text-[13px] text-label-2">{target.note}</p>}
         </>
       ) : (
-        <EmptyLine>AI planning (with your API key) suggests daily study, project and gym time here.</EmptyLine>
+        <EmptyLine>&ldquo;Plan my week&rdquo; suggests daily project time here.</EmptyLine>
       )}
     </Widget>
   );
@@ -485,9 +482,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <span className={clsx("text-[11px] font-medium", isToday ? "opacity-70" : "text-label-2")}>{WEEKDAYS[d.weekday - 1].slice(0, 3)}</span>
               <span className="text-[17px] font-semibold tabular-nums">{Number(d.date.slice(8))}</span>
               <span className="flex h-1.5 gap-0.5">
-                {d.school.length > 0 && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.school }} />}
-                {d.gym && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.gym }} />}
-                {d.tutoring.length > 0 && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.tutoring }} />}
+                {d.blocks.some((b) => b.status === "accepted") && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.project }} />}
+                {d.blocks.some((b) => b.kind === "post") && <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS.post }} />}
                 {d.clashes.length > 0 && <span className="size-1.5 rounded-full bg-red" />}
               </span>
             </Link>
@@ -495,7 +491,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         })}
       </div>
       <p className="mt-3 flex flex-wrap gap-3 text-[11px] text-label-2">
-        {[["School", "school"], ["Gym", "gym"], ["Tutoring", "tutoring"]].map(([l, k]) => (
+        {[["Planned work", "project"], ["Posting", "post"]].map(([l, k]) => (
           <span key={k} className="inline-flex items-center gap-1">
             <span className="size-1.5 rounded-full" style={{ background: KIND_COLORS[k] }} /> {l}
           </span>
@@ -516,7 +512,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <p className="text-[34px] leading-tight font-bold tracking-tight">
         <CountUp value={busy.reduce((a, b) => a + b, 0)} minutes />
       </p>
-      <p className="mb-3 text-[12px] text-label-2">School, sessions and events over the next 7 days</p>
+      <p className="mb-3 text-[12px] text-label-2">Meetings, events and planned work over the next 7 days</p>
       <div className="mt-auto grid h-28 grid-cols-7 items-end gap-2">
         {days.map((d, k) => (
           <div key={d.date} className="flex h-full flex-col items-center justify-end gap-1.5">
@@ -715,12 +711,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="grid grid-cols-2 gap-2">
           <Link href="/today" className={buttonClass("gray", "sm")}>Today</Link>
           <Link href="/calendar" className={buttonClass("gray", "sm")}>Calendar</Link>
-          {on("school") && <Link href="/school" className={buttonClass("gray", "sm")}>School</Link>}
-          {on("gym") && (
-            <Link href="/gym" className={buttonClass("gray", "sm")}>
-              <Dumbbell size={14} /> Gym split
-            </Link>
-          )}
         </div>
       </div>
     </Widget>

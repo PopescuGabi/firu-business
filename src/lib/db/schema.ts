@@ -36,8 +36,6 @@ export type CarouselTheme = {
   align: "left" | "center";
 };
 
-/** One exercise in a gym day: sets, and the target reps per set (progression adds weight once every set reaches it). */
-export type Exercise = { name: string; sets: number; reps?: number };
 
 const createdAt = () =>
   timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -117,13 +115,13 @@ export const backgrounds = pgTable("backgrounds", {
   updatedAt: updatedAt(),
 });
 
-// Addresses for the places used in travel times (home, school, gym, tutoring places).
+// Addresses for the places used in travel times (home, a client's office…).
 export const places = pgTable(
   "places",
   {
     id: serial("id").primaryKey(),
     userId: owner(),
-    name: text("name").notNull(), // the travel-time place name, e.g. "home" or "Math tutoring"
+    name: text("name").notNull(), // the travel-time place name, e.g. "home" or "FIRU office"
     address: text("address").notNull(),
     lat: doublePrecision("lat").notNull(),
     lng: doublePrecision("lng").notNull(),
@@ -292,7 +290,7 @@ export const planBlocks = pgTable(
     start: text("start").notNull(), // HH:mm
     end: text("end").notNull(),
     title: text("title").notNull(),
-    kind: text("kind").notNull(), // gym | study | project | task | break | post
+    kind: text("kind").notNull(), // project | task | break | post
     taskId: integer("task_id").references(() => tasks.id, {
       onDelete: "set null",
     }),
@@ -303,73 +301,6 @@ export const planBlocks = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("plan_blocks_date_idx").on(t.userId, t.date)],
-);
-
-export const schoolDays = pgTable(
-  "school_days",
-  {
-    userId: owner(),
-    weekday: integer("weekday").notNull(), // 1 = Monday … 5 = Friday
-    startTime: text("start_time").notNull(), // HH:mm
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.weekday] })],
-);
-
-export const schoolClasses = pgTable(
-  "school_classes",
-  {
-    userId: owner(),
-    weekday: integer("weekday").notNull(),
-    period: integer("period").notNull(), // 0-based
-    subject: text("subject").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.weekday, t.period] })],
-);
-
-// Fixed tutoring sessions (repeat weekly or every N weeks from startDate).
-export const tutoring = pgTable("tutoring", {
-  id: serial("id").primaryKey(),
-  userId: owner(),
-  subject: text("subject").notNull(),
-  weekday: integer("weekday").notNull(), // 1 = Monday … 7 = Sunday
-  start: text("start").notNull(), // HH:mm
-  end: text("end").notNull(),
-  everyWeeks: integer("every_weeks").notNull().default(1),
-  startDate: text("start_date").notNull(), // yyyy-mm-dd of the first session
-  place: text("place").notNull().default("online"), // "online" or a place name used in travel times
-  gcalEventId: text("gcal_event_id"), // repeating event in Google Calendar
-  createdAt: createdAt(),
-});
-
-export const gymDays = pgTable(
-  "gym_days",
-  {
-    userId: owner(),
-    weekday: integer("weekday").notNull(), // 1 = Monday … 7 = Sunday
-    title: text("title").notNull(),
-    exercises: jsonb("exercises").$type<Exercise[]>().notNull().default([]),
-    durationMin: integer("duration_min").notNull().default(75),
-    // flexible = the planner picks a time; after_school = right after the last class; fixed = at startTime
-    timing: text("timing").notNull().default("flexible"),
-    startTime: text("start_time"), // HH:mm, when timing = fixed
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.weekday] })],
-);
-
-// Every set you log (weight × reps), one row per set; progression and the progress chart read these.
-export const gymSets = pgTable(
-  "gym_sets",
-  {
-    id: serial("id").primaryKey(),
-    userId: owner(),
-    date: text("date").notNull(), // yyyy-mm-dd, in the person's time zone
-    exercise: text("exercise").notNull(),
-    setNo: integer("set_no").notNull(), // 1-based
-    weight: real("weight").notNull().default(0), // kg; 0 = bodyweight
-    reps: integer("reps").notNull(),
-    createdAt: createdAt(),
-  },
-  (t) => [uniqueIndex("gym_sets_one").on(t.userId, t.date, t.exercise, t.setNo), index("gym_sets_exercise").on(t.userId, t.exercise, t.date)],
 );
 
 // Pages each person builds for their own work (often with the AI setup): a JSON spec rendered from fixed blocks.
@@ -550,7 +481,7 @@ export const calendarLinks = pgTable(
   "calendar_links",
   {
     userId: owner(),
-    key: text("key").notNull(), // e.g. class:1:0, gym:6, tutoring:3, block:45, task:7
+    key: text("key").notNull(), // e.g. block:45, task:7
     calendarId: text("calendar_id").notNull(),
     eventId: text("event_id").notNull(),
     written: jsonb("written").notNull(), // signature of what the hub last wrote or accepted

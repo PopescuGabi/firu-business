@@ -115,7 +115,7 @@ test("setup proposal: unknown sections and broken pages are dropped", () => {
 test("every ready-made template passes the page rules with no problems", async () => {
   const { TEMPLATE_GROUPS, templateFor, templateKey } = await import("../src/lib/page-templates.ts");
   const { MODULES } = await import("../src/lib/modules.ts");
-  assert.equal(TEMPLATE_GROUPS.length, 4);
+  assert.equal(TEMPLATE_GROUPS.length, 3);
   for (const g of TEMPLATE_GROUPS) {
     assert.ok(g.modules.every((m) => MODULES.some((x) => x.key === m)), `${g.key}: unknown section`);
     g.pages.forEach((_, i) => {

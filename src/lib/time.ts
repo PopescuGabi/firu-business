@@ -29,14 +29,6 @@ export function mondayOf(date: string) {
 
 export type Interval = { start: number; end: number };
 
-export function schoolPeriods(startTime: string, count: number, classMin: number, breakMin: number) {
-  const first = toMin(startTime);
-  return Array.from({ length: count }, (_, i) => {
-    const start = first + i * (classMin + breakMin);
-    return { start, end: start + classMin };
-  });
-}
-
 /** Free intervals inside [dayStart, dayEnd] that don't overlap any busy interval. */
 export function freeSlots(dayStart: number, dayEnd: number, busy: Interval[], minLength = 15): Interval[] {
   const sorted = busy

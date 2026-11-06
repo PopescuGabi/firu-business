@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { iconFor } from "./custom/icons";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
-import { BarChart3, Briefcase, CalendarDays, Dumbbell, GraduationCap, House, Images, LayoutGrid, Mail, Settings, Sun } from "lucide-react";
+import { BarChart3, Briefcase, CalendarDays, House, Images, LayoutGrid, Mail, Settings, Sun } from "lucide-react";
 
 // `module`: shown only when that section is turned on (lib/modules.ts); the rest are always there.
 const ALL_ITEMS = [
@@ -13,8 +13,6 @@ const ALL_ITEMS = [
   { href: "/today", label: "Today", icon: Sun },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/email", label: "Email", icon: Mail, module: "email" },
-  { href: "/school", label: "School", icon: GraduationCap, module: "school" },
-  { href: "/gym", label: "Gym", icon: Dumbbell, module: "gym" },
   { href: "/clients", label: "Clients", icon: Briefcase, module: "clients" },
   { href: "/instagram", label: "Instagram", icon: BarChart3, module: "instagram" },
   { href: "/portfolio", label: "Portfolio", icon: Images, module: "portfolio" },

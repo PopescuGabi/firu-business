@@ -1,7 +1,7 @@
 import "server-only";
 import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb, schema } from "../db";
 import { getAccessToken } from "../google/oauth";
@@ -16,8 +16,6 @@ import {
   type RawEvent,
 } from "../google/calendar";
 import { getSetting, getSettings, setSetting } from "../settings";
-import { travelTime } from "../travel";
-import { modulesOf } from "../users";
 import { buildDesired, changeFromRemote, MARK, sameSignature, signature, type DesiredEvent, type HubChange, type Signature } from "./model";
 
 export const HUB_CALENDAR_NAME = "Personal Hub";
@@ -96,88 +94,29 @@ export async function findHubCalendar(uid: number) {
 
 async function loadHub(uid: number, tz: string) {
   const db = await getDb();
-  const settings = await getSettings(uid);
-  const [schoolDays, classes, gym, tutoring, blocks, tasks] = await Promise.all([
-    db.select().from(schema.schoolDays).where(eq(schema.schoolDays.userId, uid)),
-    db.select().from(schema.schoolClasses).where(eq(schema.schoolClasses.userId, uid)).orderBy(asc(schema.schoolClasses.period)),
-    db.select().from(schema.gymDays).where(eq(schema.gymDays.userId, uid)),
-    db.select().from(schema.tutoring).where(eq(schema.tutoring.userId, uid)),
+  const [blocks, tasks] = await Promise.all([
     db.select().from(schema.planBlocks).where(and(eq(schema.planBlocks.userId, uid), eq(schema.planBlocks.status, "accepted"))),
     db.select().from(schema.tasks).where(eq(schema.tasks.userId, uid)),
   ]);
-  // Sections turned off aren't mirrored (their events are removed from the calendar).
-  const modules = await modulesOf(uid);
-  if (!modules.includes("school")) {
-    schoolDays.length = 0;
-    classes.length = 0;
-    tutoring.length = 0;
-  }
-  if (!modules.includes("gym")) gym.length = 0;
-  return buildDesired({
-    timezone: tz,
-    today: format(new TZDate(new Date(), tz), "yyyy-MM-dd"),
-    schoolYearEnd: settings.schoolYearEnd || null,
-    classMinutes: settings.classMinutes,
-    breakMinutes: settings.breakMinutes,
-    schoolGymTravel: travelTime(settings.travel, "school", "gym") ?? 0,
-    schoolDays,
-    classes,
-    gym,
-    tutoring,
-    blocks,
-    tasks,
-  });
+  // Anything no longer built here (e.g. old school, gym and tutoring events) is removed from the calendar by the push pass.
+  return buildDesired({ timezone: tz, today: format(new TZDate(new Date(), tz), "yyyy-MM-dd"), blocks, tasks });
 }
 
 /** An event deleted on the phone removes the item in the hub (a task only loses its due date). */
 async function applyDelete(uid: number, key: string) {
   const db = await getDb();
-  const [kind, a, b] = key.split(":");
-  if (kind === "class") {
-    const weekday = Number(a);
-    const period = Number(b);
-    const day = and(eq(schema.schoolClasses.userId, uid), eq(schema.schoolClasses.weekday, weekday));
-    await db.transaction(async (tx) => {
-      const rows = await tx.select().from(schema.schoolClasses).where(day).orderBy(asc(schema.schoolClasses.period));
-      const keep = rows.filter((r) => r.period !== period);
-      await tx.delete(schema.schoolClasses).where(day);
-      if (keep.length) await tx.insert(schema.schoolClasses).values(keep.map((r, i) => ({ userId: uid, weekday, period: i, subject: r.subject })));
-      else await tx.delete(schema.schoolDays).where(and(eq(schema.schoolDays.userId, uid), eq(schema.schoolDays.weekday, weekday)));
-    });
-  } else if (kind === "gym") {
-    await db.delete(schema.gymDays).where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, Number(a))));
-  } else if (kind === "tutoring") {
-    await db.delete(schema.tutoring).where(and(eq(schema.tutoring.userId, uid), eq(schema.tutoring.id, Number(a))));
-  } else if (kind === "block") {
+  const [kind, a] = key.split(":");
+  if (kind === "block") {
     await db.delete(schema.planBlocks).where(and(eq(schema.planBlocks.userId, uid), eq(schema.planBlocks.id, Number(a))));
   } else if (kind === "task") {
     await db.update(schema.tasks).set({ due: null }).where(and(eq(schema.tasks.userId, uid), eq(schema.tasks.id, Number(a))));
   }
 }
 
-/** Applies a phone edit; returns the item's new key when it moved (a gym day on another weekday). */
+/** Applies a phone edit to the plan block or task behind it. */
 async function applyChange(uid: number, c: HubChange): Promise<string | void> {
   const db = await getDb();
-  if (c.kind === "class") {
-    await db
-      .update(schema.schoolClasses)
-      .set({ subject: c.subject })
-      .where(and(eq(schema.schoolClasses.userId, uid), eq(schema.schoolClasses.weekday, c.weekday), eq(schema.schoolClasses.period, c.period)));
-  } else if (c.kind === "gym") {
-    let weekday = c.weekday;
-    if (c.newWeekday !== c.weekday) {
-      const [taken] = await db.select().from(schema.gymDays).where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, c.newWeekday)));
-      if (!taken) weekday = c.newWeekday;
-    }
-    await db
-      .update(schema.gymDays)
-      .set({ weekday, title: c.title, timing: "fixed", startTime: c.startTime, durationMin: c.durationMin })
-      .where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, c.weekday)));
-    return `gym:${weekday}`;
-  } else if (c.kind === "tutoring") {
-    const { id, ...rest } = c;
-    await db.update(schema.tutoring).set(rest).where(and(eq(schema.tutoring.userId, uid), eq(schema.tutoring.id, id)));
-  } else if (c.kind === "block") {
+  if (c.kind === "block") {
     const { id, ...rest } = c;
     await db.update(schema.planBlocks).set(rest).where(and(eq(schema.planBlocks.userId, uid), eq(schema.planBlocks.id, id)));
   } else if (c.kind === "task") {
@@ -259,8 +198,6 @@ export async function runSync(uid: number, { waitMs = 0 } = {}): Promise<SyncRes
           .set({ key, eventId: e.id, written: sig, remoteUpdated: e.updated ?? null, updatedAt: new Date() })
           .where(linkKey(link.key));
       }
-      // Later class periods first, so renumbering after one delete doesn't shift the next.
-      deletes.sort((a, b) => Number(b.split(":")[2] ?? 0) - Number(a.split(":")[2] ?? 0));
       for (const key of deletes) {
         await applyDelete(uid, key);
         await db.delete(schema.calendarLinks).where(linkKey(key));

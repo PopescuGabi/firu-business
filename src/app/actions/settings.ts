@@ -16,18 +16,13 @@ export async function savePlannerSettings(fd: FormData) {
   }
   const dayStart = time.parse(fd.get("dayStart"));
   const dayEnd = time.parse(fd.get("dayEnd"));
-  const freeDayStart = time.parse(fd.get("freeDayStart"));
   // The planner's day can't wrap past midnight; late events (e.g. a game until 00:00) still show on the calendar.
   if (dayEnd <= dayStart) throw new Error("The day must end after it starts");
-  if (freeDayStart < dayStart || freeDayStart >= dayEnd) throw new Error("Free days must start inside your day");
   await saveSettings(user.id, {
     displayName: String(fd.get("displayName") ?? "").trim().slice(0, 40),
     timezone: tz,
     dayStart,
     dayEnd,
-    freeDayStart,
-    classMinutes: z.coerce.number().int().min(20).max(120).parse(fd.get("classMinutes")),
-    breakMinutes: z.coerce.number().int().min(0).max(60).parse(fd.get("breakMinutes")),
   });
   revalidatePath("/", "layout");
 }
@@ -100,8 +95,7 @@ export type SyncFormState = { ok: boolean; message: string } | null;
 export async function saveCalendarSync(_prev: SyncFormState, fd: FormData): Promise<SyncFormState> {
   const user = await requireUser();
   const calendarSync = fd.get("calendarSync") === "on";
-  const schoolYearEnd = z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]).catch("").parse(fd.get("schoolYearEnd") ?? "");
-  await saveSettings(user.id, { calendarSync, schoolYearEnd });
+  await saveSettings(user.id, { calendarSync });
   revalidatePath("/", "layout");
   if (!calendarSync) return { ok: true, message: "Sync is off. Events already in the Personal Hub calendar stay there but stop updating." };
   const { runSync } = await import("@/lib/calendar-sync");

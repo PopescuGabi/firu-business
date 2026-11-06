@@ -21,9 +21,6 @@ const PER_USER = [
   "aiMessages",
   "tasks",
   "planBlocks",
-  "schoolDays",
-  "schoolClasses",
-  "gymSets",
   "customPages",
   "customItems",
   "instagramAccounts",
@@ -31,8 +28,6 @@ const PER_USER = [
   "igDaily",
   "clientInvites",
   "clientLinks",
-  "tutoring",
-  "gymDays",
   "portfolioItems",
   "calendarLinks",
   "aiUsage",
@@ -97,8 +92,8 @@ test("two people's data stays apart in the database", async () => {
 
     // Same weekday / settings key for both people: allowed now that keys include the user.
     await lite.exec(`
-      insert into school_days (user_id, weekday, start_time) values (1, 1, '08:00'), (${member}, 1, '09:00');
-      insert into gym_days (user_id, weekday, title) values (1, 3, 'Legs'), (${member}, 3, 'Arms');
+      insert into tasks (user_id, title) values (1, 'Owner task'), (${member}, 'Member task');
+      insert into places (user_id, name, address, lat, lng) values (1, 'home', 'A', 0, 0), (${member}, 'home', 'B', 0, 0);
       insert into settings (user_id, key, value) values (1, 'displayName', '"A"'), (${member}, 'displayName', '"B"');
       insert into clients (user_id, name) values (1, 'Owner client'), (${member}, 'Member client');
       insert into calendar_links (user_id, key, calendar_id, event_id, written) values (1, 'gym:3', 'c', 'e1', '{}'), (${member}, 'gym:3', 'c', 'e2', '{}');
@@ -119,7 +114,7 @@ test("two people's data stays apart in the database", async () => {
 
     // Deleting the member removes only their rows.
     await lite.exec(`delete from users where id = ${member}`);
-    for (const t of ["school_days", "gym_days", "settings", "clients", "calendar_links"]) {
+    for (const t of ["tasks", "places", "settings", "clients", "calendar_links"]) {
       const { rows } = await lite.query<{ user_id: number }>(`select distinct user_id from ${t}`);
       assert.deepEqual(rows.map((r) => r.user_id), [1], t);
     }

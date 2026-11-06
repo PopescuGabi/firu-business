@@ -34,10 +34,6 @@ const TABLES = [
   ["backgrounds", schema.backgrounds],
   ["places", schema.places],
   ["settings", schema.settings],
-  ["school_days", schema.schoolDays],
-  ["school_classes", schema.schoolClasses],
-  ["gym_days", schema.gymDays],
-  ["gym_sets", schema.gymSets],
   ["custom_pages", schema.customPages],
   ["custom_items", schema.customItems],
   ["instagram_accounts", schema.instagramAccounts],
@@ -45,7 +41,6 @@ const TABLES = [
   ["ig_daily", schema.igDaily],
   ["client_invites", schema.clientInvites],
   ["client_links", schema.clientLinks],
-  ["tutoring", schema.tutoring],
   ["clients", schema.clients],
   ["app_updates", schema.appUpdates],
   ["reels", schema.reels],
@@ -64,7 +59,7 @@ const TABLES = [
   ["budgets", schema.budgets],
   ["fx_rates", schema.fxRates],
 ] as const;
-const SERIAL = ["users", "tutoring", "clients", "app_updates", "reels", "carousels", "prompts", "ai_messages", "tasks", "plan_blocks", "client_feedback", "portfolio_items", "places", "posts", "post_stats", "goals", "share_views", "money"];
+const SERIAL = ["users", "clients", "app_updates", "reels", "carousels", "prompts", "ai_messages", "tasks", "plan_blocks", "client_feedback", "portfolio_items", "places", "posts", "post_stats", "goals", "share_views", "money"];
 
 function readLocalEnv(key: string) {
   try {

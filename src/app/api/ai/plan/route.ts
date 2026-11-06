@@ -4,8 +4,7 @@ import { apiUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { assertWithinLimit, claude, claudeAvailable, describeAiError, modelFor, recordUsage } from "@/lib/ai/claude";
 import { buildPlanPrompt, PLAN_SCHEMA, planOutput, planSystem, type PlanOutput } from "@/lib/ai/plan";
-import { basicPlan, validateBlocks, type DayContext, type ProposedBlock } from "@/lib/planner";
-import { nextSessionAfter } from "@/lib/tutoring";
+import { basicPlan, validateBlocks, type ProposedBlock } from "@/lib/planner";
 import { getSettings, setSetting } from "@/lib/settings";
 import { addDays, toHHMM, toMin } from "@/lib/time";
 import { getWeek, nowMinutesIn, todayIn, toPlannerDays } from "@/lib/week";
@@ -31,26 +30,14 @@ export async function POST(req: Request) {
   const nowMin = nowMinutesIn(settings.timezone);
   const last = addDays(today, numDays - 1);
 
-  const school = user.modules.includes("school");
-  const gymOn = user.modules.includes("gym");
-  const [{ days }, tutoring, gym, openTasks, clients] = await Promise.all([
+  const [{ days }, openTasks, clients] = await Promise.all([
     getWeek(user.id, today, numDays),
-    // Turned-off sections don't take part in planning.
-    school ? db.select().from(schema.tutoring).where(eq(schema.tutoring.userId, user.id)) : [],
-    gymOn ? db.select().from(schema.gymDays).where(eq(schema.gymDays.userId, user.id)) : [],
     db.select().from(schema.tasks).where(and(eq(schema.tasks.userId, user.id), eq(schema.tasks.done, false))),
     db.select().from(schema.clients).where(eq(schema.clients.userId, user.id)),
   ]);
 
-  // Study time only for tutoring subjects: prep for the next session after each day.
-  const study = new Map<string, DayContext["study"]>();
-  for (const d of days) {
-    const next = nextSessionAfter(tutoring, d.date);
-    if (next) study.set(d.date, { subject: next.session.subject, sessionDate: next.date, sessionWeekday: next.session.weekday });
-  }
-
-  const plannerDays = toPlannerDays(days, study);
-  const planOpts = { dayStart: settings.dayStart, dayEnd: settings.dayEnd, freeDayStart: settings.freeDayStart, travel: settings.travel };
+  const plannerDays = toPlannerDays(days);
+  const planOpts = { dayStart: settings.dayStart, dayEnd: settings.dayEnd, travel: settings.travel };
   // Nothing may be planned in the past.
   const todayCtx = plannerDays.find((d) => d.date === today);
   if (todayCtx) todayCtx.busy.push({ start: 0, end: nowMin, title: "Past", kind: "past", place: "any" });
@@ -77,10 +64,7 @@ export async function POST(req: Request) {
         tasks,
         dayStart: settings.dayStart,
         dayEnd: settings.dayEnd,
-        freeDayStart: settings.freeDayStart,
-        tutoring,
         travel: settings.travel,
-        gymExercises: new Map(gym.map((g) => [g.weekday, g.exercises.map((e) => `${e.name} ${e.sets}x`).join(", ")])),
       });
       const ai = modelFor("quick");
       const final = await (await claude(user.id))

@@ -20,7 +20,7 @@ export type RouteLeg = Leg & { from: string; to: string; path: string };
 export type DayRoute = { stops: RouteStop[]; legs: RouteLeg[]; view: MapView; minutes: number; meters: number; awayMinutes: number; missing: string[] };
 
 /**
- * The day's trips on a map: home → each place you have to be (classes at school count once) → home,
+ * The day's trips on a map: home → each place you have to be → home,
  * with Google's route between each and the line already projected onto the map picture.
  * Null without a Maps key or with fewer than two located stops.
  */
@@ -32,7 +32,7 @@ export async function routeForDay(uid: number, day: DayView, { tz, mode }: { tz:
   for (const it of dayItems(day).filter((i) => REAL(i.place))) {
     const last = raw.at(-1);
     if (last && last.place === it.place) last.end = Math.max(last.end, it.end);
-    else raw.push({ place: it.place, title: it.place === "school" ? "School" : it.title, start: it.start, end: it.end });
+    else raw.push({ place: it.place, title: it.title, start: it.start, end: it.end });
   }
   if (!raw.length) return null;
   const missing = [...new Set(raw.map((r) => r.place).filter((p) => !located.has(p)))];
@@ -84,7 +84,7 @@ export async function routeForDay(uid: number, day: DayView, { tz, mode }: { tz:
  * Now / next / leave-by like nowAndNext, but "leave by" comes from Google's live route when both
  * places have addresses (traffic for car, timetables for transit). Falls back to the travel table.
  */
-export async function liveNowAndNext(uid: number, day: DayView, now: number, travel: TravelTable, opts: { tz: string; mode: TravelMode; gymExtraMinutes: number }) {
+export async function liveNowAndNext(uid: number, day: DayView, now: number, travel: TravelTable, opts: { tz: string; mode: TravelMode }) {
   const base = nowAndNext(day, now, travel);
   const { next } = base;
   if (!next || !REAL(next.place) || !(await mapsAvailable(uid))) return { ...base, live: false };
@@ -100,7 +100,7 @@ export async function liveNowAndNext(uid: number, day: DayView, now: number, tra
     const guess = travelTime(travel, from, next.place) ?? 30;
     const leg = await computeRoute(uid, a, b, opts.mode, dateAt(day.date, Math.max(now, next.start - guess), opts.tz));
     if (!leg) return { ...base, live: false };
-    const minutes = leg.minutes + (from === "gym" ? opts.gymExtraMinutes : 0);
+    const minutes = leg.minutes;
     return { ...base, leaveBy: next.start - minutes, live: true, travelMinutes: minutes };
   } catch {
     return { ...base, live: false };

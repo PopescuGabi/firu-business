@@ -179,86 +179,11 @@ export const TEMPLATE_GROUPS: TemplateGroup[] = [
     ],
   },
   {
-    key: "student",
-    label: "Student",
-    description: "Courses, assignments and exams, grades and study hours. Works next to School.",
-    icon: "graduation",
-    modules: ["school", "gym"],
-    pages: [
-      {
-        title: "Assignments",
-        icon: "graduation",
-        color: "#FF375F",
-        description: "Homework, projects and exams",
-        spec: {
-          collections: [
-            {
-              key: "assignments",
-              name: "Assignments",
-              singular: "Assignment",
-              titleField: "title",
-              fields: [
-                { key: "title", label: "Title", type: "text" },
-                { key: "course", label: "Course", type: "text" },
-                select("kind", "Type", ["Homework", "Project", "Quiz", "Exam"]),
-                { key: "due", label: "Due", type: "date" },
-                select("status", "Status", ["To do", "Doing", "Done"]),
-                { key: "grade", label: "Grade", type: "number" },
-              ],
-            },
-          ],
-          blocks: [
-            { type: "board", id: "status", title: "To do", collection: "assignments", groupBy: "status" },
-            { type: "upcoming", id: "due", title: "Due soon", collection: "assignments", dateField: "due", limit: 6, home: true },
-            {
-              type: "stats",
-              id: "grades",
-              title: "Grades",
-              collection: "assignments",
-              stats: [
-                { label: "Average grade", op: "avg", field: "grade" },
-                { label: "Still to do", op: "count", where: { field: "status", value: "To do" } },
-              ],
-            },
-            { type: "chart", id: "kinds", title: "By type", collection: "assignments", op: "count", by: "kind" },
-          ],
-        },
-      },
-      {
-        title: "Study log",
-        icon: "book",
-        color: "#FFD60A",
-        description: "Time spent per subject",
-        spec: {
-          collections: [
-            {
-              key: "sessions",
-              name: "Sessions",
-              singular: "Session",
-              titleField: "topic",
-              fields: [
-                { key: "topic", label: "Topic", type: "text" },
-                { key: "course", label: "Course", type: "text" },
-                { key: "date", label: "Date", type: "date" },
-                { key: "minutes", label: "Minutes", type: "number", unit: "min" },
-              ],
-            },
-          ],
-          blocks: [
-            { type: "stats", id: "month", title: "This month", collection: "sessions", stats: [{ label: "Minutes studied", op: "sum", field: "minutes", period: "month" }, { label: "Sessions", op: "count", period: "month" }] },
-            { type: "chart", id: "minutes", title: "Study time by month", collection: "sessions", op: "sum", field: "minutes", by: "month", dateField: "date" },
-            { type: "table", id: "all", title: "Sessions", collection: "sessions", columns: ["date", "topic", "course", "minutes"], sortBy: "date", desc: true },
-          ],
-        },
-      },
-    ],
-  },
-  {
     key: "health",
     label: "Health / shifts",
     description: "Shifts, hours and pay, certifications to renew and checklists. No patient data.",
     icon: "stethoscope",
-    modules: ["gym"],
+    modules: [],
     pages: [
       {
         title: "Shifts",

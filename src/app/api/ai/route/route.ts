@@ -13,7 +13,7 @@ const SYSTEM = `You help one person plan how they get around during their week.
 You get their fixed schedule (with the place of each item), the travel minutes between their places for
 each way of travelling, and how they usually travel. Give practical route advice in plain English:
 - the best way to travel each day (or each leg, if it differs), and when to leave,
-- tight connections and how to fix them (leave earlier, another mode, or moving a flexible item such as gym or study next to a place they're already at),
+- tight connections and how to fix them (leave earlier, another mode, or moving a flexible work block next to a place they're already at),
 - days that can be grouped to save travel.
 Keep it short: at most 8 bullets, each one line, most useful first. Only use the places and times given; never invent addresses.`;
 
@@ -48,7 +48,7 @@ export async function POST() {
     })
     .join("\n");
   const mode = TRAVEL_MODES.find((t) => t.key === settings.travelMode)?.label ?? "Public transport";
-  const prompt = `I usually travel by: ${mode}. After the gym I need ${settings.gymExtraMinutes} min to shower and change.
+  const prompt = `I usually travel by: ${mode}.
 Places: ${places.map((p) => p.name).join(", ")}. Days start and end at home.
 
 Travel times from Google Maps:

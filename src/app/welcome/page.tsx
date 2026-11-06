@@ -1,54 +1,55 @@
 import Link from "next/link";
-import { CalendarDays, Clapperboard, FolderOpen, GraduationCap, LayoutGrid, Mail, Route, ShieldCheck, Sparkles } from "lucide-react";
+import { BarChart3, Briefcase, CalendarDays, Clapperboard, FolderOpen, LayoutGrid, Mail, Route, ShieldCheck } from "lucide-react";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { DRIVE_ROOT_NAME } from "@/lib/google/drive";
 import { GoogleButton } from "@/components/google-button";
 import { LogoMark } from "@/components/logo";
 
 export const metadata = {
-  title: { absolute: "Personal Hub: your own organiser, built around how you work" },
-  description:
-    "Personal Hub plans your week around your calendar and travel time, with the sections you need: school, gym, client work, portfolio and email.",
+  title: { absolute: `${APP_NAME}: your marketing workspace` },
+  description: `${APP_NAME} keeps your clients, content, Instagram results and week in one place, with a dashboard for every client.`,
 };
 
 const FEATURES = [
   {
-    icon: LayoutGrid,
-    title: "Only the sections you need",
-    text: "A student turns on School and Gym; a freelancer turns on clients, portfolio and email. Change it any time.",
+    icon: Briefcase,
+    title: "Every client, only what they need",
+    text: "Each client gets the tools their business uses: Instagram analytics, content, app work or finance. Nothing extra.",
   },
   {
-    icon: GraduationCap,
-    title: "School, tutoring and gym",
-    text: "Your timetable, tutoring sessions and gym split in one view, with the time each needs.",
+    icon: BarChart3,
+    title: "Instagram analytics",
+    text: "Reach, views, followers, best posts and formats, and how often you post, straight from Instagram's official API.",
+  },
+  {
+    icon: Clapperboard,
+    title: "Content production",
+    text: "Reels and carousels per client, with an AI editor that follows your style, and what's waiting on review.",
+  },
+  {
+    icon: LayoutGrid,
+    title: "A dashboard for your clients",
+    text: "Invite a client and they see their own results and the work you share with them, nothing else.",
   },
   {
     icon: Route,
-    title: "A week plan that respects travel time",
-    text: "Suggests when to study, train and work, and never puts two things closer together than the trip between them.",
+    title: "A week plan that fits",
+    text: "Plans client work into your free time around your calendar, and never puts two meetings closer than the trip between them.",
   },
   {
     icon: CalendarDays,
     title: "Works with Google Calendar",
-    text: "Reads your calendars so plans go around what's already there, and adds the blocks and sessions you accept.",
+    text: "Reads your calendars so plans go around what's already there, and adds the blocks you accept.",
   },
   {
     icon: FolderOpen,
     title: "Files in Google Drive",
-    text: "Footage, screenshots and exported carousel slides are saved in a “Personal Hub” folder in your Drive.",
-  },
-  {
-    icon: Clapperboard,
-    title: "Client workspace",
-    text: "App updates, reels and carousels per client, with client feedback notes and what's waiting on review.",
+    text: `Footage, screenshots and exported carousel slides are saved in a “${DRIVE_ROOT_NAME}” folder in your Drive.`,
   },
   {
     icon: Mail,
     title: "Email, if you want it",
     text: "Connect Gmail to see unread mail on Home, reply, and turn an email into a task in one click.",
-  },
-  {
-    icon: Sparkles,
-    title: "AI editor and planner",
-    text: "With your own Claude key, Claude suggests edits and week plans; you review and apply every change yourself.",
   },
 ];
 
@@ -57,9 +58,9 @@ export default function WelcomePage() {
     <main className="mx-auto max-w-3xl px-5 py-12 sm:py-20">
       <header className="text-center">
         <LogoMark size={72} className="mx-auto" />
-        <h1 className="mt-5 text-[34px] leading-tight font-bold tracking-tight sm:text-[44px]">Personal Hub</h1>
+        <h1 className="mt-5 text-[34px] leading-tight font-bold tracking-tight sm:text-[44px]">{APP_NAME}</h1>
         <p className="mx-auto mt-3 max-w-xl text-[17px] text-label-2">
-          Your own private organiser: your calendar, tasks and the sections you choose, planned around real travel time.
+          {APP_TAGLINE}
         </p>
         <div className="mx-auto mt-7 max-w-xs">
           <GoogleButton />
@@ -83,11 +84,11 @@ export default function WelcomePage() {
         </h2>
         <ul className="mt-3 space-y-2 text-[15px] [&_li]:ml-5 [&_li]:list-disc">
           <li>
-            <strong>Calendar (read):</strong> shows your events and plans study, gym and project time around them.
+            <strong>Calendar (read):</strong> shows your events and plans client work around them.
           </li>
           <li>
             <strong>Calendar events (create/edit/delete):</strong> adds, edits or deletes events only when you do so in the
-            app, plus the blocks and sessions you accept.
+            app, plus the work blocks you accept.
           </li>
           <li>
             <strong>Drive (files it creates):</strong> saves uploads and exports in its own folder. It can&apos;t see the rest

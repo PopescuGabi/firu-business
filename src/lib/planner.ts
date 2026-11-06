@@ -1,4 +1,4 @@
-import { toHHMM, toMin, WEEKDAYS, type Interval } from "./time.ts";
+import { toHHMM, toMin, type Interval } from "./time.ts";
 import { fitsDay, type PlacedItem, type TravelTable } from "./travel.ts";
 
 export type DayContext = {
@@ -6,10 +6,6 @@ export type DayContext = {
   weekday: number;
   // Fixed commitments, each with where it happens (for travel time).
   busy: (Interval & { title: string; kind: string; place: string })[];
-  schoolEnd: number | null;
-  // Study only goes to tutoring subjects: prep for the next session.
-  study: { subject: string; sessionDate: string; sessionWeekday: number } | null;
-  gym: { title: string; durationMin: number } | null;
 };
 
 export type PlanTask = { id: number; title: string; due: string | null; estimateMin: number; priority: number };
@@ -19,24 +15,21 @@ export type ProposedBlock = {
   start: string;
   end: string;
   title: string;
-  kind: "gym" | "study" | "project" | "task" | "break";
+  kind: "project" | "task" | "break";
   taskId: number | null;
   reason: string;
 };
 
-export type PlanOptions = { dayStart: string; dayEnd: string; freeDayStart: string; travel: TravelTable };
+export type PlanOptions = { dayStart: string; dayEnd: string; travel: TravelTable };
 
-/** When the day starts at home: the later start on days without school (travel included). */
-const homeStart = (day: DayContext, opts: PlanOptions) =>
-  day.schoolEnd == null ? Math.max(toMin(opts.dayStart), toMin(opts.freeDayStart)) : toMin(opts.dayStart);
+/** When the work day starts (at home). */
+const homeStart = (_day: DayContext, opts: PlanOptions) => toMin(opts.dayStart);
 
-/** Earliest a planned block may start: after school, or the later start on days without school. */
-export const earliestStart = (day: DayContext, opts: PlanOptions) =>
-  day.schoolEnd ?? Math.max(toMin(opts.dayStart), toMin(opts.freeDayStart));
+/** Earliest a planned block may start. */
+export const earliestStart = (_day: DayContext, opts: PlanOptions) => toMin(opts.dayStart);
 
-/** Where a planned block happens: gym at the gym, everything else at home. */
-// Posting (from Marketing) can happen anywhere, like a break.
-export const placeOf = (kind: string) => (kind === "gym" ? "gym" : kind === "break" || kind === "post" ? "any" : "home");
+/** Where a planned block happens: posting and breaks anywhere, work at home (or wherever the client meeting is). */
+export const placeOf = (kind: string) => (kind === "break" || kind === "post" ? "any" : "home");
 
 const fixedItems = (day: DayContext): PlacedItem[] => day.busy.map((b) => ({ ...b }));
 const toItem = (b: ProposedBlock): PlacedItem => ({
@@ -48,8 +41,7 @@ const toItem = (b: ProposedBlock): PlacedItem => ({
 });
 
 /**
- * Basic planner used when Claude isn't configured: gym first on gym days,
- * a study block for the next tutoring session, then tasks by due date and priority.
+ * Basic planner used when Claude isn't configured: tasks by due date and priority, in free time.
  * Every block leaves the travel time between places.
  */
 export function basicPlan(days: DayContext[], tasks: PlanTask[], opts: PlanOptions) {
@@ -77,17 +69,6 @@ export function basicPlan(days: DayContext[], tasks: PlanTask[], opts: PlanOptio
       return false;
     };
 
-    if (day.gym) {
-      place(day.gym.durationMin, { title: `Gym · ${day.gym.title}`, kind: "gym", taskId: null, reason: "Gym day in your split." });
-    }
-    if (day.study) {
-      place(60, {
-        title: `Study · ${day.study.subject}`,
-        kind: "study",
-        taskId: null,
-        reason: `Prep for ${day.study.subject} tutoring on ${WEEKDAYS[day.study.sessionWeekday - 1]}.`,
-      });
-    }
     for (const t of queue) {
       const left = remaining.get(t.id) ?? 0;
       if (left <= 0) continue;

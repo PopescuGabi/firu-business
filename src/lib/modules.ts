@@ -1,8 +1,6 @@
 // Pure (no server imports): the sections someone can turn on, used by onboarding, Settings, nav and Home.
 
 export const MODULES = [
-  { key: "school", label: "School", description: "Timetable, tutoring and study blocks around your classes." },
-  { key: "gym", label: "Gym", description: "Your training split, planned into free time." },
   { key: "clients", label: "Client work", description: "Clients, app updates, reels, carousels and their feedback, with an AI editor that follows your saved prompts." },
   { key: "portfolio", label: "Portfolio", description: "Your best work from Drive, with an optional public page." },
   { key: "instagram", label: "Instagram analytics", description: "Your Instagram professional account: reach, views, followers, best posts and formats, posting rhythm." },
@@ -13,7 +11,6 @@ export type ModuleKey = (typeof MODULES)[number]["key"];
 export const ALL_MODULES = MODULES.map((m) => m.key) as ModuleKey[];
 
 export const PRESETS: { key: string; label: string; description: string; modules: ModuleKey[] }[] = [
-  { key: "student", label: "Student", description: "School, gym and tasks, planned around your timetable.", modules: ["school", "gym"] },
   { key: "freelancer", label: "Freelancer / creator", description: "Clients, content, portfolio and email.", modules: ["clients", "portfolio", "email"] },
   { key: "everything", label: "Everything", description: "Every section; turn off what you don't use later.", modules: ALL_MODULES },
 ];

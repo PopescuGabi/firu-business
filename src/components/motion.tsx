@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
 /** Order of the main sections, left to right, for the direction pages slide in from. */
-const SECTIONS = ["/", "/today", "/calendar", "/email", "/school", "/gym", "/clients", "/portfolio", "/settings"];
+const SECTIONS = ["/", "/today", "/calendar", "/email", "/clients", "/instagram", "/portfolio", "/settings"];
 
 function placeOf(path: string) {
   const section = SECTIONS.reduce((best, s, i) => (s !== "/" && path.startsWith(s) ? i : best), 0);

@@ -10,9 +10,7 @@ import { DEFAULT_THEME } from "@/lib/carousel-theme";
 import { BUSINESS_TYPES, isClientTool } from "@/lib/client-tools";
 import { carouselProposal, reelProposal } from "@/lib/ai/editor";
 import { getFileMeta } from "@/lib/google/drive";
-import { gymProposal } from "@/lib/gym";
 import { parsePageDraft } from "@/lib/custom-pages";
-import { mutateSchedule } from "@/lib/mutate";
 import { clientProfile, reelPlan } from "@/lib/reels-brain/types";
 import { videoSpec } from "@/lib/video/spec";
 
@@ -269,30 +267,6 @@ export async function applyProposal(messageId: number) {
       .where(and(eq(schema.customPages.id, m.targetId), eq(schema.customPages.userId, user.id)));
     revalidatePath("/", "layout");
     result = null;
-  } else if (m.targetType === "gym") {
-    // The coach's split: upsert each changed day, drop removed ones; the planner reschedules like a manual edit.
-    const p = gymProposal.parse(m.proposal);
-    await mutateSchedule((db, uid) =>
-      db.transaction(async (tx) => {
-        for (const d of p.days) {
-          const values = {
-            title: d.title,
-            durationMin: d.durationMin,
-            exercises: d.exercises,
-            timing: d.timing,
-            startTime: d.timing === "fixed" ? (d.startTime ?? null) : null,
-          };
-          await tx
-            .insert(schema.gymDays)
-            .values({ userId: uid, weekday: d.weekday, ...values })
-            .onConflictDoUpdate({ target: [schema.gymDays.userId, schema.gymDays.weekday], set: values });
-        }
-        for (const w of p.remove) {
-          await tx.delete(schema.gymDays).where(and(eq(schema.gymDays.userId, uid), eq(schema.gymDays.weekday, w)));
-        }
-      }),
-    );
-    result = null;
   } else if (m.targetType === "reel") {
     const { summary: _s, ...fields } = reelProposal.parse(m.proposal);
     result = await saveReel(m.targetId, fields);
@@ -323,7 +297,7 @@ export async function applyProposal(messageId: number) {
   return result;
 }
 
-export async function clearChat(targetType: "reel" | "carousel" | "gym" | "page", targetId: number) {
+export async function clearChat(targetType: "reel" | "carousel" | "page", targetId: number) {
   const user = await requireUser();
   const db = await getDb();
   await db

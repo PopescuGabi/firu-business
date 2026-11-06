@@ -45,14 +45,6 @@ const span = (start: number, end: number) => `${clock(start)}–${clock(end)}`;
 /** Everything shown in a day's column. */
 function dayEvents(d: DayView, tz: string): Ev[] {
   return [
-    ...d.school.map((c, i) => ({
-      key: `s${i}`,
-      start: c.start,
-      end: c.end,
-      label: span(c.start, c.end),
-      title: c.subject,
-      color: KIND_COLORS.school,
-    })),
     ...d.events.map((e) => ({
       key: e.id,
       start: e.startMin,
@@ -63,26 +55,6 @@ function dayEvents(d: DayView, tz: string): Ev[] {
       sub: e.calendarName,
       edit: e.writable ? editable(e, tz) : undefined,
       menu: e.writable ? eventMenu(e) : undefined,
-    })),
-    ...(d.gymFixed && d.gym
-      ? [
-          {
-            key: "gym",
-            start: d.gymFixed.start,
-            end: d.gymFixed.end,
-            label: span(d.gymFixed.start, d.gymFixed.end),
-            title: `Gym · ${d.gym.title}`,
-            color: KIND_COLORS.gym,
-          },
-        ]
-      : []),
-    ...d.tutoring.map((t) => ({
-      key: `t${t.id}`,
-      start: toMin(t.start),
-      end: toMin(t.end),
-      label: `${t.start}–${t.end}`,
-      title: `Tutoring · ${t.subject}`,
-      color: KIND_COLORS.tutoring,
     })),
     ...d.blocks.map((b) => {
       const accepted = b.status === "accepted";
@@ -241,7 +213,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         calendarError={calendarError}
         notConnected={
           <>
-            Showing school, gym and plan blocks only.{" "}
+            Showing plan blocks and tasks only.{" "}
             <Link href="/settings" className="font-semibold text-blue">
               Connect Google Calendar
             </Link>{" "}
@@ -278,17 +250,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       )}
                     >
                       {Number(d.date.slice(8))}
-                    </p>
-                  )}
-                  {d.gym && !d.gymFixed && (
-                    <p
-                      className="mt-1 truncate rounded px-1 text-[11px] font-medium text-orange"
-                      style={{
-                        background: "color-mix(in srgb, var(--orange) 15%, transparent)",
-                      }}
-                      title={`Gym day: ${d.gym.title}`}
-                    >
-                      Gym · {d.gym.title}
                     </p>
                   )}
                   {d.allDay.map((e) =>
@@ -423,11 +384,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       </Slide>
       <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] text-label-2">
         {[
-          ["School", "school"],
-          ["Tutoring", "tutoring"],
-          ["Gym", "gym"],
-          ["Study", "study"],
           ["Projects & tasks", "task"],
+          ["Posting", "post"],
         ].map(([l, k]) => (
           <span key={k} className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm" style={{ background: KIND_COLORS[k] }} /> {l}

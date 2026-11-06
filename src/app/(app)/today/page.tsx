@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { Dumbbell, ListTodo, Pencil, Settings, Trash2 } from "lucide-react";
+import { ListTodo, Pencil, Settings, Trash2 } from "lucide-react";
 import { fmtMin, TargetStats, Timeline } from "@/components/day-timeline";
 import { ClearSuggestions } from "@/components/clear-suggestions";
 import { CalendarNotices } from "@/components/clash-notice";
@@ -38,7 +38,7 @@ export default async function TodayPage() {
   ]);
   const day = days[0];
   const mapsOn = await mapsAvailable(user.id);
-  const opts = { tz: settings.timezone, mode: settings.travelMode, gymExtraMinutes: settings.gymExtraMinutes };
+  const opts = { tz: settings.timezone, mode: settings.travelMode };
   const [route, live] = mapsOn
     ? await Promise.all([routeForDay(user.id, day, opts).catch(() => null), liveNowAndNext(user.id, day, now, settings.travel, opts)])
     : [null, null];
@@ -70,7 +70,7 @@ export default async function TodayPage() {
         calendarError={calendarError}
         notConnected={
           <>
-            Google Calendar isn&apos;t connected yet, so tutoring and other events aren&apos;t shown.{" "}
+            Google Calendar isn&apos;t connected yet, so your meetings and other events aren&apos;t shown.{" "}
             <Link href="/settings" className="font-semibold text-blue">Connect in Settings</Link>
           </>
         }
@@ -92,7 +92,7 @@ export default async function TodayPage() {
           >
             {openTasks.length === 0 ? (
               <Empty icon={<ListTodo size={36} />} title="No open tasks">
-                Add tasks for clients or school. &ldquo;Plan my week&rdquo; fits them into your free time.
+                Add tasks for your clients. &ldquo;Plan my week&rdquo; fits them into your free time.
               </Empty>
             ) : (
               <List>
@@ -194,7 +194,7 @@ export default async function TodayPage() {
                 </>
               ) : (
                 <p className="text-[14px] text-label-2">
-                  Run &ldquo;Plan my week&rdquo; to get recommended study, project and gym time for each day.
+                  Run &ldquo;Plan my week&rdquo; to get recommended project time for each day.
                 </p>
               )}
               {advice?.advice && <p className="mt-3 border-t border-separator pt-3 text-[14px]">{advice.advice}</p>}
@@ -211,17 +211,6 @@ export default async function TodayPage() {
                       <p className="text-[20px] leading-tight font-semibold">{Number(d.date.slice(8))}</p>
                     </div>
                     <div className="min-w-0 flex-1 text-[13px] text-label-2">
-                      {d.school.length > 0 && <p className="truncate">School {toHHMM(d.school[0].start)}–{toHHMM(d.school.at(-1)!.end)}</p>}
-                      {d.tutoring.map((t) => (
-                        <p key={t.id} className="truncate text-pink">
-                          {t.start} {t.subject} tutoring
-                        </p>
-                      ))}
-                      {d.gym && (
-                        <p className="flex items-center gap-1 truncate text-orange">
-                          <Dumbbell size={12} /> {d.gym.title}
-                        </p>
-                      )}
                       {d.events.length > 0 && <p>{d.events.length} calendar event{d.events.length > 1 ? "s" : ""}</p>}
                       {d.blocks.length > 0 && (
                         <p>
@@ -233,7 +222,7 @@ export default async function TodayPage() {
                             .join(" · ")}
                         </p>
                       )}
-                      {!d.school.length && !d.gym && !d.events.length && !d.blocks.length && !d.tutoring.length && <p>Free day</p>}
+                      {!d.events.length && !d.blocks.length && <p>Free day</p>}
                     </div>
                   </Row>
                 </Link>

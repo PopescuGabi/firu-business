@@ -46,7 +46,7 @@ function ClashNotice({ days }: { days: DayView[] }) {
         ))}
       </ul>
       <p className="mt-1.5 text-[13px] text-label-2">
-        Change the session in <Link href="/school" className="font-semibold text-blue">School</Link> or the travel times in{" "}
+        Move one of the meetings in <Link href="/calendar" className="font-semibold text-blue">Calendar</Link> or change the travel times in{" "}
         <Link href="/settings" className="font-semibold text-blue">Settings</Link>.
       </p>
     </div>

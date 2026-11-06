@@ -6,12 +6,9 @@ import type { DayView } from "./week";
 
 export type NowItem = { start: number; end: number; title: string; kind: string; place: string };
 
-/** Everything fixed or accepted today, one item per class/session (suggestions left out). */
+/** Everything fixed or accepted today: calendar events and accepted plan blocks (suggestions left out). */
 export function dayItems(day: DayView): NowItem[] {
   const items: NowItem[] = [
-    ...day.school.map((c) => ({ start: c.start, end: c.end, title: c.subject, kind: "school", place: "school" })),
-    ...(day.gymFixed && day.gym ? [{ ...day.gymFixed, title: `Gym · ${day.gym.title}`, kind: "gym", place: "gym" }] : []),
-    ...day.tutoring.map((t) => ({ start: toMin(t.start), end: toMin(t.end), title: `Tutoring · ${t.subject}`, kind: "tutoring", place: t.place })),
     ...day.events.map((e) => ({ start: e.startMin, end: e.endMin, title: e.title, kind: "calendar", place: "any" })),
     ...day.blocks
       .filter((b) => b.status === "accepted")

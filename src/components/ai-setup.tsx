@@ -138,7 +138,7 @@ export function AiSetup({
               value={profession}
               onChange={(e) => setProfession(e.target.value)}
               maxLength={80}
-              placeholder="e.g. wedding photographer, civil engineer, nurse, student"
+              placeholder="e.g. social media agency, wedding photographer, real estate agent"
               className="field text-[17px]"
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && profession.trim().length >= 2 && ask()}

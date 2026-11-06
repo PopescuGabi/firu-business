@@ -28,7 +28,7 @@ export function ClaudePanel<T>({
   modelLabel = "Opus 5.5",
   emptyTitle = "Ask for an edit",
 }: {
-  targetType: "reel" | "carousel" | "gym" | "page";
+  targetType: "reel" | "carousel" | "page";
   targetId: number;
   initialMessages: ChatMessage[];
   prompts: { id: number; name: string; category: string }[];

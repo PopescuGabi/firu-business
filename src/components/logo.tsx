@@ -1,4 +1,4 @@
-// Personal Hub mark: three folded bands (school, gym, clients) forming one hub.
+// The app mark: three folded bands forming one hub.
 export function LogoMark({ size = 32, className }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" strokeLinejoin="round" strokeWidth={2.5} className={className} aria-hidden>

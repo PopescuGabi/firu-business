@@ -1,9 +1,9 @@
 import { toHHMM } from "./time.ts";
 
 /**
- * Places: "school", "home", "gym", a tutoring place name, or
+ * Places: "home", a saved place name (e.g. a client's office), or
  * "online" (happens wherever you are) / "any" (Google event with no known place).
- * Travel times are minutes keyed "from>to"; gym→X includes showering and changing.
+ * Travel times are minutes keyed "from>to".
  */
 export type TravelTable = Record<string, number>;
 export type PlacedItem = { start: number; end: number; place: string; title: string; planned?: boolean };
@@ -14,7 +14,7 @@ const MIN_GAP_BETWEEN_PLANNED = 10;
 /** Minutes needed to get from one place to the next; undefined when you haven't told me yet. */
 export function travelTime(table: TravelTable, from: string, to: string): number | undefined {
   if (from === to || to === "any" || from === "any") return 0;
-  if (to === "online") return from === "gym" ? table["gym>online"] : 0;
+  if (to === "online") return 0;
   return table[`${from}>${to}`];
 }
 

@@ -104,13 +104,11 @@ export function AddressList({
   names,
   saved,
   travelMode,
-  gymExtraMinutes,
   modes,
 }: {
   names: string[];
   saved: Record<string, string>;
   travelMode: string;
-  gymExtraMinutes: number;
   modes: { key: string; label: string }[];
 }) {
   const router = useRouter();
@@ -165,9 +163,6 @@ export function AddressList({
               </option>
             ))}
           </select>
-        </Field>
-        <Field label="Minutes after the gym" hint="Shower and changing, added to gym → anywhere.">
-          <input name="gymExtraMinutes" type="number" min={0} max={120} defaultValue={gymExtraMinutes} className="field" />
         </Field>
         <Submit variant="gray">Save</Submit>
       </form>

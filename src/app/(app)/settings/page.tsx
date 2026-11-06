@@ -66,8 +66,7 @@ export default async function SettingsPage() {
     }
   }
 
-  const tutoringPlaces = (await db.select({ place: schema.tutoring.place }).from(schema.tutoring).where(eq(schema.tutoring.userId, user.id))).map((t) => t.place);
-  const places = [...new Set(["school", "home", "gym", "online", ...tutoringPlaces, ...Object.keys(settings.travel).flatMap((k) => k.split(">"))])];
+  const places = [...new Set(["home", "online", ...savedPlaces.map((p) => p.name), ...Object.keys(settings.travel).flatMap((k) => k.split(">"))])];
 
   // Each model priced at its own list rate (Opus for content, Sonnet for analysis, Haiku for quick jobs).
   const usage = async (since: Date) => {
@@ -152,7 +151,7 @@ export default async function SettingsPage() {
               <p className="font-medium">Claude</p>
               <p className="text-[13px] text-label-2">
                 {claudeOn
-                  ? `Opus 5.5 for content · Sonnet 5.5 for analysis and the gym coach · Haiku 5.5 for planning, email and finance · max ${env.aiMaxPerHour()} requests/hour${owner ? (me?.key ? " · your key, shared with your hub" : "") : ` · ${usd(spentThisMonth)} of ${usd(allowance)} used this month`}`
+                  ? `Opus 5.5 for content · Sonnet 5.5 for analysis and the AI setup · Haiku 5.5 for planning, email and finance · max ${env.aiMaxPerHour()} requests/hour${owner ? (me?.key ? " · your key, shared with your hub" : "") : ` · ${usd(spentThisMonth)} of ${usd(allowance)} used this month`}`
                   : owner
                     ? "Copy-paste mode (Claude app). Add your API key below to use Claude inside the site, for everyone in your hub."
                     : "Copy-paste mode (Claude app) until the hub's owner adds a key."}
@@ -366,12 +365,11 @@ export default async function SettingsPage() {
       {connected && !calendarError && (
         <Section
           title="Calendar sync"
-          footer={`School classes, gym days with a set time, tutoring, accepted plan blocks and task due dates go to your “${HUB_CALENDAR_NAME}” Google calendar, so they're on your phone. Moving, renaming or deleting them there updates the hub too.`}
+          footer={`Accepted plan blocks and task due dates go to your “${HUB_CALENDAR_NAME}” Google calendar, so they're on your phone. Moving, renaming or deleting them there updates the app too.`}
         >
           <Card className="p-4">
             <CalendarSyncForm
               enabled={settings.calendarSync}
-              schoolYearEnd={settings.schoolYearEnd}
               hasCalendar={calendars.some((c) => c.name.trim().toLowerCase() === HUB_CALENDAR_NAME.toLowerCase())}
               lastSync={(await lastSyncInfo(user.id)).at}
             />
@@ -390,7 +388,6 @@ export default async function SettingsPage() {
               names={places.filter((p) => p !== "online" && p !== "any")}
               saved={Object.fromEntries(savedPlaces.map((p) => [p.name, p.address]))}
               travelMode={settings.travelMode}
-              gymExtraMinutes={settings.gymExtraMinutes}
               modes={TRAVEL_MODES}
             />
           )}
@@ -399,7 +396,7 @@ export default async function SettingsPage() {
 
       <Section
         title="Travel times"
-        footer="Minutes to get from one place to another. Gym → anywhere includes showering and changing. Online sessions happen wherever you are. The planner never puts two things closer together than this, and Today warns you if fixed sessions are too close. Clear a row's minutes to remove it."
+        footer="Minutes to get from one place to another (e.g. home → a client's office). Online meetings happen wherever you are. The planner never puts two things closer together than this, and Today warns you if fixed meetings are too close. Clear a row's minutes to remove it."
       >
         <Card className="p-4">
           <form action={saveTravel} className="space-y-2">
@@ -441,15 +438,6 @@ export default async function SettingsPage() {
             </Field>
             <Field label="Day ends">
               <input type="time" name="dayEnd" required defaultValue={settings.dayEnd} className="field" />
-            </Field>
-            <Field label="Days without school start" hint="Weekends and holidays: nothing is suggested before this.">
-              <input type="time" name="freeDayStart" required defaultValue={settings.freeDayStart} className="field" />
-            </Field>
-            <Field label="Class length (min)">
-              <input type="number" name="classMinutes" min={20} max={120} required defaultValue={settings.classMinutes} className="field" />
-            </Field>
-            <Field label="Break length (min)">
-              <input type="number" name="breakMinutes" min={0} max={60} required defaultValue={settings.breakMinutes} className="field" />
             </Field>
             <Field label="Time zone">
               <input name="timezone" required defaultValue={settings.timezone} className="field" />

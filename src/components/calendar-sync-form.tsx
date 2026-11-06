@@ -2,16 +2,14 @@
 import { useActionState } from "react";
 import { RefreshCw } from "lucide-react";
 import { saveCalendarSync, syncCalendarNow, type SyncFormState } from "@/app/actions/settings";
-import { buttonClass, Field } from "./ui";
+import { buttonClass } from "./ui";
 
 export function CalendarSyncForm({
   enabled,
-  schoolYearEnd,
   hasCalendar,
   lastSync,
 }: {
   enabled: boolean;
-  schoolYearEnd: string;
   hasCalendar: boolean;
   lastSync: string | null;
 }) {
@@ -31,9 +29,6 @@ export function CalendarSyncForm({
           <input type="checkbox" name="calendarSync" defaultChecked={enabled} className="size-4 accent-[var(--blue)]" />
           Two-way sync with the Personal Hub calendar
         </label>
-        <Field label="Last day of school" hint="Classes repeat every week until this day.">
-          <input type="date" name="schoolYearEnd" defaultValue={schoolYearEnd} className="field" />
-        </Field>
         <button className={`${buttonClass("filled")} self-end`} disabled={busy}>
           {saving ? "Syncing…" : "Save"}
         </button>
