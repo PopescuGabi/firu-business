@@ -100,13 +100,16 @@ test("AI allowance: cost per model, month start", () => {
 test("setup proposal: unknown sections and broken pages are dropped", () => {
   const p = tidyProposal({
     summary: "ok",
+    business: { kind: "Agency", summary: "", b2b: true },
     modules: ["clients", "portfolio", "hacking"],
     pages: [draft([{ type: "cards", id: "c", title: "Shoots", collection: "shoots" }]), { title: "Bad", spec: {} }],
   });
   assert.deepEqual(p.modules, ["clients", "portfolio"]);
   assert.equal(p.pages.length, 1);
   assert.ok(p.dropped.length >= 1);
-  assert.deepEqual(tidyProposal("garbage"), { summary: "", modules: [], pages: [], dropped: [] });
+  assert.deepEqual(tidyProposal("garbage"), { summary: "", business: { kind: "", summary: "", b2b: false }, modules: [], pages: [], dropped: [] });
+  // Clients only for businesses that work for other businesses.
+  assert.deepEqual(tidyProposal({ summary: "", business: { kind: "Bakery", b2b: false }, modules: ["clients", "instagram"], pages: [] }).modules, ["instagram"]);
 });
 
 test("every ready-made template passes the page rules with no problems", async () => {

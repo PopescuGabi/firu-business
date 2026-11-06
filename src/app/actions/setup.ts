@@ -13,6 +13,7 @@ const input = z.object({
   modules: z.array(z.string()).max(10),
   pages: z.array(z.unknown()).max(LIMITS.pagesPerSetup),
   displayName: z.string().trim().max(40).optional(),
+  business: z.object({ kind: z.string().trim().max(60), summary: z.string().trim().max(200), b2b: z.boolean() }).optional(),
   timezone: z.string().max(60).optional(),
 });
 
@@ -28,8 +29,9 @@ export async function applySetup(raw: z.input<typeof input>) {
     const { draft } = parsePageDraft(p);
     if (draft) created.push((await createPage(user.id, draft)).slug);
   }
-  await setModules(user.id, v.modules.filter(isModule), true);
-  const patch: { displayName?: string; timezone?: string } = {};
+  await setModules(user.id, v.modules.filter(isModule).filter((m) => m !== "clients" || v.business?.b2b !== false), true);
+  const patch: { displayName?: string; timezone?: string; business?: { kind: string; summary: string; b2b: boolean | null } } = {};
+  if (v.business) patch.business = v.business;
   if (v.displayName !== undefined) patch.displayName = v.displayName;
   if (v.timezone) {
     try {

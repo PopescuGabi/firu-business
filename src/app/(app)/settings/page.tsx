@@ -176,7 +176,7 @@ export default async function SettingsPage() {
         }
       >
         <div id="sections">
-          <SectionsForm initial={user.modules} />
+          <SectionsForm initial={user.modules} b2b={settings.business.b2b} />
         </div>
       </Section>
 

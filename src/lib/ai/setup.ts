@@ -14,7 +14,7 @@ export const answersSchema = z
 
 export const QUESTIONS_SYSTEM = `You set up a personal organiser for someone new. They told you their profession (and maybe what they want help with).
 Write 5 to 7 short multiple-choice questions that reveal how they actually work, so the app can build pages that fit them.
-Ask about concrete workflows: what they track (projects, clients, shoots, patients, cases, orders…), how work moves (stages/status), money (per job, hourly, salary), deadlines and scheduling, documents or references they keep, and whether they study, train or show a portfolio.
+Ask about concrete workflows: what they track (projects, clients, shoots, patients, cases, orders…), how work moves (stages/status), money (per job, hourly, salary), deadlines and scheduling, documents or references they keep, whether they work for other businesses (clients: agency, freelance, consulting, B2B services) or sell to consumers, and whether they post on Instagram or show a portfolio. If the profession already makes the answer obvious, don't ask it.
 Each question: 2–6 options, plain words, no jargon unless the profession uses it. Use "multi": true when several answers can apply.
 Write in the language the profession is written in. Don't ask for personal data (names, addresses, income amounts).`;
 
@@ -53,6 +53,7 @@ export const PROPOSE_SYSTEM = `You design someone's personal organiser from thei
 Built-in sections (turn on only those that clearly fit):
 ${MODULES.map((m) => `- ${m.key}: ${m.description}`).join("\n")}
 Home, Today, Calendar and tasks always exist; don't rebuild them.
+business: kind (a short label, e.g. "Marketing agency", "Wedding photographer"), summary (one line), and b2b = true only if they do work for other businesses (clients). Turn on "clients" only when b2b is true; it gives every client their own dashboard, so don't also build a custom page for clients then. Turn on "instagram" when they use Instagram for their own brand.
 
 Custom pages are for the profession's own workflow. 1 to ${LIMITS.pagesPerSetup} pages, each with 2 to 6 blocks. A page has collections (lists of entries with typed fields) and blocks that show them:
 - board: cards grouped by a select field (e.g. status: Inquiry, Booked, Shot, Editing, Delivered). Best for anything that moves through stages.
@@ -155,18 +156,30 @@ export const proposeTool = {
     type: "object" as const,
     properties: {
       summary: { type: "string", description: "One or two sentences for the person: what you set up and why." },
+      business: {
+        type: "object",
+        properties: { kind: { type: "string" }, summary: { type: "string" }, b2b: { type: "boolean", description: "Works for other businesses (clients)" } },
+        required: ["kind", "b2b"],
+      },
       modules: { type: "array", items: { type: "string", enum: MODULES.map((m) => m.key) } },
       pages: { type: "array", maxItems: LIMITS.pagesPerSetup, items: PAGE_JSON_SCHEMA },
     },
-    required: ["summary", "modules", "pages"],
+    required: ["summary", "business", "modules", "pages"],
   },
 };
 
-export type SetupProposal = { summary: string; modules: ModuleKey[]; pages: PageDraft[]; dropped: string[] };
+export type SetupBusiness = { kind: string; summary: string; b2b: boolean };
+export type SetupProposal = { summary: string; business: SetupBusiness; modules: ModuleKey[]; pages: PageDraft[]; dropped: string[] };
 
 /** Validates the model's proposal: unknown sections and broken pages are dropped (with reasons). */
 export function tidyProposal(raw: unknown): SetupProposal {
-  const r = z.object({ summary: z.string().max(600).catch(""), modules: z.array(z.string()).catch([]), pages: z.array(z.unknown()).catch([]) }).catch({ summary: "", modules: [], pages: [] }).parse(raw);
+  const business = z
+    .object({ kind: z.string().trim().max(60).catch(""), summary: z.string().trim().max(200).catch(""), b2b: z.boolean().catch(false) })
+    .catch({ kind: "", summary: "", b2b: false });
+  const r = z
+    .object({ summary: z.string().max(600).catch(""), business, modules: z.array(z.string()).catch([]), pages: z.array(z.unknown()).catch([]) })
+    .catch({ summary: "", business: { kind: "", summary: "", b2b: false }, modules: [], pages: [] })
+    .parse(raw);
   const dropped: string[] = [];
   const pages: PageDraft[] = [];
   for (const p of r.pages.slice(0, LIMITS.pagesPerSetup)) {
@@ -174,5 +187,7 @@ export function tidyProposal(raw: unknown): SetupProposal {
     if (draft) pages.push(draft);
     dropped.push(...problems.map((x) => `${draft?.title ?? (p as { title?: string })?.title ?? "A page"}: ${x}`));
   }
-  return { summary: r.summary, modules: [...new Set(r.modules.filter(isModule))], pages, dropped };
+  // Clients only for businesses that work for other businesses.
+  const modules = [...new Set(r.modules.filter(isModule))].filter((m) => m !== "clients" || r.business.b2b);
+  return { summary: r.summary, business: r.business, modules, pages, dropped };
 }

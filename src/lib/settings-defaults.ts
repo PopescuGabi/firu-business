@@ -29,6 +29,9 @@ export const DEFAULT_SETTINGS = {
   gymExtraMinutes: 15,
   // The currency money charts show (each entry is converted at its own date's ECB rate).
   moneyCurrency: "RON" as "RON" | "EUR",
+  // What kind of business this is. b2b = works for other businesses; only then is the Clients section offered.
+  // null = not asked yet (people from before this setting: their current sections decide).
+  business: { kind: "", summary: "", b2b: null } as { kind: string; summary: string; b2b: boolean | null },
 };
 
 export type AppSettings = typeof DEFAULT_SETTINGS;

@@ -47,6 +47,7 @@ export function AiSetup({
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [proposal, setProposal] = useState<SetupProposal | null>(null);
   const [modules, setModules] = useState<string[]>(current);
+  const [b2b, setB2b] = useState(false);
   const [keep, setKeep] = useState<boolean[]>([]);
   const [open, setOpen] = useState<number | null>(0);
   const [busy, setBusy] = useState<LiquidState>("idle");
@@ -85,6 +86,7 @@ export function AiSetup({
     );
     if (!out) return;
     setProposal(out.proposal);
+    setB2b(out.proposal.business.b2b || (!onboarding && current.includes("clients")));
     // A re-run only adds: sections already on stay on unless unticked.
     setModules(onboarding ? out.proposal.modules : [...new Set([...current, ...out.proposal.modules])]);
     setKeep(out.proposal.pages.map(() => true));
@@ -98,6 +100,7 @@ export function AiSetup({
       applySetup({
         modules,
         pages: proposal.pages.filter((_, i) => keep[i]),
+        business: { ...proposal.business, b2b },
         ...(onboarding ? { displayName, timezone: tz } : {}),
       }),
     );
@@ -226,9 +229,29 @@ export function AiSetup({
           {proposal.summary && <div className="glass rounded-[24px] p-4 text-[15px] leading-relaxed">{proposal.summary}</div>}
 
           <section className="flex flex-col gap-2">
+            <h2 className="px-1 text-[13px] font-semibold text-label-2 uppercase">Your business</h2>
+            <label className="glass flex cursor-pointer items-center gap-3 rounded-[24px] px-4 py-3">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium">{proposal.business.kind || profession}</span>
+                <span className="block text-[13px] text-label-2">I work for other businesses (clients): adds the Clients section with a dashboard per client.</span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                className="switch"
+                checked={b2b}
+                onChange={(e) => {
+                  setB2b(e.target.checked);
+                  setModules((all) => (e.target.checked ? (all.includes("clients") ? all : [...all, "clients"]) : all.filter((x) => x !== "clients")));
+                }}
+              />
+            </label>
+          </section>
+
+          <section className="flex flex-col gap-2">
             <h2 className="px-1 text-[13px] font-semibold text-label-2 uppercase">Sections</h2>
             <div className="glass divide-y divide-separator overflow-hidden rounded-[24px]">
-              {MODULES.map((m) => {
+              {MODULES.filter((m) => m.key !== "clients" || b2b).map((m) => {
                 const on = modules.includes(m.key);
                 return (
                   <label key={m.key} className="flex cursor-pointer items-center gap-3 px-4 py-3">

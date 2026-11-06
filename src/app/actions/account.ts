@@ -7,7 +7,7 @@ import { requireOwner, requireUser } from "@/lib/auth";
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { revokeGoogle } from "@/lib/google/oauth";
 import { isModule } from "@/lib/modules";
-import { saveSettings, setSetting } from "@/lib/settings";
+import { getSettings, saveSettings, setSetting } from "@/lib/settings";
 import { cancelInvite, deleteUser, invite, setAnthropicKey, setModules } from "@/lib/users";
 
 export type FormState = { ok: boolean; message: string } | null;
@@ -43,8 +43,14 @@ export async function removeMember(uid: number) {
 /** First sign-in (and Settings → Sections): which sections to show, plus name and time zone. */
 export async function saveSections(fd: FormData) {
   const user = await requireUser();
-  const modules = fd.getAll("modules").map(String).filter(isModule);
+  const b2b = fd.has("b2b") ? fd.get("b2b") === "1" : null;
+  // Clients only for businesses that work for other businesses.
+  const modules = fd.getAll("modules").map(String).filter(isModule).filter((m) => m !== "clients" || b2b !== false);
   await setModules(user.id, modules);
+  if (b2b !== null) {
+    const current = (await getSettings(user.id)).business;
+    await saveSettings(user.id, { business: { ...current, b2b } });
+  }
   const name = String(fd.get("displayName") ?? "").trim().slice(0, 40);
   const tz = String(fd.get("timezone") ?? "");
   const patch: { displayName?: string; timezone?: string } = {};

@@ -16,13 +16,17 @@ export function SectionsForm({
   onboarding,
   name,
   timezone,
+  b2b: b2bInitial,
 }: {
   initial: string[];
   onboarding?: boolean;
   name?: string;
   timezone?: string;
+  /** Works for other businesses? null = not asked yet (then: whether Clients is already on). */
+  b2b?: boolean | null;
 }) {
   const [picked, setPicked] = useState<string[]>(initial);
+  const [b2b, setB2b] = useState<boolean>(b2bInitial ?? initial.includes("clients"));
   const [tz, setTz] = useState(timezone ?? "");
   useEffect(() => {
     if (onboarding && !timezone) setTz(Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -33,6 +37,23 @@ export function SectionsForm({
   return (
     <form action={saveSections} className="flex flex-col gap-5">
       {onboarding && <input type="hidden" name="next" value="home" />}
+      <input type="hidden" name="b2b" value={b2b ? "1" : "0"} />
+      <label className="glass flex cursor-pointer items-center gap-3 rounded-[24px] px-4 py-3">
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-medium">I work for other businesses (clients)</span>
+          <span className="block text-[13px] text-label-2">Agencies, freelancers, consultants, studios… Turns on the Clients section with a dashboard per client.</span>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          className="switch"
+          checked={b2b}
+          onChange={(e) => {
+            setB2b(e.target.checked);
+            setPicked((p) => (e.target.checked ? (p.includes("clients") ? p : [...p, "clients"]) : p.filter((x) => x !== "clients")));
+          }}
+        />
+      </label>
       <div className="grid gap-2 sm:grid-cols-3">
         {PRESETS.map((p) => (
           <button
@@ -50,7 +71,7 @@ export function SectionsForm({
         ))}
       </div>
       <div className="glass divide-y divide-separator overflow-hidden rounded-[24px]">
-        {MODULES.map((m) => {
+        {MODULES.filter((m) => m.key !== "clients" || b2b).map((m) => {
           const on = picked.includes(m.key);
           return (
             <label key={m.key} className="flex cursor-pointer items-center gap-3 px-4 py-3">
