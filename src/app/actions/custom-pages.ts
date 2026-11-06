@@ -140,6 +140,9 @@ export async function deletePage(pageId: number) {
   const { user, page } = await pageFor(pageId);
   const db = await getDb();
   await db.delete(schema.customPages).where(and(eq(schema.customPages.id, page.id), eq(schema.customPages.userId, user.id)));
+  await db
+    .delete(schema.aiMessages)
+    .where(and(eq(schema.aiMessages.userId, user.id), eq(schema.aiMessages.targetType, "page"), eq(schema.aiMessages.targetId, page.id)));
   revalidatePath("/", "layout");
   redirect("/settings#sections");
 }

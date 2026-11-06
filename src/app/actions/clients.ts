@@ -10,6 +10,7 @@ import { DEFAULT_THEME } from "@/lib/carousel-theme";
 import { carouselProposal, reelProposal } from "@/lib/ai/editor";
 import { getFileMeta } from "@/lib/google/drive";
 import { gymProposal } from "@/lib/gym";
+import { parsePageDraft } from "@/lib/custom-pages";
 import { mutateSchedule } from "@/lib/mutate";
 import { clientProfile, reelPlan } from "@/lib/reels-brain/types";
 
@@ -250,7 +251,17 @@ export async function applyProposal(messageId: number) {
   if (!m?.proposal) throw new Error("Nothing to apply");
 
   let result;
-  if (m.targetType === "gym") {
+  if (m.targetType === "page") {
+    // A custom page's new layout from "Edit with AI": checked again, then saved. Entries are never deleted.
+    const { draft } = parsePageDraft(m.proposal);
+    if (!draft) throw new Error("This layout can't be applied");
+    await db
+      .update(schema.customPages)
+      .set({ title: draft.title, icon: draft.icon, color: draft.color, description: draft.description, spec: draft.spec, updatedAt: new Date() })
+      .where(and(eq(schema.customPages.id, m.targetId), eq(schema.customPages.userId, user.id)));
+    revalidatePath("/", "layout");
+    result = null;
+  } else if (m.targetType === "gym") {
     // The coach's split: upsert each changed day, drop removed ones; the planner reschedules like a manual edit.
     const p = gymProposal.parse(m.proposal);
     await mutateSchedule((db, uid) =>
@@ -304,7 +315,7 @@ export async function applyProposal(messageId: number) {
   return result;
 }
 
-export async function clearChat(targetType: "reel" | "carousel" | "gym", targetId: number) {
+export async function clearChat(targetType: "reel" | "carousel" | "gym" | "page", targetId: number) {
   const user = await requireUser();
   const db = await getDb();
   await db

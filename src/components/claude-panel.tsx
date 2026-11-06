@@ -28,7 +28,7 @@ export function ClaudePanel<T>({
   modelLabel = "Opus 5.5",
   emptyTitle = "Ask for an edit",
 }: {
-  targetType: "reel" | "carousel" | "gym";
+  targetType: "reel" | "carousel" | "gym" | "page";
   targetId: number;
   initialMessages: ChatMessage[];
   prompts: { id: number; name: string; category: string }[];
@@ -42,7 +42,7 @@ export function ClaudePanel<T>({
   emptyTitle?: string;
 }) {
   // Saved prompts and the Claude-app round trip belong to the reel/carousel editor only.
-  const editor = targetType !== "gym";
+  const editor = targetType === "reel" || targetType === "carousel";
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function ClaudePanel<T>({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editor ? { targetType, targetId, message, promptIds: selected } : { message }),
+        body: JSON.stringify(editor ? { targetType, targetId, message, promptIds: selected } : { message, targetId }),
       });
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
@@ -272,7 +272,7 @@ export function ClaudePanel<T>({
         {note && <p role="status" className="rounded-lg bg-well px-3 py-2 text-[13px] whitespace-pre-wrap text-label-2">{note}</p>}
       </div>
 
-      {mode === "app" && targetType !== "gym" ? (
+      {mode === "app" && (targetType === "reel" || targetType === "carousel") ? (
         <ClaudeAppComposer
           targetType={targetType}
           targetId={targetId}
