@@ -20,6 +20,9 @@
     "@anthropic-ai/sdk": "^1.4.0",
     "@date-fns/tz": "^1.5.0",
     "@electric-sql/pglite": "^0.5.14",
+    "@remotion/media": "4.0.541",
+    "@remotion/player": "4.0.541",
+    "@remotion/web-renderer": "4.0.541",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.4",
@@ -30,6 +33,7 @@
     "postgres": "^4.0.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "remotion": "4.0.541",
     "server-only": "^0.0.1",
     "zod": "^4.6.7"
   },

@@ -9,7 +9,10 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://www.googleapis.com",
+  // blob: lets the AI video maker read picked clips; remotion.pro receives the free-licence render count (no content).
+  "connect-src 'self' blob: data: https://www.googleapis.com https://www.remotion.pro",
+  "media-src 'self' blob: data:", // AI video maker: preview clips, music beds and exported MP4s
+  "worker-src 'self' blob:", // Remotion's in-browser renderer keeps a small blob worker alive
   "frame-src https://drive.google.com", // public portfolio: Drive's video/PDF player
   "frame-ancestors 'none'",
   "form-action 'self' https://accounts.google.com",
