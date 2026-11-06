@@ -21,9 +21,12 @@ const ALL_ITEMS = [
 ];
 /** A person's own pages (custom pages), shown after the built-in sections. */
 export type NavPage = { slug: string; title: string; icon: string };
-const itemsFor = (modules: string[], pages: NavPage[] = []) => [
+/** Dashboards other businesses share with this person ("From Gabi"). */
+export type NavShared = { href: string; label: string };
+const itemsFor = (modules: string[], pages: NavPage[] = [], shared: NavShared[] = []) => [
   ...ALL_ITEMS.filter((i) => !i.module || modules.includes(i.module)),
   ...pages.map((p) => ({ href: `/p/${p.slug}`, label: p.title, icon: iconFor(p.icon) })),
+  ...shared.map((x) => ({ href: x.href, label: x.label, icon: iconFor("users") })),
 ];
 
 const isActive = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
@@ -144,10 +147,10 @@ const HOME_SUBS: Sub[] = [
 ];
 
 /** Floating pill rail (tablet and up): sections (clients in the Clients menu), settings. */
-export function Sidebar({ clients, modules, pages = [] }: { clients: { id: number; name: string; color: string }[]; modules: string[]; pages?: NavPage[] }) {
+export function Sidebar({ clients, modules, pages = [], shared = [] }: { clients: { id: number; name: string; color: string }[]; modules: string[]; pages?: NavPage[]; shared?: NavShared[] }) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
-  const ITEMS = itemsFor(modules, pages);
+  const ITEMS = itemsFor(modules, pages, shared);
   const hrefs = [...ITEMS.map((i) => i.href), "/settings"];
   const active = activeOf(path, hrefs);
   const { register, blob, box } = useGlide(active, RAIL_SQUASH);
@@ -197,11 +200,11 @@ export function Sidebar({ clients, modules, pages = [] }: { clients: { id: numbe
 const DOCK = ["/", "/today", "/calendar", "/email"];
 
 /** Floating glass dock (phones): Home, Today, Calendar, Email, and More for the rest. */
-export function TabBar({ modules, clients, pages = [] }: { modules: string[]; clients: { id: number; name: string; color: string }[]; pages?: NavPage[] }) {
+export function TabBar({ modules, clients, pages = [], shared = [] }: { modules: string[]; clients: { id: number; name: string; color: string }[]; pages?: NavPage[]; shared?: NavShared[] }) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
   const [open, setOpen] = useState(false);
-  const all = itemsFor(modules, pages);
+  const all = itemsFor(modules, pages, shared);
   const items = all.filter((i) => DOCK.includes(i.href));
   const more = [...all.filter((i) => !DOCK.includes(i.href)), { href: "/settings", label: "Settings", icon: Settings }];
   const inMore = more.some((i) => isActive(path, i.href));

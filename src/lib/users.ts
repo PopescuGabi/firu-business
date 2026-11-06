@@ -6,6 +6,7 @@ import { decrypt, encrypt } from "./crypto";
 import { env } from "./env";
 import { ALL_MODULES, isModule } from "./modules";
 import { DEFAULT_ALLOWANCE_USD } from "./ai/allowance";
+import { acceptClientInvites } from "./client-links";
 
 const normal = (email: string) => email.trim().toLowerCase();
 
@@ -33,6 +34,7 @@ export async function signInUser(profile: { email: string; name?: string; pictur
       .set({ name: profile.name ?? existing.name, picture: profile.picture ?? existing.picture, lastSeenAt: new Date() })
       .where(eq(schema.users.id, existing.id))
       .returning();
+    await acceptClientInvites(row);
     return row;
   }
   const [row] = await db
@@ -49,6 +51,7 @@ export async function signInUser(profile: { email: string; name?: string; pictur
     })
     .returning();
   await db.update(schema.invites).set({ acceptedAt: new Date() }).where(eq(schema.invites.email, email));
+  await acceptClientInvites(row);
   return row;
 }
 

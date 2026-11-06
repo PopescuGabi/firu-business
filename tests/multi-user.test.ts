@@ -29,6 +29,8 @@ const PER_USER = [
   "instagramAccounts",
   "igMedia",
   "igDaily",
+  "clientInvites",
+  "clientLinks",
   "tutoring",
   "gymDays",
   "portfolioItems",
@@ -104,12 +106,24 @@ test("two people's data stays apart in the database", async () => {
     const names = (await lite.query<{ value: string }>(`select value from settings where user_id = ${member} and key = 'displayName'`)).rows;
     assert.deepEqual(names.map((r) => r.value), ["B"]);
 
+    // Client dashboards: the owner (agency) shares one client with the member's account.
+    const ownerClient = (await lite.query<{ id: number }>("select id from clients where user_id = 1")).rows[0].id;
+    await lite.exec(`insert into client_links (user_id, client_id, client_user_id, shared) values (1, ${ownerClient}, ${member}, '["instagram"]')`);
+    const seen = async (uid: number) => (await lite.query<{ id: number }>(`select l.id from client_links l join clients c on c.id = l.client_id where l.client_user_id = ${uid} and not c.archived`)).rows;
+    assert.equal((await seen(member)).length, 1, "the client sees the dashboard shared with them");
+    assert.equal((await seen(1)).length, 0, "the agency's own account is not a viewer");
+    await assert.rejects(lite.exec(`insert into client_links (user_id, client_id, client_user_id) values (1, ${ownerClient}, 1)`), "one link per client");
+    await lite.exec(`update clients set archived = true where id = ${ownerClient}`);
+    assert.equal((await seen(member)).length, 0, "an archived client's dashboard disappears");
+    await lite.exec(`update clients set archived = false where id = ${ownerClient}`);
+
     // Deleting the member removes only their rows.
     await lite.exec(`delete from users where id = ${member}`);
     for (const t of ["school_days", "gym_days", "settings", "clients", "calendar_links"]) {
       const { rows } = await lite.query<{ user_id: number }>(`select distinct user_id from ${t}`);
       assert.deepEqual(rows.map((r) => r.user_id), [1], t);
     }
+    assert.equal((await lite.query("select id from client_links")).rows.length, 0, "a deleted person's dashboard links go with them");
   } finally {
     await lite.close();
     rmSync(dir, { recursive: true, force: true });

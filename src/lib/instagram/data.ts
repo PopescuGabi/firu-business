@@ -32,6 +32,13 @@ export async function listAccounts(uid: number, clientId: number | null = null):
     .orderBy(asc(schema.instagramAccounts.id));
 }
 
+/** This person's own accounts: everything they connected except accounts of their own clients. */
+export async function ownAccounts(uid: number): Promise<IgAccount[]> {
+  const db = await getDb();
+  const mine = new Set((await db.select({ id: schema.clients.id }).from(schema.clients).where(eq(schema.clients.userId, uid))).map((c) => c.id));
+  return (await allAccounts(uid)).filter((a) => a.clientId === null || !mine.has(a.clientId));
+}
+
 /** Every account this person connected (for the clients overview). */
 export async function allAccounts(uid: number): Promise<IgAccount[]> {
   const db = await getDb();

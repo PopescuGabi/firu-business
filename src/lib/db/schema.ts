@@ -409,6 +409,40 @@ export const customItems = pgTable(
   (t) => [index("custom_items_page").on(t.userId, t.pageId, t.collection)],
 );
 
+// ── Client dashboards: a client business (of userId, the agency) shared with that client's own account ──
+export const clientInvites = pgTable(
+  "client_invites",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(), // the agency
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }), // when it went out from the agency's Gmail
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("client_invites_one").on(t.clientId), index("client_invites_email").on(t.email)],
+);
+
+/** Which of the agency's clients a person's account belongs to, and what the agency shares with them. */
+export const clientLinks = pgTable(
+  "client_links",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(), // the agency
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    clientUserId: integer("client_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    shared: jsonb("shared").$type<string[]>().notNull().default([]), // instagram | content | app
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("client_links_one").on(t.clientId), index("client_links_user").on(t.clientUserId)],
+);
+
 // ── Instagram analytics (Instagram API with Instagram Login) ──
 // The account belongs to whoever connected it (userId); clientId links it to one of that person's clients.
 export const instagramAccounts = pgTable(

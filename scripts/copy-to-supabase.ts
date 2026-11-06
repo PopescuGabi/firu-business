@@ -43,6 +43,8 @@ const TABLES = [
   ["instagram_accounts", schema.instagramAccounts],
   ["ig_media", schema.igMedia],
   ["ig_daily", schema.igDaily],
+  ["client_invites", schema.clientInvites],
+  ["client_links", schema.clientLinks],
   ["tutoring", schema.tutoring],
   ["clients", schema.clients],
   ["app_updates", schema.appUpdates],

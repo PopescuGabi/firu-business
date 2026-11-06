@@ -5,7 +5,7 @@ import { InstagramDashboard } from "@/components/instagram/dashboard";
 import { IgNotice } from "@/components/instagram/notice";
 import { buttonClass, PageHeader } from "@/components/ui";
 import { instagramConfigured } from "@/lib/instagram/api";
-import { accountData, listAccounts } from "@/lib/instagram/data";
+import { accountData, ownAccounts } from "@/lib/instagram/data";
 import { DEMO_ACCOUNT, demoData } from "@/lib/instagram/demo";
 import { dashHref, dashQuery } from "@/lib/instagram/query";
 import { buildDashboard } from "@/lib/instagram/stats";
@@ -24,7 +24,7 @@ export default async function InstagramPage({ searchParams }: { searchParams: Pr
   const settings = await getSettings(user.id);
   const today = todayIn(settings.timezone);
   const q = dashQuery(sp, today);
-  const accounts = await listAccounts(user.id, null);
+  const accounts = await ownAccounts(user.id);
   const picked = accounts.find((a) => String(a.id) === sp.account) ?? accounts[0];
   const configured = instagramConfigured();
   const connect = (

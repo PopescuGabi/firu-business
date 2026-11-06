@@ -8,13 +8,14 @@ import { ThemeSync } from "@/components/theme-sync";
 import { SoundEffects } from "@/components/sound-effects";
 import { getDb, schema } from "@/lib/db";
 import { listPages } from "@/lib/custom-pages-db";
+import { linksForViewer } from "@/lib/client-links";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // First sign-in: choose sections before anything else.
   if (!user.onboarded) redirect("/onboarding");
   const db = await getDb();
-  const [clients, background, settings, pages] = await Promise.all([
+  const [clients, background, settings, pages, links] = await Promise.all([
     db
       .select({ id: schema.clients.id, name: schema.clients.name, color: schema.clients.color })
       .from(schema.clients)
@@ -23,18 +24,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getBackground(user.id),
     getSettings(user.id),
     listPages(user.id),
+    linksForViewer(user.id),
   ]);
+  // "From Gabi" for each business that shares a dashboard with this person (client name added when one agency shares several).
+  const navShared = links.map((l) => ({
+    href: `/shared/${l.id}`,
+    label: links.filter((x) => x.agencyId === l.agencyId).length > 1 ? `${l.clientName} · ${l.agencyName}` : `From ${l.agencyName}`,
+  }));
   const navPages = pages.map(({ slug, title, icon }) => ({ slug, title, icon }));
   return (
     <div className="flex min-h-dvh" data-bg={background.kind}>
       {background.css && <style>{background.css}</style>}
       <ThemeSync theme={settings.theme} />
       <SoundEffects on={settings.sounds} />
-      <Sidebar clients={clients} modules={user.modules} pages={navPages} />
+      <Sidebar clients={clients} modules={user.modules} pages={navPages} shared={navShared} />
       <main className="min-w-0 flex-1 px-4 pt-6 pb-32 sm:px-6 md:pr-8 md:pb-12 md:pl-6">
         <div className="mx-auto max-w-[1680px]">{children}</div>
       </main>
-      <TabBar modules={user.modules} clients={clients} pages={navPages} />
+      <TabBar modules={user.modules} clients={clients} pages={navPages} shared={navShared} />
     </div>
   );
 }

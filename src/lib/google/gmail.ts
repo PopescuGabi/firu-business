@@ -128,4 +128,12 @@ export async function sendReply(uid: number, original: Mail, text: string) {
   });
 }
 
+/** Sends a new plain-text email from this person's Gmail. Only ever called when they press Send. */
+export async function sendMessage(uid: number, to: string, subject: string, text: string) {
+  if (!/^[^\s@,<>]+@[^\s@,<>]+\.[^\s@,<>]+$/.test(to)) throw new Error("That doesn't look like an email address");
+  const headers = [`To: ${clean(to)}`, `Subject: ${encodeHeader(clean(subject))}`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64"];
+  const raw = Buffer.from([...headers, "", Buffer.from(text).toString("base64")].join("\r\n")).toString("base64url");
+  await googleFetch(uid, `${API}/messages/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw }) });
+}
+
 export const gmailLink = (m: { threadId: string }) => `https://mail.google.com/mail/u/0/#all/${m.threadId}`;

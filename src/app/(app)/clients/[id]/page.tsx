@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, count, desc, eq, ne } from "drizzle-orm";
 import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, LayoutDashboard, Pencil, Plus, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
+import { ClientAccess } from "@/components/client-access";
 import { ClientForm } from "@/components/client-form";
 import { ClientProfileForm } from "@/components/client-profile";
 import { ContextMenu } from "@/components/context-menu";
@@ -30,6 +31,9 @@ import {
 } from "@/app/actions/clients";
 import { claudeAvailable } from "@/lib/ai/claude";
 import { businessLabel } from "@/lib/client-tools";
+import { clientAccess, SHAREABLE } from "@/lib/client-links";
+import { env } from "@/lib/env";
+import { GMAIL_SCOPES, hasScope } from "@/lib/google/oauth";
 import { getDb, schema } from "@/lib/db";
 import { loadFinance } from "@/lib/finance";
 import { formatMoney } from "@/lib/fx-math";
@@ -111,7 +115,12 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
       )}
 
       <Slide group={`client-tab-${id}`} index={tabs.findIndex((t) => t.key === tab)}>
-        {tab === "overview" && <OverviewTab userId={user.id} client={client} today={today} currency={settings.moneyCurrency} />}
+        {tab === "overview" && (
+          <div className="flex flex-col gap-6">
+            <OverviewTab userId={user.id} client={client} today={today} currency={settings.moneyCurrency} />
+            <DashboardAccess userId={user.id} client={client} agencyName={settings.displayName || (user.name ?? "").split(" ")[0] || user.email.split("@")[0]} />
+          </div>
+        )}
         {tab === "instagram" && <InstagramTab userId={user.id} clientId={id} sp={sp} today={today} tz={settings.timezone} />}
         {tab === "content" && (
           <div className="flex flex-col gap-8">
@@ -215,18 +224,61 @@ async function OverviewTab({ userId, client, today, currency }: { userId: number
   );
 }
 
+/** "Their dashboard": invite the client's contact and choose what they see in their own hub. */
+async function DashboardAccess({ userId, client, agencyName }: { userId: number; client: ClientRow; agencyName: string }) {
+  const [access, account] = await Promise.all([clientAccess(userId, client.id), getGoogleAccount(userId)]);
+  const gmailOn = GMAIL_SCOPES.every((s) => hasScope(account, s));
+  const shareable = SHAREABLE.filter((s) => client.features.includes(s.key)).map((s) => ({ ...s }));
+  return (
+    <Card className="flex flex-col gap-3 p-5">
+      <div>
+        <h2 className="text-[17px] font-semibold">Their dashboard</h2>
+        <p className="text-[13px] text-label-2">
+          {access.link
+            ? `${client.name} sees this in their own Personal Hub, under “From ${agencyName}”.`
+            : `Invite ${client.name}'s contact: they get their own Personal Hub, tailored to their business, plus a dashboard from you.`}
+        </p>
+      </div>
+      <ClientAccess
+        clientId={client.id}
+        clientName={client.name}
+        access={{
+          link: access.link ? { email: access.link.email, name: access.link.name, shared: access.link.shared } : null,
+          invite: access.invite ? { email: access.invite.email, sentAt: access.invite.sentAt?.toISOString() ?? null } : null,
+        }}
+        gmailOn={gmailOn}
+        appUrl={env.appUrl()}
+        agencyName={agencyName}
+        shareable={shareable}
+      />
+    </Card>
+  );
+}
+
 /** The client's Instagram: the account you connected for them, or a marked demo until then. */
 async function InstagramTab({ userId, clientId, sp, today, tz }: { userId: number; clientId: number; sp: SP; today: string; tz: string }) {
-  const accounts = await listAccounts(userId, clientId);
+  // Accounts you connected for them, plus the one they connected themselves (when they share Instagram with you).
+  const [own, access] = await Promise.all([listAccounts(userId, clientId), clientAccess(userId, clientId)]);
+  const theirs = access.link?.shared.includes("instagram") ? (await listAccounts(access.link.clientUserId, clientId)).map((a) => ({ ...a, theirs: true })) : [];
+  const accounts = [...own.map((a) => ({ ...a, theirs: false })), ...theirs];
   const picked = accounts.find((a) => String(a.id) === sp.account) ?? accounts[0];
   const q = dashQuery(sp, today);
-  const source = picked ? await accountData(userId, picked.id) : demoData(today);
+  const source = picked ? await accountData(picked.theirs ? access.link!.clientUserId : userId, picked.id) : demoData(today);
   const data = buildDashboard({ ...source, from: q.from, to: q.to, kind: q.kind, tz });
   const back = `/clients/${clientId}?tab=instagram`;
   const href = dashHref(`/clients/${clientId}`, { tab: "instagram", account: picked && accounts.length > 1 ? String(picked.id) : undefined }, q);
   return (
     <>
       <IgNotice flag={typeof sp.ig === "string" ? sp.ig : undefined} />
+      {accounts.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {accounts.map((a) => (
+            <Link key={a.id} href={`/clients/${clientId}?tab=instagram&account=${a.id}`} className="chip" data-tone={a.id === picked?.id ? "blue" : undefined}>
+              @{a.username}
+            </Link>
+          ))}
+        </div>
+      )}
       {!picked && (
         <Card className="mb-4 flex flex-col gap-2 p-4 text-[14px] text-label-2">
           <p className="text-[15px] font-semibold text-label">Connect their Instagram</p>
@@ -243,7 +295,8 @@ async function InstagramTab({ userId, clientId, sp, today, tz }: { userId: numbe
         href={href}
         actions={
           <>
-            {picked && <IgAccountActions accountId={picked.id} username={picked.username} />}
+            {picked && !picked.theirs && <IgAccountActions accountId={picked.id} username={picked.username} />}
+            {picked?.theirs && <span className="text-[12px] text-label-2">Connected by them · updates daily</span>}
             {instagramConfigured() && (
               <a href={`/api/instagram/connect?for=client:${clientId}&back=${encodeURIComponent(back)}`} className={buttonClass(picked ? "gray" : "filled", "sm")}>
                 <Plus size={14} /> {picked ? "Add account" : "Connect their Instagram"}

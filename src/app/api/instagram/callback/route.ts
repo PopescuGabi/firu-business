@@ -6,6 +6,7 @@ import { apiUser } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { exchangeCode, getProfile } from "@/lib/instagram/api";
 import { saveConnection, syncAccount } from "@/lib/instagram/sync";
+import { linkFor } from "@/lib/client-links";
 
 export const maxDuration = 300;
 
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const jar = await cookies();
   const state = jar.get("ig_state")?.value ?? "";
-  let target: { clientId: number | null; back: string } = { clientId: null, back: "/instagram" };
+  let target: { clientId: number | null; linkId?: number | null; back: string } = { clientId: null, back: "/instagram" };
   try {
     target = { ...target, ...JSON.parse(jar.get("ig_target")?.value ?? "{}") };
   } catch {
@@ -35,7 +36,9 @@ export async function GET(req: Request) {
   if (!code || !state || !same(state, url.searchParams.get("state") ?? "")) return back("failed");
 
   let clientId: number | null = null;
-  if (target.clientId) {
+  if (target.linkId) {
+    clientId = (await linkFor(user.id, target.linkId))?.clientId ?? null;
+  } else if (target.clientId) {
     const db = await getDb();
     const [c] = await db.select({ id: schema.clients.id }).from(schema.clients).where(and(eq(schema.clients.id, target.clientId), eq(schema.clients.userId, user.id)));
     clientId = c?.id ?? null;
