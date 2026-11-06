@@ -210,7 +210,7 @@ export async function runSync(uid: number, { waitMs = 0 } = {}): Promise<SyncRes
     // 2. Push: make the calendar match the hub.
     const desired = await loadHub(uid, tz);
     const links = new Map((await db.select().from(schema.calendarLinks).where(mine)).map((l) => [l.key, l]));
-    // Our events without a link (a run cut off between writing an event and saving its link): reuse or remove them.
+    // Our events without a link (a run cut off between writing an event and saving its link): reused when they match.
     const linkedIds = new Set([...links.values()].map((l) => l.eventId));
     const strays = (await changedEvents(uid, cal.id)).filter(
       (e) => e.status !== "cancelled" && !e.recurringEventId && !linkedIds.has(e.id) && hasMark(e.description),
@@ -255,10 +255,8 @@ export async function runSync(uid: number, { waitMs = 0 } = {}): Promise<SyncRes
       }
       links.delete(d.key);
     });
-    for (const e of strays) {
-      await deleteEvent(uid, cal.id, e.id);
-      result.deleted++;
-    }
+    // Marked events nothing in the hub matches are left alone: they may be events the person restored or keeps on
+    // purpose. The sync only ever deletes events it is still tracking (step 3), never anything else in the calendar.
 
     // 3. Items gone from the hub: remove their events.
     for (const link of links.values()) {
