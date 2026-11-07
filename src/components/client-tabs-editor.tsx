@@ -2,8 +2,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { ArrowLeft, ArrowRight, Hammer, Plus, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Hammer, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { addClientStarterTab, setClientTabs } from "@/app/actions/client-tabs";
+import { deletePage } from "@/app/actions/custom-pages";
 import { PageBuilder } from "./page-builder";
 import { Sheet } from "./sheet";
 import { buttonClass } from "./ui";
@@ -80,6 +81,22 @@ export function ClientTabsEditor({
       router.refresh();
     });
 
+  /** Deletes one of this client's own tabs and everything in it (built-in tabs can only be hidden). */
+  const deleteOwn = (key: string) => {
+    const pageId = Number(key.slice(5));
+    if (!confirm(`Delete the "${labelOf(key)}" tab and everything in it? This can't be undone.`)) return;
+    start(async () => {
+      setError(null);
+      document.querySelector<HTMLDialogElement>("dialog[open]")?.close();
+      await deletePage(pageId); // goes back to the client's Overview
+    });
+  };
+  const deleteButton = (key: string) => (
+    <button type="button" aria-label={`Delete ${labelOf(key)}`} onClick={() => deleteOwn(key)} className="grid size-8 place-items-center rounded-full text-red hover:bg-red/10">
+      <Trash2 size={15} />
+    </button>
+  );
+
   const hiddenBuiltins = builtins.filter((b) => !tabs.includes(b.key));
   const hiddenPages = pages.filter((p) => !tabs.includes(`page:${p.id}`));
 
@@ -110,13 +127,14 @@ export function ClientTabsEditor({
                       <button type="button" aria-label={`Move ${labelOf(key)} right`} disabled={i >= tabs.length - 1} onClick={() => move(key, 1)} className="grid size-8 place-items-center rounded-full text-label-2 hover:bg-fill disabled:opacity-30">
                         <ArrowRight size={15} />
                       </button>
+                      {key.startsWith("page:") && deleteButton(key)}
                       <input type="checkbox" role="switch" className="switch" checked onChange={() => remove(key)} aria-label={`Hide ${labelOf(key)}`} />
                     </>
                   )}
                 </li>
               ))}
             </ul>
-            <p className="px-1 text-[12px] text-label-3">Turning off Instagram, Content, App or Finance also switches that tool off for this client. Hiding your own tab keeps what's in it.</p>
+            <p className="px-1 text-[12px] text-label-3">Turning off Instagram, Content, App or Finance also switches that tool off for this client. Hiding your own tab keeps what's in it; the bin deletes it.</p>
           </section>
 
           {(hiddenBuiltins.length > 0 || hiddenPages.length > 0) && (
@@ -129,6 +147,7 @@ export function ClientTabsEditor({
                       <span className="block truncate text-[14px] font-medium">{t.label}</span>
                       <span className="block truncate text-[12px] text-label-2">{t.hint}</span>
                     </span>
+                    {t.key.startsWith("page:") && deleteButton(t.key)}
                     <button type="button" onClick={() => add(t.key)} aria-label={`Add ${t.label}`} className="grid size-8 shrink-0 place-items-center rounded-full bg-fill hover:bg-ink hover:text-on-ink">
                       <Plus size={15} />
                     </button>
