@@ -8,11 +8,14 @@ export function TaskForm({
   clients,
   task,
   submitLabel = "Add task",
+  defaultClientId,
 }: {
   action: (fd: FormData) => Promise<void>;
   clients: { id: number; name: string }[];
   task?: Task;
   submitLabel?: string;
+  /** Pre-selects a client for a new task (e.g. on that client's Tasks tab). */
+  defaultClientId?: number;
 }) {
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -27,7 +30,7 @@ export function TaskForm({
           <input name="estimateMin" type="number" min={5} max={1440} step={5} defaultValue={task?.estimateMin ?? 30} className="field" />
         </Field>
         <Field label="Client">
-          <select name="clientId" defaultValue={task?.clientId ?? ""} className="field">
+          <select name="clientId" defaultValue={task?.clientId ?? defaultClientId ?? ""} className="field">
             <option value="">None</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>

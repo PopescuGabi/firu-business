@@ -1,7 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, count, desc, eq, ne } from "drizzle-orm";
-import { Archive, BarChart3, Clapperboard, GalleryHorizontalEnd, LayoutDashboard, Pencil, Plus, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
+import { and, asc, count, desc, eq, ne } from "drizzle-orm";
+import { Archive, BarChart3, Clapperboard, ExternalLink, FolderOpen, GalleryHorizontalEnd, LayoutDashboard, ListTodo, Pencil, Plus, Share2, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
+import { TaskCheck } from "@/components/check";
+import { ClientTabsEditor } from "@/components/client-tabs-editor";
+import { PageBlocks } from "@/components/custom/blocks";
+import { iconFor } from "@/components/custom/icons";
+import { PageCoach } from "@/components/custom/page-coach";
+import { PageSettings } from "@/components/custom/page-settings";
+import { TaskForm } from "@/components/task-form";
+import type { ChatMessage } from "@/components/claude-panel";
+import { createTask } from "@/app/actions/tasks";
+import { BUILTIN_TABS, builtinTab, pageIdOf, tabsFor } from "@/lib/client-tabs";
+import { clientPages, pageItems } from "@/lib/custom-pages-db";
+import { STARTER_KEYS } from "@/lib/tab-starters";
+import { TEMPLATE_GROUPS } from "@/lib/page-templates";
 import { ClientAccess } from "@/components/client-access";
 import { ClientForm } from "@/components/client-form";
 import { ClientProfileForm } from "@/components/client-profile";
@@ -48,15 +61,18 @@ import { requireModule } from "@/lib/sections";
 import { getSettings } from "@/lib/settings";
 import { todayIn } from "@/lib/week";
 
-// Tabs appear only for the tools this client's business needs (lib/client-tools.ts).
-const ALL_TABS = [
-  { key: "overview", label: "Overview", icon: LayoutDashboard, tool: null },
-  { key: "instagram", label: "Instagram", icon: BarChart3, tool: "instagram" },
-  { key: "content", label: "Content", icon: Clapperboard, tool: "content" },
-  { key: "app", label: "App", icon: Smartphone, tool: "app" },
-  { key: "finance", label: "Finance", icon: Wallet, tool: "finance" },
-  { key: "profile", label: "Brand profile", icon: UserRound, tool: "content" },
-] as const;
+// Icons for the built-in tabs (lib/client-tabs.ts lists them; each client chooses its own set and order).
+const TAB_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
+  layout: LayoutDashboard,
+  chart: BarChart3,
+  clapperboard: Clapperboard,
+  phone: Smartphone,
+  wallet: Wallet,
+  user: UserRound,
+  list: ListTodo,
+  folder: FolderOpen,
+  share: Share2,
+};
 
 const REEL_STATUSES = ["idea", "scripting", "filming", "editing", "review", "posted"];
 type SP = Record<string, string | string[] | undefined>;
@@ -79,8 +95,17 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
   const [client] = await db.select().from(schema.clients).where(and(eq(schema.clients.id, id), eq(schema.clients.userId, user.id)));
   if (!client) notFound();
   const sp = await searchParams;
-  const tabs = ALL_TABS.filter((t) => !t.tool || client.features.includes(t.tool));
+  // This client's own tab list (built-in tabs and its own pages), in the order chosen in "Edit tabs".
+  const pages = await clientPages(user.id, id);
+  const tabKeys = tabsFor(client.tabs, client.features, pages.map((p) => p.id));
+  const tabs = tabKeys.map((key) => {
+    const page = pages.find((p) => p.id === pageIdOf(key));
+    if (page) return { key, label: page.title, icon: iconFor(page.icon) };
+    const b = builtinTab(key)!;
+    return { key, label: key === "app" && client.appName ? client.appName : b.label, icon: TAB_ICONS[b.icon] ?? LayoutDashboard };
+  });
   const tab = tabs.find((t) => t.key === sp.tab)?.key ?? "overview";
+  const openPage = pages.find((p) => p.id === pageIdOf(tab));
   const [googleConnected, settings, aiOn] = await Promise.all([getGoogleAccount(user.id).then((a) => Boolean(a?.accessToken)), getSettings(user.id), claudeAvailable(user.id)]);
   const today = todayIn(settings.timezone);
 
@@ -105,22 +130,35 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
       />
       {client.description && <p className="-mt-3 mb-5 text-[15px] text-label-2">{client.description}</p>}
 
-      {tabs.length > 1 && (
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <SegmentedLinks
           label="Sections"
-          className="mb-6"
           active={tab}
           items={tabs.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? `/clients/${id}` : `/clients/${id}?tab=${key}`, icon: <Icon size={15} /> }))}
         />
-      )}
+        <ClientTabsEditor
+          clientId={id}
+          tabs={tabKeys}
+          builtins={BUILTIN_TABS.map(({ key, label, hint, tool, needs }) => ({ key, label: key === "app" && client.appName ? client.appName : label, hint, tool, needs }))}
+          pages={pages.map((p) => ({ id: p.id, title: p.title }))}
+          starters={STARTER_KEYS}
+          templates={TEMPLATE_GROUPS.flatMap((g) => g.pages.map((pg, i) => ({ key: `${g.key}:${i}`, title: String(pg.title), group: g.label })))}
+          today={today}
+        />
+      </div>
 
       <Slide group={`client-tab-${id}`} index={tabs.findIndex((t) => t.key === tab)}>
         {tab === "overview" && (
           <div className="flex flex-col gap-6">
             <OverviewTab userId={user.id} client={client} today={today} currency={settings.moneyCurrency} />
-            <DashboardAccess userId={user.id} client={client} agencyName={settings.displayName || (user.name ?? "").split(" ")[0] || user.email.split("@")[0]} />
           </div>
         )}
+        {tab === "dashboard" && (
+          <DashboardAccess userId={user.id} client={client} agencyName={settings.displayName || (user.name ?? "").split(" ")[0] || user.email.split("@")[0]} />
+        )}
+        {tab === "tasks" && <TasksTab userId={user.id} client={client} today={today} />}
+        {tab === "files" && <FilesTab userId={user.id} client={client} googleConnected={googleConnected} />}
+        {openPage && <OwnTab userId={user.id} page={openPage} today={today} aiOn={aiOn} />}
         {tab === "instagram" && <InstagramTab userId={user.id} clientId={id} sp={sp} today={today} tz={settings.timezone} />}
         {tab === "content" && (
           <div className="flex flex-col gap-8">
@@ -157,7 +195,7 @@ async function OverviewTab({ userId, client, today, currency }: { userId: number
   if (!client.features.length) {
     return (
       <Empty title="No tools for this client yet">
-        Open <strong>Edit client</strong> and tick what you do for them: Instagram analytics, content, app work or finance.
+        Use <strong>Edit tabs</strong> to add what you do for them: Instagram, content, app work, finance, tasks, files, or tabs of your own.
       </Empty>
     );
   }
@@ -220,6 +258,110 @@ async function OverviewTab({ userId, client, today, currency }: { userId: number
           </p>
         </Link>
       )}
+    </div>
+  );
+}
+
+/** This client's tasks: open ones first by due date, then the done ones. */
+async function TasksTab({ userId, client, today }: { userId: number; client: ClientRow; today: string }) {
+  const db = await getDb();
+  const tasks = await db
+    .select()
+    .from(schema.tasks)
+    .where(and(eq(schema.tasks.userId, userId), eq(schema.tasks.clientId, client.id)))
+    .orderBy(asc(schema.tasks.done), asc(schema.tasks.due), desc(schema.tasks.id));
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <Sheet title="New task" trigger={<><Plus size={15} /> New task</>} triggerClassName={buttonClass("filled", "sm")}>
+          <TaskForm action={createTask} clients={[{ id: client.id, name: client.name }]} defaultClientId={client.id} />
+        </Sheet>
+      </div>
+      {tasks.length === 0 ? (
+        <Empty icon={<ListTodo size={34} />} title="No tasks for this client">Add one here, or pick this client when you add a task anywhere else.</Empty>
+      ) : (
+        <Card className="divide-y divide-separator">
+          {tasks.map((t) => (
+            <div key={t.id} className="flex items-start gap-3 px-4 py-3">
+              <TaskCheck id={t.id} done={t.done} label={t.title} />
+              <div className="min-w-0 flex-1">
+                <p className={t.done ? "text-[15px] text-label-3 line-through" : "text-[15px] font-medium"}>{t.title}</p>
+                <p className="text-[12px] text-label-2">
+                  {t.due ? (t.due < today && !t.done ? <span className="font-semibold text-red">Overdue ({t.due})</span> : `Due ${t.due === today ? "today" : t.due}`) : "No due date"}
+                </p>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/** Everything saved to Drive for this client (from its reels, carousels and app updates), plus its Drive folder. */
+async function FilesTab({ userId, client, googleConnected }: { userId: number; client: ClientRow; googleConnected: boolean }) {
+  const db = await getDb();
+  const [reels, carousels, updates] = await Promise.all([
+    db.select({ title: schema.reels.title, files: schema.reels.files }).from(schema.reels).where(and(eq(schema.reels.userId, userId), eq(schema.reels.clientId, client.id))),
+    db.select({ title: schema.carousels.title, files: schema.carousels.files }).from(schema.carousels).where(and(eq(schema.carousels.userId, userId), eq(schema.carousels.clientId, client.id))),
+    db.select({ title: schema.appUpdates.title, files: schema.appUpdates.files }).from(schema.appUpdates).where(and(eq(schema.appUpdates.userId, userId), eq(schema.appUpdates.clientId, client.id))),
+  ]);
+  const files = [
+    ...reels.flatMap((r) => r.files.map((f) => ({ ...f, from: `Reel · ${r.title}` }))),
+    ...carousels.flatMap((c) => c.files.map((f) => ({ ...f, from: `Carousel · ${c.title}` }))),
+    ...updates.flatMap((u) => u.files.map((f) => ({ ...f, from: `Update · ${u.title}` }))),
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="flex flex-wrap items-center gap-3 p-4">
+        <FolderOpen size={18} className="text-label-2" />
+        <p className="min-w-0 flex-1 text-[14px] text-label-2">Files for {client.name} are kept in its own folder in your Google Drive.</p>
+        {googleConnected ? (
+          <DriveFolderButton clientId={client.id} url={client.driveFolderId ? folderUrl(client.driveFolderId) : null} />
+        ) : (
+          <Link href="/settings" className={buttonClass("gray", "sm")}>
+            Connect Google
+          </Link>
+        )}
+      </Card>
+      {files.length === 0 ? (
+        <Empty icon={<FolderOpen size={34} />} title="No files yet">Files you upload to this client&apos;s reels, carousels or app updates appear here.</Empty>
+      ) : (
+        <Card className="divide-y divide-separator">
+          {files.map((f) => (
+            <a key={f.id} href={f.webViewLink || undefined} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-3 hover:bg-fill">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-medium">{f.name}</span>
+                <span className="block truncate text-[12px] text-label-2">{f.from}</span>
+              </span>
+              <ExternalLink size={14} className="shrink-0 text-label-3" />
+            </a>
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/** One of this client's own tabs: a page made with the page builder, shown like any page, with Claude to change it. */
+async function OwnTab({ userId, page, today, aiOn }: { userId: number; page: Awaited<ReturnType<typeof clientPages>>[number]; today: string; aiOn: boolean }) {
+  const db = await getDb();
+  const [items, chat] = await Promise.all([
+    pageItems(userId, page.id),
+    db
+      .select()
+      .from(schema.aiMessages)
+      .where(and(eq(schema.aiMessages.userId, userId), eq(schema.aiMessages.targetType, "page"), eq(schema.aiMessages.targetId, page.id)))
+      .orderBy(asc(schema.aiMessages.id)),
+  ]);
+  const messages = chat.map<ChatMessage>((m) => ({ id: m.id, role: m.role as ChatMessage["role"], content: m.content, proposal: m.proposal, applied: m.applied }));
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <PageCoach pageId={page.id} spec={page.spec} messages={messages} claudeConfigured={aiOn} />
+        <PageSettings page={page} />
+      </div>
+      <PageBlocks pageId={page.id} spec={page.spec} items={items} today={today} />
     </div>
   );
 }

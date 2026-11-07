@@ -39,7 +39,8 @@ function readFields(page: Awaited<ReturnType<typeof getPageById>>, collection: s
   return data;
 }
 
-const refresh = (slug: string) => revalidatePath(`/p/${slug}`);
+/** Re-renders where the page shows: its own address, or its client's page when it's a client tab. */
+const refresh = (page: { slug: string; clientId: number | null }) => revalidatePath(page.clientId ? `/clients/${page.clientId}` : `/p/${page.slug}`);
 
 export async function addItem(pageId: number, collection: string, fd: FormData) {
   const { user, page } = await pageFor(pageId);
@@ -47,14 +48,14 @@ export async function addItem(pageId: number, collection: string, fd: FormData) 
   const db = await getDb();
   const [{ top }] = await db.select({ top: max(schema.customItems.position) }).from(schema.customItems).where(and(eq(schema.customItems.userId, user.id), eq(schema.customItems.pageId, page.id)));
   await db.insert(schema.customItems).values({ userId: user.id, pageId: page.id, collection, data, position: (top ?? 0) + 1 });
-  refresh(page.slug);
+  refresh(page);
 }
 
 export async function updateItem(itemId: number, fd: FormData) {
   const { user, item, page, db } = await itemFor(itemId);
   const data = readFields(page, item.collection, fd, item.data);
   await db.update(schema.customItems).set({ data, updatedAt: new Date() }).where(and(eq(schema.customItems.id, item.id), eq(schema.customItems.userId, user.id)));
-  refresh(page.slug);
+  refresh(page);
 }
 
 /** One field at a time: moving a card to another column, ticking a checklist item. */
@@ -68,13 +69,13 @@ export async function setItemField(itemId: number, field: string, value: string 
     .update(schema.customItems)
     .set({ data: { ...item.data, [f.key]: v }, updatedAt: new Date() })
     .where(and(eq(schema.customItems.id, item.id), eq(schema.customItems.userId, user.id)));
-  refresh(page.slug);
+  refresh(page);
 }
 
 export async function deleteItem(itemId: number) {
   const { user, item, page, db } = await itemFor(itemId);
   await db.delete(schema.customItems).where(and(eq(schema.customItems.id, item.id), eq(schema.customItems.userId, user.id)));
-  refresh(page.slug);
+  refresh(page);
 }
 
 /** The notes block: one text per block, saved as it's typed. */
@@ -100,7 +101,7 @@ export async function addLink(pageId: number, blockId: string, fd: FormData) {
   const label = z.string().trim().max(80).parse(fd.get("label") ?? "") || new URL(url).hostname;
   const db = await getDb();
   await db.insert(schema.customItems).values({ userId: user.id, pageId: page.id, collection: `links:${blockId}`, data: { label, url } });
-  refresh(page.slug);
+  refresh(page);
 }
 
 // ── Pages ──
@@ -121,7 +122,8 @@ export async function renamePage(pageId: number, fd: FormData) {
 export async function movePage(pageId: number, dir: -1 | 1) {
   const { user } = await pageFor(pageId);
   const db = await getDb();
-  const pages = await db.select().from(schema.customPages).where(eq(schema.customPages.userId, user.id));
+  // scoped: this person's menu pages only (a client's own tabs are ordered on the client page).
+  const pages = (await db.select().from(schema.customPages).where(eq(schema.customPages.userId, user.id))).filter((p) => p.clientId === null);
   pages.sort((a, b) => a.position - b.position || a.id - b.id);
   const i = pages.findIndex((p) => p.id === pageId);
   const j = i + dir;
@@ -144,5 +146,11 @@ export async function deletePage(pageId: number) {
     .delete(schema.aiMessages)
     .where(and(eq(schema.aiMessages.userId, user.id), eq(schema.aiMessages.targetType, "page"), eq(schema.aiMessages.targetId, page.id)));
   revalidatePath("/", "layout");
+  if (page.clientId) {
+    // A client's own tab: take it off that client's tab list and go back to the client.
+    const [c] = await db.select({ tabs: schema.clients.tabs }).from(schema.clients).where(and(eq(schema.clients.id, page.clientId), eq(schema.clients.userId, user.id)));
+    if (c?.tabs) await db.update(schema.clients).set({ tabs: c.tabs.filter((t) => t !== `page:${page.id}`) }).where(and(eq(schema.clients.id, page.clientId), eq(schema.clients.userId, user.id)));
+    redirect(`/clients/${page.clientId}`);
+  }
   redirect("/settings#sections");
 }

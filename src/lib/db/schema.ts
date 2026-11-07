@@ -145,6 +145,8 @@ export const clients = pgTable(
     features: jsonb("features").$type<string[]>().notNull().default([]),
     // The layout of this client's shared dashboard as the agency arranged it (lib/board.ts); null = the default.
     dashboardLayout: jsonb("dashboard_layout"),
+    // The tabs this client's page shows, in order (lib/client-tabs.ts); null = derived from `features`.
+    tabs: jsonb("tabs").$type<string[]>(),
     driveFolderId: text("drive_folder_id"),
     archived: boolean("archived").notNull().default(false),
     // Reels Brain: who the content is for (audience, awareness, voice, brand, constraints, observed results)
@@ -311,6 +313,8 @@ export const customPages = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: owner(),
+    // Set when the page is one client's own tab (shown only on that client's page, not in the menu).
+    clientId: integer("client_id").references(() => clients.id, { onDelete: "cascade" }),
     slug: text("slug").notNull(),
     title: text("title").notNull(),
     icon: text("icon").notNull().default("list"),

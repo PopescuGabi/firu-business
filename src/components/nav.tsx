@@ -138,12 +138,6 @@ function RailLink({
   );
 }
 
-const HOME_SUBS: Sub[] = [
-  { href: "/?tab=overview", label: "Overview" },
-  { href: "/?tab=schedule", label: "Schedule" },
-  { href: "/?tab=work", label: "Work" },
-];
-
 /** Floating pill rail (tablet and up): sections (clients in the Clients menu), settings. */
 export function Sidebar({ clients, modules, pages = [], shared = [] }: { clients: { id: number; name: string; color: string }[]; modules: string[]; pages?: NavPage[]; shared?: NavShared[] }) {
   const { path: current, pending, setPending } = usePendingHref();
@@ -153,9 +147,7 @@ export function Sidebar({ clients, modules, pages = [], shared = [] }: { clients
   const active = activeOf(path, hrefs);
   const { register, blob, box } = useGlide(active, RAIL_SQUASH);
   const subsOf = (href: string): Sub[] | undefined =>
-    href === "/"
-      ? HOME_SUBS
-      : href === "/clients"
+    href === "/clients"
         ? [...clients.map((c) => ({ href: `/clients/${c.id}`, label: c.name, dot: c.color })), { href: "/clients?new=1", label: "New client…" }]
         : undefined;
   const link = (href: string, label: string, children: React.ReactNode) => (

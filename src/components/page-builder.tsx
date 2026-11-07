@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Plus, Trash2 } from "lucide-react";
 import { createCustomPage } from "@/app/actions/setup";
+import { addClientBuiltTab } from "@/app/actions/client-tabs";
 import { FIELD_TYPES, LIMITS, PAGE_COLORS, PAGE_ICONS, parsePageDraft, slugKey, type FieldType } from "@/lib/custom-pages";
 import { PageBlocks } from "./custom/blocks";
 import { PAGE_ICON } from "./custom/icons";
@@ -60,7 +61,8 @@ function FieldSelect({ value, onChange, list, label }: { value: string; onChange
  * Build a page by hand: one list with your own fields, then the blocks to show it. The result is the same
  * kind of spec the AI writes, checked by the same rules on the server.
  */
-export function PageBuilder({ today, onDone }: { today: string; onDone?: () => void }) {
+/** With `clientId`, the page becomes that client's own tab instead of a page in the menu. */
+export function PageBuilder({ today, onDone, clientId }: { today: string; onDone?: () => void; clientId?: number }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string>("list");
@@ -157,7 +159,7 @@ export function PageBuilder({ today, onDone }: { today: string; onDone?: () => v
   async function create() {
     setState("busy");
     setError(null);
-    const r = await createCustomPage(draft).catch(() => ({ ok: false as const, message: "Couldn't create the page." }));
+    const r = await (clientId ? addClientBuiltTab(clientId, draft) : createCustomPage(draft)).catch(() => ({ ok: false as const, message: "Couldn't create the page." }));
     if (!r.ok) {
       setError(r.message);
       setState("idle");
