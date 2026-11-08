@@ -42,7 +42,7 @@ const createdAt = () =>
 const updatedAt = () =>
   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 
-import type { ClientProfile, ReelPlan } from "../reels-brain/types";
+import type { ClientProfile } from "../client-profile";
 import type { Spec as CustomSpec } from "../custom-pages";
 
 export type Role = "owner" | "member";
@@ -149,7 +149,7 @@ export const clients = pgTable(
     tabs: jsonb("tabs").$type<string[]>(),
     driveFolderId: text("drive_folder_id"),
     archived: boolean("archived").notNull().default(false),
-    // Reels Brain: who the content is for (audience, awareness, voice, brand, constraints, observed results)
+    // Brand profile: who the content is for (audience, awareness, voice, brand, constraints, observed results)
     profile: jsonb("profile").$type<Partial<ClientProfile>>().notNull().default({}),
     createdAt: createdAt(),
   },
@@ -192,9 +192,8 @@ export const reels = pgTable(
     notes: text("notes").notNull().default(""),
     postDate: text("post_date"),
     files: jsonb("files").$type<DriveFile[]>().notNull().default([]),
-    // Reels Brain: diagnosis, caption plan, one experiment and the review checklist for this reel
-    plan: jsonb("plan").$type<Partial<ReelPlan>>().notNull().default({}),
-    // AI video maker: the brief Gabi gave and the last video spec Opus wrote (rendered in the browser)
+    // No longer used (the reel plan and the video maker moved to a separate app); kept so old data stays.
+    plan: jsonb("plan").$type<Record<string, unknown>>().notNull().default({}),
     video: jsonb("video").$type<{ brief?: string; spec?: unknown }>().notNull().default({}),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

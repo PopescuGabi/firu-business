@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { UserRound } from "lucide-react";
 import { saveClientProfile } from "@/app/actions/clients";
-import { AWARENESS, AWARENESS_LABELS, OBJECTIVE_LABELS, OBJECTIVES, clientProfile, type ClientProfile } from "@/lib/reels-brain/types";
+import { AWARENESS, AWARENESS_LABELS, OBJECTIVE_LABELS, OBJECTIVES, clientProfile, type ClientProfile } from "@/lib/client-profile";
 import { Card, Field, Notice } from "./ui";
 import { SaveIndicator, useAutosave } from "./use-autosave";
 
@@ -16,7 +16,7 @@ const TEXT: { key: keyof ClientProfile; label: string; hint: string; rows: numbe
   { key: "performance", label: "Observed results", hint: "Real numbers only, with dates and where they came from. Compare like with like.", rows: 3 },
 ];
 
-/** The client's Reels Brain profile. Claude reads it for every reel and carousel of this client. */
+/** The client's brand profile. Claude reads it for every reel and carousel of this client. */
 export function ClientProfileForm({ clientId, initial }: { clientId: number; initial: unknown }) {
   const [p, setP] = useState<ClientProfile>(() => clientProfile.parse(initial ?? {}));
   const { state } = useAutosave(p, (v) => saveClientProfile(clientId, v));
@@ -27,7 +27,7 @@ export function ClientProfileForm({ clientId, initial }: { clientId: number; ini
     <div className="space-y-4">
       {empty && (
         <Notice>
-          Fill in who this client's videos are for. Opus reads this profile for every reel and carousel, and the Brain review checks against it. Mark guesses as guesses.
+          Fill in who this client's videos are for. Opus reads this profile for every reel and carousel. Mark guesses as guesses.
         </Notice>
       )}
       <Card className="space-y-4 p-4">

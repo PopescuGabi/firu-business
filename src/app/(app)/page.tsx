@@ -320,7 +320,7 @@ export default async function HomePage() {
   );
 
   const promptUpload = (p: Placed) => (
-    <Widget {...p} title="Your style · prompts" icon={BookText} href="/clients?view=brain#style">
+    <Widget {...p} title="Your style · prompts" icon={BookText} href="/clients?view=style">
       <p className="mb-3 text-[13px] text-label-2">
         {promptCount.length} saved. Upload .txt or .md files; each file becomes a prompt named after the file.
       </p>
@@ -345,7 +345,7 @@ export default async function HomePage() {
           </Submit>
         </div>
       </form>
-      <Link href="/clients?view=brain#style" className="mt-2 inline-block text-[13px] font-semibold text-blue">
+      <Link href="/clients?view=style" className="mt-2 inline-block text-[13px] font-semibold text-blue">
         Or paste a prompt →
       </Link>
     </Widget>

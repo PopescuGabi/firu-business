@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { ReelEditor } from "@/components/reel-editor";
-import { ReelBrain } from "@/components/reel-brain";
 import { ItemFeedback } from "@/components/item-feedback";
-import { VideoMakerLazy } from "@/components/video/video-maker-lazy";
 import { requireModule } from "@/lib/sections";
 import { getDb, schema } from "@/lib/db";
 import { getEditorData } from "@/lib/editor-data";
@@ -24,21 +22,7 @@ export default async function ReelPage({ params }: { params: Promise<{ id: strin
   const data = await getEditorData(user.id, "reel", reel.id);
   return (
     <>
-      <ReelEditor key={reel.id} reel={reel} clientName={client.name} {...data} brain={
-          <>
-            <ReelBrain reelId={reel.id} initialPlan={reel.plan} />
-            <VideoMakerLazy
-              reelId={reel.id}
-              clientId={reel.clientId}
-              title={reel.title}
-              files={reel.files}
-              googleConnected={data.googleConnected}
-              claudeConfigured={data.claudeConfigured}
-              initial={reel.video}
-            />
-          </>
-        }
-      />
+      <ReelEditor key={reel.id} reel={reel} clientName={client.name} {...data} />
       <ItemFeedback targetType="reel" targetId={reel.id} />
     </>
   );

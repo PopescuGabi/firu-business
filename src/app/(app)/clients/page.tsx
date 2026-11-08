@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
-import { ArrowRight, BarChart3, Brain, Briefcase, Plus, Wallet } from "lucide-react";
+import { ArrowRight, BarChart3, BookText, Briefcase, Plus, Wallet } from "lucide-react";
 import { NewClientCard } from "@/components/new-client-card";
-import { BrainView } from "@/components/brain-view";
 import { Sparkline } from "@/components/charts";
 import { ClientForm } from "@/components/client-form";
 import { ContextMenu } from "@/components/context-menu";
@@ -25,7 +24,7 @@ import { todayIn } from "@/lib/week";
 
 export const metadata = { title: "Clients" };
 
-type View = "clients" | "analytics" | "finance" | "brain" | "marketing";
+type View = "clients" | "analytics" | "finance" | "style" | "marketing";
 
 /** Clients: one card per business you work for; each opens a page with only the tools that business needs. */
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ new?: string; view?: string }> }) {
@@ -65,9 +64,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     { key: "clients" as const, label: "Clients", icon: Briefcase },
     ...(any("instagram") ? [{ key: "analytics" as const, label: "Analytics", icon: BarChart3 }] : []),
     ...(any("finance") ? [{ key: "finance" as const, label: "Finance", icon: Wallet }] : []),
-    ...(any("content") ? [{ key: "brain" as const, label: "Brain", icon: Brain }] : []),
+    ...(any("content") ? [{ key: "style" as const, label: "Your style", icon: BookText }] : []),
   ];
-  const view: View = viewParam === "marketing" ? "marketing" : (views.find((v) => v.key === viewParam)?.key ?? "clients");
+  // "brain" is the old name of Your style (links saved before it was renamed).
+  const wanted = viewParam === "brain" ? "style" : viewParam;
+  const view: View = wanted === "marketing" ? "marketing" : (views.find((v) => v.key === wanted)?.key ?? "clients");
   const toolLabel = (k: string) => CLIENT_TOOLS.find((t) => t.key === k)?.label ?? k;
 
   return (
@@ -129,13 +130,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           <MarketingView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} incomeThisMonth={(await loadFinance(user.id, today, settings.moneyCurrency)).incomeThisMonth} />
         )}
         {view === "finance" && <FinanceView uid={user.id} clients={active} today={today} currency={settings.moneyCurrency} />}
-        {view === "brain" && (
-          <>
-            <PromptsPanel uid={user.id} clients={active} />
-            <h2 className="mb-3 text-[22px] font-bold">Researched rules</h2>
-            <BrainView />
-          </>
-        )}
+        {view === "style" && <PromptsPanel uid={user.id} clients={active} />}
         {view === "clients" && (
           <>
             {active.length === 0 ? (

@@ -63,18 +63,15 @@ function UploadForm() {
   );
 }
 
-/**
- * Clients → Brain, the middle layer: your own saved instructions (your style). They override the
- * researched rules below; each client's Profile overrides both.
- */
+/** Clients → Your style: your own saved instructions for Claude. Each client's profile overrides them. */
 export async function PromptsPanel({ uid, clients }: { uid: number; clients: { id: number; name: string; color: string }[] }) {
   const db = await getDb();
   const prompts = await db.select().from(schema.prompts).where(eq(schema.prompts.userId, uid)).orderBy(asc(schema.prompts.name));
   return (
     <div id="style" className="mb-10 scroll-mt-6">
       <Card className="mb-6 p-4 text-[14px] leading-relaxed text-label-2">
-        What Opus follows, in three layers: the <strong className="text-label">researched rules</strong> below, then <strong className="text-label">your style</strong> (your saved prompts), then each{" "}
-        <strong className="text-label">client&apos;s profile</strong>. A later layer wins when they disagree, and the brief for a single reel or carousel wins over all of them.
+        What Opus follows when it edits a reel or carousel: <strong className="text-label">your style</strong> (your saved prompts), then each{" "}
+        <strong className="text-label">client&apos;s profile</strong>. The profile wins when they disagree, and the brief for a single reel or carousel wins over both.
       </Card>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">

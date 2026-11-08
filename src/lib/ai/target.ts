@@ -2,11 +2,11 @@ import "server-only";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { renderCarousel, renderReel } from "./editor";
-import { renderPlan, renderProfile } from "../reels-brain/prompt";
+import { renderProfile } from "../client-profile";
 
 export type TargetType = "reel" | "carousel";
 
-/** The client's Reels Brain profile as text (who the content is for). */
+/** The client's brand profile as text (who the content is for). */
 async function clientContext(uid: number, clientId: number) {
   const db = await getDb();
   const [c] = await db
@@ -16,13 +16,13 @@ async function clientContext(uid: number, clientId: number) {
   return c ? renderProfile(c.name, c.profile) : "";
 }
 
-/** The current reel/carousel as text for Claude (with the client profile and reel plan), or null if it doesn't exist. */
+/** The current reel/carousel as text for Claude (with the client profile), or null if it doesn't exist. */
 export async function loadTargetContext(uid: number, targetType: TargetType, targetId: number) {
   const db = await getDb();
   if (targetType === "reel") {
     const [r] = await db.select().from(schema.reels).where(and(eq(schema.reels.userId, uid), eq(schema.reels.id, targetId)));
     if (!r) return null;
-    return [await clientContext(uid, r.clientId), renderReel(r), renderPlan(r.plan)].filter(Boolean).join("\n\n");
+    return [await clientContext(uid, r.clientId), renderReel(r)].filter(Boolean).join("\n\n");
   }
   const [c] = await db.select().from(schema.carousels).where(and(eq(schema.carousels.userId, uid), eq(schema.carousels.id, targetId)));
   if (!c) return null;

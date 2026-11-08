@@ -7,7 +7,6 @@ import { engagement, kindLabel, loadGoals, loadPosts, platformLabel, summarize, 
 import { dayItems } from "@/lib/now-next";
 import { getSettings } from "@/lib/settings";
 import { addDays, toHHMM, toMin } from "@/lib/time";
-import { HOOK_FORMULAS } from "@/lib/reels-brain/content";
 import { getWeek, todayIn } from "@/lib/week";
 
 export const maxDuration = 120;
@@ -25,7 +24,7 @@ Compare only like with like (platform, format); one post is an anecdote, so say 
   ideas: `You are a social media strategist. From the creator's best posts, suggest 6 new post ideas.
 For each: a one-line idea, the format (reel / carousel / …), a scroll-stopping hook (first line or first 1–3 seconds) and a caption opener.
 If writing instructions are given, follow their style and language.
-Hooks must be true and self-contained, and align what's seen, written and said. Pay off any curiosity. No engagement bait, no invented numbers. Formula ideas: ${HOOK_FORMULAS.map((h) => h.name).join("; ")}.`,
+Hooks must be true and self-contained, and align what's seen, written and said. Pay off any curiosity. No engagement bait, no invented numbers. Formula ideas: pain in their words; result first; before / after; mistake; contrarian (true); a true specific number; benefit line; stakes / deadline; question; series.`,
   plan: `You plan when a creator should post during the coming week. Use their best days and hours (from the numbers), spread posts sensibly per client, and only use free times given.
 Return 3 to 7 posts.`,
   summary: `Write a short, friendly performance update a creator can send to their client: what was posted, the results (views, engagement, best post), and what comes next.

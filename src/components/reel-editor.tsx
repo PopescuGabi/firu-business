@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { ChevronLeft, Sparkles, Trash2 } from "lucide-react";
 import { deleteReel, saveReel } from "@/app/actions/clients";
 import type { DriveFile } from "@/lib/db/schema";
@@ -43,9 +43,7 @@ export function ReelEditor({
   prompts,
   claudeConfigured,
   googleConnected,
-  brain,
 }: {
-  brain?: ReactNode;
   reel: Reel;
   clientName: string;
   messages: ChatMessage[];
@@ -117,8 +115,6 @@ export function ReelEditor({
               <textarea value={fields.notes} onChange={(e) => set("notes", e.target.value)} rows={5} className="field" />
             </Field>
           </Card>
-
-          {brain}
 
           <Card className="p-4">
             <p className="mb-2 text-[13px] font-medium text-label-2">Footage & exports (Google Drive)</p>

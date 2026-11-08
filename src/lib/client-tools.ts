@@ -2,7 +2,7 @@
 
 export const CLIENT_TOOLS = [
   { key: "instagram", label: "Instagram analytics", description: "Their Instagram results: reach, followers, best posts, posting rhythm." },
-  { key: "content", label: "Content production", description: "Reels and carousels you make for them, with the AI editor and Brain." },
+  { key: "content", label: "Content production", description: "Reels and carousels you make for them, with Claude as editor." },
   { key: "app", label: "App / website work", description: "Versions and updates of an app or website you build for them." },
   { key: "finance", label: "Finance", description: "What they pay you and what's still waiting." },
 ] as const;

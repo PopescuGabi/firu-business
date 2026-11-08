@@ -11,8 +11,7 @@ import { BUSINESS_TYPES, isClientTool } from "@/lib/client-tools";
 import { carouselProposal, reelProposal } from "@/lib/ai/editor";
 import { getFileMeta } from "@/lib/google/drive";
 import { parsePageDraft } from "@/lib/custom-pages";
-import { clientProfile, reelPlan } from "@/lib/reels-brain/types";
-import { videoSpec } from "@/lib/video/spec";
+import { clientProfile } from "@/lib/client-profile";
 
 const name = z.string().trim().min(1).max(200);
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/).catch("#007AFF");
@@ -369,8 +368,8 @@ export async function quickAddAppUpdate(fd: FormData) {
   redirect(`/clients/${clientId}?tab=app`);
 }
 
-// ── Reels Brain ────────────────────────────────────────────
-/** Saves a client's Reels Brain profile (who the content is for). */
+// ── Brand profile ──────────────────────────────────────────
+/** Saves a client's brand profile (who the content is for). */
 export async function saveClientProfile(id: number, profile: unknown) {
   const user = await requireUser();
   const db = await getDb();
@@ -382,36 +381,5 @@ export async function saveClientProfile(id: number, profile: unknown) {
     .returning({ id: schema.clients.id });
   if (!c) throw new Error("Not found");
   revalidatePath(`/clients/${id}`);
-  return clean;
-}
-
-/** Saves a reel's plan (diagnosis, caption plan, experiment, review checks). */
-export async function saveReelPlan(id: number, plan: unknown) {
-  const user = await requireUser();
-  const db = await getDb();
-  const clean = reelPlan.parse(plan);
-  const [r] = await db
-    .update(schema.reels)
-    .set({ plan: clean, updatedAt: new Date() })
-    .where(and(eq(schema.reels.id, id), eq(schema.reels.userId, user.id)))
-    .returning({ id: schema.reels.id });
-  if (!r) throw new Error("Not found");
-  return clean;
-}
-
-/** Saves the AI video maker's brief and spec for a reel (the spec is re-validated; attachments stay in the browser). */
-export async function saveReelVideo(id: number, video: { brief?: string; spec?: unknown }) {
-  const user = await requireUser();
-  const db = await getDb();
-  const clean = {
-    brief: z.string().max(8000).catch("").parse(video.brief ?? ""),
-    spec: video.spec === undefined ? undefined : videoSpec.parse(video.spec),
-  };
-  const [r] = await db
-    .update(schema.reels)
-    .set({ video: clean, updatedAt: new Date() })
-    .where(and(eq(schema.reels.id, id), eq(schema.reels.userId, user.id)))
-    .returning({ id: schema.reels.id });
-  if (!r) throw new Error("Not found");
   return clean;
 }
