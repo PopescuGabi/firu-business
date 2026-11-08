@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
-import { BarChart3, Brain, Briefcase, Plus, Wallet } from "lucide-react";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { ArrowRight, BarChart3, Brain, Briefcase, Plus, Wallet } from "lucide-react";
+import { NewClientCard } from "@/components/new-client-card";
 import { BrainView } from "@/components/brain-view";
 import { Sparkline } from "@/components/charts";
 import { ClientForm } from "@/components/client-form";
@@ -33,11 +34,28 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const { new: openNew, view: viewParam } = await searchParams;
   const settings = await getSettings(user.id);
   const today = todayIn(settings.timezone);
-  const [clients, snaps, aiOn] = await Promise.all([
+  const [clients, snaps, aiOn, openTasks, openReels] = await Promise.all([
     db.select().from(schema.clients).where(eq(schema.clients.userId, user.id)).orderBy(asc(schema.clients.name)),
     clientSnapshots(user.id),
     claudeAvailable(user.id),
+    db
+      .select({ id: schema.tasks.id, clientId: schema.tasks.clientId, title: schema.tasks.title, due: schema.tasks.due })
+      .from(schema.tasks)
+      .where(and(eq(schema.tasks.userId, user.id), eq(schema.tasks.done, false)))
+      .orderBy(asc(schema.tasks.due), asc(schema.tasks.id)),
+    db
+      .select({ clientId: schema.reels.clientId, title: schema.reels.title, status: schema.reels.status })
+      .from(schema.reels)
+      .where(and(eq(schema.reels.userId, user.id), ne(schema.reels.status, "posted")))
+      .orderBy(desc(schema.reels.updatedAt)),
   ]);
+  // For each client card: its next task (or a reel waiting on review) and a few numbers.
+  const nextFor = (id: number) => {
+    const t = openTasks.find((x) => x.clientId === id);
+    if (t) return { text: t.title, when: !t.due ? "" : t.due === today ? "Today" : t.due < today ? "Overdue" : new Date(`${t.due}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric" }) };
+    const r = openReels.find((x) => x.clientId === id);
+    return r ? { text: r.title, when: r.status === "review" ? "In review" : r.status.replace(/^./, (c) => c.toUpperCase()) } : null;
+  };
   const active = clients.filter((c) => !c.archived);
   const archived = clients.filter((c) => c.archived);
   const any = (tool: string) => active.some((c) => c.features.includes(tool));
@@ -56,8 +74,9 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader
         title="Clients"
+        subtitle={active.length ? `${active.length} active` : undefined}
         actions={
-          <Sheet title="New client" defaultOpen={openNew === "1"} trigger={<><Plus size={16} /> New client</>} triggerClassName={buttonClass("filled")}>
+          <Sheet title="New client" openId="new-client" defaultOpen={openNew === "1"} trigger={<><Plus size={16} /> New client</>} triggerClassName={buttonClass("filled")}>
             <ClientForm action={createClient} aiOn={aiOn} />
           </Sheet>
         }
@@ -127,44 +146,47 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
               <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {active.map((c) => {
                   const s = c.features.includes("instagram") ? snaps.get(c.id) : undefined;
+                  const next = nextFor(c.id);
+                  const stats = [
+                    { label: "Open tasks", value: String(openTasks.filter((t) => t.clientId === c.id).length) },
+                    ...(c.features.includes("content") ? [{ label: "In progress", value: String(openReels.filter((r) => r.clientId === c.id).length) }] : []),
+                    ...(s ? [{ label: "Followers", value: s.followers === null ? "–" : fmt(s.followers) }] : []),
+                  ];
                   return (
                     <ContextMenu key={c.id} items={[{ label: "Archive client", destructive: true, confirm: `Archive ${c.name}? You can restore it below, under Archived.`, action: setClientArchived.bind(null, c.id, true) }]}>
                       <Link href={`/clients/${c.id}`} className="group block h-full">
-                        <Card className="flex h-full flex-col gap-3 p-5 transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                        <Card className="flex h-full flex-col gap-4 rounded-[22px] p-5 transition group-hover:-translate-y-0.5">
                           <div className="flex items-center gap-3">
-                            <div className="grid size-11 shrink-0 place-items-center rounded-xl text-[19px] font-bold text-white" style={{ background: c.color }}>
+                            <div className="grid size-11 shrink-0 place-items-center rounded-[13px] text-[18px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]" style={{ background: c.color }}>
                               {c.name.slice(0, 1).toUpperCase()}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-[18px] font-semibold">{c.name}</p>
-                              <p className="truncate text-[13px] text-label-2">{businessLabel(c.businessType) || "Business"}</p>
+                              <p className="truncate text-[17px] font-semibold">{c.name}</p>
+                              <p className="truncate text-[13px] text-label-2">{[businessLabel(c.businessType) || "Business", c.features.map(toolLabel).join(", ")].filter(Boolean).join(" · ")}</p>
                             </div>
                           </div>
-                          {c.description && <p className="line-clamp-2 text-[14px] text-label-2">{c.description}</p>}
-                          {s && (
-                            <div className="rounded-[16px] bg-well px-3 py-2">
-                              <p className="text-[12px] text-label-2">
-                                @{s.username} · <strong className="text-label">{s.followers === null ? "–" : fmt(s.followers)}</strong> followers
-                              </p>
-                              {s.spark.length > 1 && <Sparkline values={s.spark} className="text-accent" />}
-                            </div>
-                          )}
-                          <div className="mt-auto flex flex-wrap gap-1.5">
-                            {c.features.length ? (
-                              c.features.map((f) => (
-                                <span key={f} className="chip !h-6 !text-[12px]">
-                                  {toolLabel(f)}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-[12px] text-label-3">No tools yet</span>
-                            )}
+                          <div
+                            className="flex items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-[14px]"
+                            style={{ background: `color-mix(in srgb, ${c.color} 11%, transparent)` }}
+                          >
+                            <ArrowRight size={15} className="shrink-0" style={{ color: c.color }} />
+                            <span className={next ? "min-w-0 flex-1 truncate font-semibold" : "min-w-0 flex-1 truncate text-label-2"}>{next ? next.text : "Nothing waiting"}</span>
+                            {next?.when && <span className="shrink-0 text-[12px] text-label-2">{next.when}</span>}
+                          </div>
+                          <div className="mt-auto grid grid-cols-3 gap-2 border-t border-separator pt-3">
+                            {stats.map((x) => (
+                              <div key={x.label} className="min-w-0">
+                                <p className="truncate text-[12px] text-label-2">{x.label}</p>
+                                <p className="mt-0.5 truncate text-[17px] font-semibold tabular-nums">{x.value}</p>
+                              </div>
+                            ))}
                           </div>
                         </Card>
                       </Link>
                     </ContextMenu>
                   );
                 })}
+                <NewClientCard />
               </div>
             )}
             {archived.length > 0 && (

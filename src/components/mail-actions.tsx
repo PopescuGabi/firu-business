@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useEffect, useState } from "react";
-import { ListTodo, Send, Sparkles } from "lucide-react";
+import { Check, ListTodo, Send, Sparkles } from "lucide-react";
 import { mailToTask, replyToMail, type MailState } from "@/app/actions/email";
 import { LiquidButton } from "./liquid-button";
 import { buttonClass, Field } from "./ui";
@@ -80,17 +80,15 @@ export function MailToTask({ id, subject, compact }: { id: string; subject: stri
   if (compact) {
     return (
       <form action={make}>
-        <LiquidButton
-          square
-          size="sm"
-          className="!h-8"
+        <button
+          className={buttonClass("plain", "sm") + " !text-label-2 hover:!text-label"}
           aria-label={`Make a task from “${subject}”`}
           title={state?.message ?? "Make a task"}
           disabled={making || state?.ok}
-          state={making ? "busy" : state?.ok ? "done" : "idle"}
-          icon={<ListTodo size={15} />}
-          label=""
-        />
+        >
+          {state?.ok ? <Check size={14} /> : <ListTodo size={14} />}
+          {state?.ok ? "Added" : making ? "Adding…" : "Task"}
+        </button>
       </form>
     );
   }

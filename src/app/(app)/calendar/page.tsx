@@ -170,22 +170,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         title="Calendar"
         actions={
           <>
-            <div className="flex items-center rounded-full bg-fill p-0.5">
-              <Link
-                href={`/calendar?week=${addDays(start, -7)}`}
-                aria-label="Previous week"
-                className="grid size-8 place-items-center rounded-full hover:bg-fill-2"
-              >
+            <div className="flex items-center gap-1.5">
+              <Link href={`/calendar?week=${addDays(start, -7)}`} aria-label="Previous week" className={clsx(buttonClass("gray"), "!size-9 !px-0")}>
                 <ChevronLeft size={18} />
               </Link>
-              <Link href="/calendar" className="px-3 text-[14px] font-semibold">
+              <Link href="/calendar" className={buttonClass("gray")}>
                 Today
               </Link>
-              <Link
-                href={`/calendar?week=${addDays(start, 7)}`}
-                aria-label="Next week"
-                className="grid size-8 place-items-center rounded-full hover:bg-fill-2"
-              >
+              <Link href={`/calendar?week=${addDays(start, 7)}`} aria-label="Next week" className={clsx(buttonClass("gray"), "!size-9 !px-0")}>
                 <ChevronRight size={18} />
               </Link>
             </div>
@@ -197,7 +189,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     <Plus size={16} /> Event
                   </>
                 }
-                triggerClassName={buttonClass("tinted")}
+                triggerClassName={buttonClass("gray")}
               >
                 <EventForm {...formProps} defaultDate={today >= start && today <= end ? today : start} />
               </Sheet>
@@ -223,13 +215,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       />
 
       <Slide group="calendar-week" index={Math.round(Date.parse(start) / 604_800_000)}>
-        <div className="glass overflow-x-auto rounded-[24px]">
+        <div className="glass overflow-x-auto rounded-[22px]">
           <div className="min-w-[860px]">
-            <div className="sticky top-0 z-10 grid grid-cols-[52px_repeat(7,1fr)] border-b border-separator bg-card-solid/80 backdrop-blur-xl">
+            <div className="sticky top-0 z-10 grid grid-cols-[52px_repeat(7,1fr)] border-b border-separator bg-[var(--bg-elevated)] backdrop-blur-xl">
               <div />
               {days.map((d) => (
                 <div key={d.date} className="border-l border-separator px-2 py-2 text-center">
-                  <p className="text-[11px] font-semibold text-label-2 uppercase">{WEEKDAYS_SHORT[d.weekday - 1]}</p>
+                  <p className="text-[12px] font-medium text-label-2">{WEEKDAYS_SHORT[d.weekday - 1]}</p>
                   {writable.length > 0 ? (
                     <Sheet
                       title={`New event · ${WEEKDAYS[d.weekday - 1]} ${Number(d.date.slice(8))}`}
@@ -237,7 +229,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       triggerLabel={`Add an event on ${WEEKDAYS[d.weekday - 1]} ${Number(d.date.slice(8))}`}
                       triggerClassName={clsx(
                         "mx-auto mt-0.5 grid size-8 cursor-pointer place-items-center rounded-full text-[17px] font-semibold transition hover:bg-fill",
-                        d.date === today && "orb-btn-on hover:opacity-90",
+                        d.date === today && "!bg-accent text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] hover:opacity-90",
                       )}
                     >
                       <EventForm {...formProps} defaultDate={d.date} />
@@ -246,7 +238,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     <p
                       className={clsx(
                         "mx-auto mt-0.5 grid size-8 place-items-center rounded-full text-[17px] font-semibold",
-                        d.date === today && "orb-btn-on",
+                        d.date === today && "bg-accent text-white",
                       )}
                     >
                       {Number(d.date.slice(8))}
@@ -297,19 +289,20 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         height: h,
                         left: `calc(${(e.col / e.cols) * 100}% + 2px)`,
                         width: `calc(${100 / e.cols}% - 4px)`,
-                        background: `color-mix(in srgb, ${e.color} ${proposed ? 10 : 22}%, var(--card-solid))`,
-                        borderColor: e.color,
-                        borderLeft: `3px solid ${e.color}`,
+                        background: proposed ? "transparent" : `color-mix(in srgb, ${e.color} 17%, var(--card-solid))`,
+                        color: `color-mix(in srgb, ${e.color} 62%, var(--label))`,
+                        borderColor: proposed ? "var(--accent)" : undefined,
+                        boxShadow: proposed ? undefined : "inset 0 1px 0 rgba(255,255,255,0.25)",
                       };
                       const cls = clsx(
-                        "absolute overflow-hidden rounded-md px-1.5 py-0.5 text-left text-[11px] leading-tight",
-                        proposed && "border border-dashed",
+                        "absolute overflow-hidden rounded-[9px] px-2 py-1 text-left text-[12px] leading-tight",
+                        proposed && "border-[1.5px] border-dashed",
                       );
                       const body = (
                         <>
                           <span className="block truncate font-semibold">{e.title}</span>
                           {h > 30 && (
-                            <span className="block truncate text-label-2">
+                            <span className="block truncate opacity-75">
                               {e.label}
                             </span>
                           )}
@@ -371,8 +364,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       );
                     })}
                     {d.date === today && now >= firstHour * 60 && now <= lastHour * 60 && (
-                      <div className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-accent shadow-[0_0_8px_var(--glow-color)]" style={{ top: top(now) }}>
-                        <span className="absolute -top-1 -left-1 size-2.5 rounded-full" style={{ background: "var(--orb)", boxShadow: "var(--glow)" }} />
+                      <div className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-red" style={{ top: top(now) }}>
+                        <span className="absolute -top-1 -left-1 size-2.5 rounded-full bg-red" />
                       </div>
                     )}
                   </div>

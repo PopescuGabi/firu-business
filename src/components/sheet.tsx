@@ -19,6 +19,7 @@ export function Sheet({
   defaultOpen = false,
   menu,
   openLabel = "Open",
+  openId,
 }: {
   trigger: ReactNode;
   title: string;
@@ -29,12 +30,20 @@ export function Sheet({
   defaultOpen?: boolean;
   menu?: MenuItem[];
   openLabel?: string;
+  /** Lets a menu elsewhere open this sheet: dispatch `new CustomEvent("open-sheet", { detail: openId })`. */
+  openId?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const ctx = useContextMenu(menu?.length ? [{ label: openLabel, action: () => ref.current?.showModal() }, ...menu] : []);
   useEffect(() => {
     if (defaultOpen) ref.current?.showModal();
   }, [defaultOpen]);
+  useEffect(() => {
+    if (!openId) return;
+    const open = (e: Event) => (e as CustomEvent<string>).detail === openId && ref.current?.showModal();
+    window.addEventListener("open-sheet", open);
+    return () => window.removeEventListener("open-sheet", open);
+  }, [openId]);
   return (
     <>
       <button

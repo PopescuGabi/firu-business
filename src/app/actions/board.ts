@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { linkFor } from "@/lib/client-links";
 import { getDb, schema } from "@/lib/db";
-import { HOME_BOARD_KEY as HOME, sharedBoardKey as sharedKey } from "@/lib/board";
+import { clientOverviewKey, HOME_BOARD_KEY as HOME, sharedBoardKey as sharedKey } from "@/lib/board";
 import { setSetting } from "@/lib/settings";
 
 // What a saved board may look like (it's cleaned again against the widgets available whenever it's read).
@@ -47,6 +47,23 @@ export async function saveSharedBoard(linkId: number, layout: unknown) {
 export async function resetSharedBoard(linkId: number) {
   const user = await requireUser();
   await deleteSetting(user.id, sharedKey(z.number().int().positive().parse(linkId)));
+}
+
+/** Your arrangement of a client's Overview tab (only for a client of yours). */
+async function ownClientId(uid: number, clientId: number) {
+  const id = z.number().int().positive().parse(clientId);
+  const db = await getDb();
+  const [c] = await db.select({ id: schema.clients.id }).from(schema.clients).where(and(eq(schema.clients.id, id), eq(schema.clients.userId, uid)));
+  if (!c) throw new Error("Client not found");
+  return c.id;
+}
+export async function saveClientOverview(clientId: number, layout: unknown) {
+  const user = await requireUser();
+  await setSetting(user.id, clientOverviewKey(await ownClientId(user.id, clientId)), layoutSchema.parse(layout));
+}
+export async function resetClientOverview(clientId: number) {
+  const user = await requireUser();
+  await deleteSetting(user.id, clientOverviewKey(await ownClientId(user.id, clientId)));
 }
 
 /** The agency's starting layout for a client's dashboard (what the client sees until they rearrange it). */

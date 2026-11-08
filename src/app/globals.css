@@ -11,26 +11,30 @@
 :root {
   --bg: #eceef2;
   --backdrop: var(--backdrop-default); /* a picked background (Settings) replaces this */
-  --backdrop-default:
-    radial-gradient(55% 45% at 10% 0%, rgba(47, 123, 255, 0.16), transparent 70%),
-    radial-gradient(45% 45% at 96% 12%, rgba(120, 168, 255, 0.14), transparent 70%),
-    radial-gradient(60% 60% at 78% 100%, rgba(150, 160, 190, 0.24), transparent 72%),
-    linear-gradient(180deg, #f4f5f8, #e5e7ec);
-  --bg-elevated: rgba(250, 250, 252, 0.9);
-  /* Liquid glass for things that float over the page (sheets, menus): see-through, a bright top
-     edge and a soft sheen, like light catching the rim of a glass pane. */
-  --float: rgba(255, 255, 255, 0.55);
-  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 38%);
-  --card: rgba(255, 255, 255, 0.72);
+  --backdrop-default: #eceef2; /* one solid colour: the glass carries the depth */
+  --bg-elevated: rgba(250, 250, 252, 0.92);
+  /* Liquid glass: see-through panes with a bright top-left rim and a soft sheen, like light catching
+     the edge of curved glass. Box shadows only (no pseudo-elements), so any element can be glass. */
+  --float: rgba(255, 255, 255, 0.62);
+  --glass-edge:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 0.5px rgba(255, 255, 255, 0.55);
+  --glass-sheen: linear-gradient(155deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 42%);
+  --card: rgba(255, 255, 255, 0.64);
   --card-solid: #ffffff;
   --card-2: rgba(255, 255, 255, 0.5);
-  --well: rgba(236, 238, 243, 0.85); /* inner panels inside a card (lists, stats) */
-  --glass-border: rgba(255, 255, 255, 0.85);
+  --well: rgba(255, 255, 255, 0.5); /* inner panels inside a card (lists, stats) */
+  --glass-border: rgba(255, 255, 255, 0.7);
   --chrome: rgba(255, 255, 255, 0.6);
+  --field-bg: rgba(255, 255, 255, 0.55);
+  --field-edge: inset 0 1px 2px rgba(30, 40, 90, 0.07), inset 0 0 0 0.5px rgba(30, 40, 90, 0.1);
+  /* A selected item (menu row, tab, segment): a brighter pane lifted off the glass. */
+  --sel: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.72));
+  --sel-shadow: inset 0 1px 0 #fff, 0 0 0 0.5px rgba(30, 40, 90, 0.06), 0 2px 10px rgba(40, 60, 140, 0.12);
+  --track: rgba(120, 126, 145, 0.12);
   --label: #0f1115;
-  --label-2: rgba(30, 34, 44, 0.58);
-  --label-3: rgba(30, 34, 44, 0.3);
+  --label-2: rgba(30, 34, 44, 0.6);
+  --label-3: rgba(30, 34, 44, 0.32);
   --separator: rgba(20, 24, 40, 0.08);
   --fill: rgba(110, 118, 140, 0.1);
   --fill-2: rgba(110, 118, 140, 0.17);
@@ -38,78 +42,83 @@
   --material: rgba(255, 255, 255, 0.6);
   --ink: #15171c;
   --on-ink: #ffffff;
-  --rail: #17181d;
-  --rail-icon: rgba(255, 255, 255, 0.6);
-  --rail-active: #2f7bff;
-  --accent: #2f7bff;
-  --accent-soft: rgba(47, 123, 255, 0.12);
-  /* The electric-blue glow: active orbs, the liquid fill, focus. */
-  --glow-color: #2f7bff;
-  --orb: radial-gradient(circle at 35% 28%, #8cc8ff 0%, #3d8bff 45%, #1f5fe6 100%);
-  --glow: 0 0 0 1px rgba(90, 160, 255, 0.55), 0 6px 22px rgba(47, 123, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  --hero: linear-gradient(135deg, rgba(47, 123, 255, 0.16) 0%, rgba(47, 123, 255, 0.05) 55%, rgba(255, 255, 255, 0.2) 100%);
-  --mint: linear-gradient(140deg, #4a98ff 0%, #2f7bff 45%, #1c58d6 100%);
-  --blue: #2f7bff;
-  --green: #30c25a;
-  --orange: #ff9500;
-  --red: #ff3b30;
-  --purple: #a35bea;
-  --pink: #ff2d55;
-  --teal: #22b3c9;
+  --rail: rgba(255, 255, 255, 0.55);
+  --rail-icon: rgba(30, 34, 44, 0.6);
+  --rail-active: #2f6bff;
+  --accent: #2f6bff;
+  --accent-soft: rgba(47, 107, 255, 0.11);
+  /* The blue accent: progress, the primary button, focus. */
+  --glow-color: #2f6bff;
+  --orb: linear-gradient(180deg, #5b8cff 0%, #2f6bff 60%, #2a5ff0 100%);
+  --glow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 14px rgba(47, 107, 255, 0.3);
+  --hero: transparent;
+  --mint: var(--orb);
+  --blue: #2f6bff;
+  --green: #22a855;
+  --orange: #f08c00;
+  --red: #e5352b;
+  --purple: #8b5cf6;
+  --pink: #ec4878;
+  --teal: #12a3b8;
   --indigo: #5856d6;
-  --yellow: #ffcc00;
-  --shadow: 0 1px 1px rgba(16, 20, 40, 0.03), 0 8px 28px rgba(16, 20, 40, 0.07);
-  --shadow-lift: 0 2px 4px rgba(16, 20, 40, 0.04), 0 18px 44px rgba(16, 20, 40, 0.13);
+  --yellow: #e0a800;
+  --shadow: 0 1px 2px rgba(20, 30, 70, 0.05), 0 12px 36px rgba(40, 52, 110, 0.08);
+  --shadow-lift: 0 2px 4px rgba(20, 30, 70, 0.05), 0 18px 44px rgba(40, 52, 110, 0.14);
   color-scheme: light;
 }
 
+/* Dark is true black (OLED pixels off); the glass shows as a faint pane with a lit rim. */
 :root[data-theme="dark"] {
-  --bg: #0f1013;
-  --backdrop-default:
-    radial-gradient(55% 45% at 10% 0%, rgba(47, 123, 255, 0.24), transparent 70%),
-    radial-gradient(45% 45% at 100% 18%, rgba(80, 120, 210, 0.12), transparent 70%),
-    radial-gradient(60% 60% at 72% 100%, rgba(40, 62, 120, 0.28), transparent 72%),
-    linear-gradient(180deg, #131418, #0b0c0f);
-  --bg-elevated: rgba(28, 29, 34, 0.92);
-  --float: rgba(30, 31, 37, 0.55);
-  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.045);
-  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 38%);
-  --card: rgba(30, 31, 37, 0.74);
-  --card-solid: #1c1d22;
-  --card-2: rgba(38, 39, 45, 0.6);
-  --well: rgba(44, 45, 52, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.07);
-  --chrome: rgba(28, 29, 34, 0.66);
+  --bg: #000000;
+  --backdrop-default: #000000;
+  --bg-elevated: rgba(20, 20, 23, 0.94);
+  --float: rgba(24, 24, 28, 0.66);
+  --glass-edge:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04), inset 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  --glass-sheen: linear-gradient(155deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 42%);
+  --card: rgba(255, 255, 255, 0.055);
+  --card-solid: #121215;
+  --card-2: rgba(255, 255, 255, 0.04);
+  --well: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --chrome: rgba(20, 20, 23, 0.72);
+  --field-bg: rgba(255, 255, 255, 0.05);
+  --field-edge: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  --sel: linear-gradient(180deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.07));
+  --sel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 10px rgba(0, 0, 0, 0.5);
+  --track: rgba(255, 255, 255, 0.06);
   --label: #f4f5f7;
-  --label-2: rgba(232, 234, 242, 0.58);
-  --label-3: rgba(232, 234, 242, 0.3);
-  --separator: rgba(255, 255, 255, 0.07);
-  --fill: rgba(255, 255, 255, 0.06);
-  --fill-2: rgba(255, 255, 255, 0.11);
+  --label-2: rgba(232, 234, 242, 0.6);
+  --label-3: rgba(232, 234, 242, 0.32);
+  --separator: rgba(255, 255, 255, 0.08);
+  --fill: rgba(255, 255, 255, 0.07);
+  --fill-2: rgba(255, 255, 255, 0.12);
   --segment: rgba(255, 255, 255, 0.14);
-  --material: rgba(28, 29, 34, 0.62);
+  --material: rgba(20, 20, 23, 0.66);
   --ink: #f4f5f7;
-  --on-ink: #111216;
-  --rail: rgba(24, 25, 30, 0.85);
-  --rail-icon: rgba(255, 255, 255, 0.55);
-  --rail-active: #3b8cff;
-  --accent: #4b97ff;
-  --accent-soft: rgba(75, 151, 255, 0.17);
-  --glow-color: #3b8cff;
-  --glow: 0 0 0 1px rgba(110, 170, 255, 0.5), 0 6px 26px rgba(59, 140, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  --hero: linear-gradient(135deg, rgba(59, 140, 255, 0.24) 0%, rgba(59, 140, 255, 0.06) 55%, rgba(30, 31, 37, 0.4) 100%);
-  --mint: linear-gradient(140deg, #4b97ff 0%, #2f7bff 45%, #1a4fc4 100%);
-  --blue: #3b8cff;
+  --on-ink: #0b0b0d;
+  --rail: rgba(255, 255, 255, 0.04);
+  --rail-icon: rgba(232, 234, 242, 0.6);
+  --rail-active: #4c86ff;
+  --accent: #4c86ff;
+  --accent-soft: rgba(76, 134, 255, 0.16);
+  --glow-color: #4c86ff;
+  --orb: linear-gradient(180deg, #6a98ff 0%, #3a74ff 60%, #2f63ea 100%);
+  --glow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 18px rgba(76, 134, 255, 0.35);
+  --hero: transparent;
+  --mint: var(--orb);
+  --blue: #4c86ff;
   --green: #32d15d;
   --orange: #ff9f0a;
   --red: #ff453a;
-  --purple: #bf5af2;
+  --purple: #a78bfa;
   --pink: #ff375f;
   --teal: #40c8e0;
   --indigo: #5e5ce6;
   --yellow: #ffd60a;
-  --shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 10px 30px rgba(0, 0, 0, 0.4);
-  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.3), 0 20px 48px rgba(0, 0, 0, 0.55);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.6), 0 20px 48px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
 
@@ -189,15 +198,41 @@ body::before {
 /* Frosted surfaces. Cards skip backdrop-filter (the backdrop behind them is static, so it would look
    the same and cost a lot); only floating chrome that sits over scrolling content blurs. */
 .glass {
-  background: var(--card);
+  background: var(--glass-sheen), var(--card);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-edge), var(--shadow);
 }
 .chrome {
-  background: var(--chrome);
+  background: var(--glass-sheen), var(--chrome);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-edge), var(--shadow);
   backdrop-filter: saturate(170%) blur(24px);
+}
+[data-theme="dark"] .glass,
+[data-theme="dark"] .chrome {
+  border-color: transparent;
+}
+
+/* Glass pill buttons and the selected pane (menus, tabs, segments). */
+.btn-glass {
+  color: var(--label);
+  background: var(--sel);
+  box-shadow: var(--sel-shadow);
+  backdrop-filter: saturate(170%) blur(18px);
+}
+.btn-glass:hover:not(:disabled) {
+  filter: brightness(1.03);
+}
+[data-theme="dark"] .btn-glass:hover:not(:disabled) {
+  filter: brightness(1.25);
+}
+.seg-track {
+  background: var(--track);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.sel-pane {
+  background: var(--sel);
+  box-shadow: var(--sel-shadow);
 }
 
 /* Over your own photo the backdrop isn't smooth any more, so cards frost it (blur) and get a little
@@ -254,7 +289,7 @@ body::before {
   place-items: center;
   border-radius: 999px;
   color: var(--label-2);
-  background: var(--card);
+  background: var(--glass-sheen), var(--card);
   box-shadow: var(--glass-edge), var(--shadow);
   border: 1px solid var(--glass-border);
   transition:
@@ -263,12 +298,16 @@ body::before {
     box-shadow 0.3s,
     transform 0.2s;
 }
-.orb-btn:hover,
+.orb-btn:hover {
+  color: var(--label);
+  background: var(--sel);
+  box-shadow: var(--sel-shadow);
+}
 .orb-btn-on {
-  color: #fff;
-  background: var(--orb);
+  color: var(--label);
+  background: var(--sel);
   border-color: transparent;
-  box-shadow: var(--glow);
+  box-shadow: var(--sel-shadow);
 }
 .orb-btn:active {
   transform: scale(0.92);
@@ -276,14 +315,13 @@ body::before {
 /* A soft round well for an icon at the start of a card. */
 .orb-well {
   display: grid;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   place-items: center;
-  border-radius: 999px;
-  color: #fff;
-  background: var(--orb);
-  box-shadow: var(--glow);
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 /* A coloured tile (the blue stat) gets the glow too. */
 .glow-surface {
@@ -367,17 +405,19 @@ body::before {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 72%, #0a1f55 28%), color-mix(in srgb, var(--accent) 52%, #0a1f55 48%));
-  border: 1px solid color-mix(in srgb, var(--accent) 60%, #fff 40%);
+  background: var(--orb);
+  border: 0;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 4px 16px color-mix(in srgb, var(--glow-color) 30%, transparent);
-  text-shadow: 0 1px 1px rgba(0, 20, 60, 0.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 6px rgba(10, 30, 120, 0.25),
+    0 6px 18px color-mix(in srgb, var(--glow-color) 32%, transparent);
+  text-shadow: 0 1px 1px rgba(0, 20, 60, 0.2);
 }
 .liquid:hover:not(:disabled) {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 6px 22px color-mix(in srgb, var(--glow-color) 45%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -2px 6px rgba(10, 30, 120, 0.25),
+    0 8px 24px color-mix(in srgb, var(--glow-color) 42%, transparent);
 }
 .liquid-fill {
   position: absolute;
@@ -530,7 +570,8 @@ body::before {
 .field {
   width: 100%;
   border-radius: 12px;
-  background: var(--fill);
+  background: var(--field-bg);
+  box-shadow: var(--field-edge);
   padding: 9px 12px;
   font-size: 15px;
   color: var(--label);
@@ -641,21 +682,18 @@ dialog.sheet[open] {
 @keyframes enter-right {
   from {
     opacity: 0;
-    filter: blur(6px);
     transform: translateX(14px);
   }
 }
 @keyframes enter-left {
   from {
     opacity: 0;
-    filter: blur(6px);
     transform: translateX(-14px);
   }
 }
 @keyframes enter-up {
   from {
     opacity: 0;
-    filter: blur(6px);
     transform: translateY(8px);
   }
 }
@@ -670,7 +708,7 @@ dialog.sheet[open] {
 }
 @media (hover: hover) {
   .tile:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
   }
   .tile:hover > .glass {
     box-shadow: var(--glass-edge), var(--shadow-lift);
@@ -679,7 +717,6 @@ dialog.sheet[open] {
 @keyframes tile-in {
   from {
     opacity: 0;
-    filter: blur(10px);
     transform: translateY(12px) scale(0.985);
   }
 }
@@ -832,7 +869,7 @@ dialog.sheet[open] {
 .board-editing .react-grid-item.react-grid-placeholder {
   background: var(--accent-soft);
   border: 2px dashed var(--accent);
-  border-radius: 24px;
+  border-radius: 22px;
   opacity: 1;
 }
 .board-item {
@@ -848,7 +885,7 @@ dialog.sheet[open] {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 24px;
+  border-radius: 22px;
   box-shadow: inset 0 0 0 2px var(--accent-soft);
   pointer-events: none;
 }
@@ -856,7 +893,7 @@ dialog.sheet[open] {
 .board-shield {
   position: absolute;
   inset: 0;
-  border-radius: 24px;
+  border-radius: 22px;
   cursor: grab;
 }
 @media (pointer: coarse) {
@@ -909,20 +946,32 @@ dialog.sheet[open] {
   border-bottom-right-radius: 6px;
 }
 
+/* The bar shown while customizing a board: a blue-tinted glass strip with Reset / Add a tile / Done. */
+.board-editbar {
+  color: var(--accent);
+  background: var(--glass-sheen), color-mix(in srgb, var(--accent) 13%, var(--card));
+  box-shadow: var(--glass-edge), 0 8px 24px color-mix(in srgb, var(--accent) 12%, transparent);
+  backdrop-filter: saturate(170%) blur(18px);
+}
+/* While customizing, each tile shows a dashed blue outline. */
+.board-editing .react-grid-item .tile {
+  outline: 1.5px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  outline-offset: -1px;
+}
+
 /* The widget list: a panel on the right on a computer, a sheet along the bottom on a phone. */
 .board-library {
   position: fixed;
   z-index: 40;
   display: flex;
   flex-direction: column;
-  /* Starts below the Reset / Widgets / Done buttons at the top of the page, so they stay clickable. */
+  /* Starts below the customizing bar at the top of the page, so its buttons stay clickable. */
   right: 16px;
-  top: 156px;
+  top: 172px;
   bottom: 16px;
   width: 300px;
   border-radius: 24px;
-  /* Solid enough to read over the widgets underneath. */
-  background: color-mix(in srgb, var(--card-solid) 88%, transparent);
+  background: var(--glass-sheen), var(--bg-elevated);
   backdrop-filter: blur(28px) saturate(1.6);
   -webkit-backdrop-filter: blur(28px) saturate(1.6);
   box-shadow: var(--glass-edge), var(--shadow-lift);
@@ -940,6 +989,12 @@ dialog.sheet[open] {
   }
   .board-editing {
     padding-bottom: calc(40vh + 24px);
+  }
+}
+/* On a computer the board makes room for the panel instead of sliding under it. */
+@media (min-width: 641px) {
+  .board-library-open {
+    padding-right: 312px;
   }
 }
 @keyframes library-in {
@@ -1039,7 +1094,7 @@ button {
 }
 .switch:checked {
   background: var(--orb);
-  box-shadow: var(--glow);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 .switch:checked::after {
   transform: translateX(18px);

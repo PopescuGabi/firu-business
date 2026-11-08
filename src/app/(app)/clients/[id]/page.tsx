@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, count, desc, eq, ne } from "drizzle-orm";
-import { Archive, BarChart3, Clapperboard, ExternalLink, FolderOpen, GalleryHorizontalEnd, LayoutDashboard, ListTodo, Pencil, Plus, Share2, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
+import clsx from "clsx";
+import { Archive, BarChart3, Check, Clapperboard, ExternalLink, FileText, FolderOpen, GalleryHorizontalEnd, Info, LayoutDashboard, ListTodo, Pencil, Plus, Share2, Smartphone, Trash2, UserRound, Wallet } from "lucide-react";
+import { Board, type BoardWidget } from "@/components/board/board";
+import { ClientMoreMenu } from "@/components/client-more-menu";
+import { ClientTabsInline } from "@/components/client-tabs-inline";
+import { TileEmpty, Widget } from "@/components/tile";
+import { resetClientOverview, saveClientOverview } from "@/app/actions/board";
+import { clientOverviewKey, normalizeLayout } from "@/lib/board";
+import { overviewCatalogue, overviewDefault } from "@/lib/client-overview";
 import { TaskCheck } from "@/components/check";
 import { ClientTabsEditor } from "@/components/client-tabs-editor";
 import { PageBlocks } from "@/components/custom/blocks";
@@ -58,7 +66,7 @@ import { DEMO_ACCOUNT, demoData } from "@/lib/instagram/demo";
 import { dashHref, dashQuery } from "@/lib/instagram/query";
 import { buildDashboard, fmt } from "@/lib/instagram/stats";
 import { requireModule } from "@/lib/sections";
-import { getSettings } from "@/lib/settings";
+import { getSetting, getSettings } from "@/lib/settings";
 import { todayIn } from "@/lib/week";
 
 // Icons for the built-in tabs (lib/client-tabs.ts lists them; each client chooses its own set and order).
@@ -109,156 +117,405 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
   const [googleConnected, settings, aiOn] = await Promise.all([getGoogleAccount(user.id).then((a) => Boolean(a?.accessToken)), getSettings(user.id), claudeAvailable(user.id)]);
   const today = todayIn(settings.timezone);
 
+  const editSheetId = `edit-client-${id}`;
+  const initial = (client.name.trim()[0] ?? "?").toUpperCase();
+  const since = new Date(client.createdAt).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const header = {
+    lead: (
+      <span className="grid size-12 shrink-0 place-items-center rounded-[15px] text-[20px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]" style={{ background: client.color }}>
+        {initial}
+      </span>
+    ),
+    subtitle: client.archived ? "Archived client" : `${businessLabel(client.businessType) || "Client"} · since ${since}`,
+    title: client.name,
+  };
+  const taskButton = (
+    <Sheet title="New task" trigger={<><Plus size={15} /> Task</>} triggerClassName={buttonClass("gray")}>
+      <TaskForm action={createTask} clients={[{ id: client.id, name: client.name }]} defaultClientId={client.id} />
+    </Sheet>
+  );
+  const more = (
+    <ClientMoreMenu
+      clientId={id}
+      clientName={client.name}
+      driveUrl={client.driveFolderId ? folderUrl(client.driveFolderId) : null}
+      googleConnected={googleConnected}
+      archived={client.archived}
+      editSheetId={editSheetId}
+      dashboardHref={tabKeys.includes("dashboard") ? `/clients/${id}?tab=dashboard` : undefined}
+      setArchived={setClientArchived.bind(null, id)}
+    />
+  );
+  const editorProps = {
+    clientId: id,
+    tabs: tabKeys,
+    builtins: BUILTIN_TABS.map(({ key, label, hint, tool, needs }) => ({ key, label: key === "app" && client.appName ? client.appName : label, hint, tool, needs })),
+    pages: pages.map((p) => ({ id: p.id, title: p.title })),
+    starters: STARTER_KEYS,
+    templates: TEMPLATE_GROUPS.flatMap((g) => g.pages.map((pg, i) => ({ key: `${g.key}:${i}`, title: String(pg.title), group: g.label }))),
+    today,
+  };
+  const viewTabs = (
+    <div className="flex flex-wrap items-center gap-2">
+      <SegmentedLinks
+        label="Sections"
+        active={tab}
+        items={tabs.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? `/clients/${id}` : `/clients/${id}?tab=${key}`, icon: <Icon size={15} /> }))}
+      />
+      {tab !== "overview" && <ClientTabsEditor {...editorProps} />}
+    </div>
+  );
+  const dependants = Object.fromEntries(BUILTIN_TABS.filter((b) => b.tool).map((b) => [b.key, BUILTIN_TABS.filter((x) => x.needs === b.tool).map((x) => x.key)]));
+  const editTabs = (
+    <ClientTabsInline key={tabKeys.join()} clientId={id} tabs={tabs.map(({ key, label }) => ({ key, label }))} dependants={dependants} add={<ClientTabsEditor {...editorProps} variant="add" />} />
+  );
+
   return (
     <>
-      <PageHeader
-        subtitle={client.archived ? "Archived client" : businessLabel(client.businessType) || "Client"}
-        title={client.name}
-        actions={
-          <>
-            {googleConnected && <DriveFolderButton clientId={id} url={client.driveFolderId ? folderUrl(client.driveFolderId) : null} />}
-            <Sheet title="Edit client" trigger={<Pencil size={16} />} triggerLabel="Edit client" triggerClassName={buttonClass("gray") + " !px-3"}>
-              <ClientForm action={updateClient.bind(null, id)} client={client} submitLabel="Save" aiOn={aiOn} />
-              {!client.archived && (
-                <DeleteFooter action={setClientArchived.bind(null, id, true)} message={`Archive ${client.name}? You can restore it from the Clients page.`}>
-                  <Archive size={15} /> Archive client
-                </DeleteFooter>
-              )}
-            </Sheet>
-          </>
-        }
-      />
-      {client.description && <p className="-mt-3 mb-5 text-[15px] text-label-2">{client.description}</p>}
+      <Sheet openId={editSheetId} title="Edit client" trigger={null} triggerClassName="hidden">
+        <ClientForm action={updateClient.bind(null, id)} client={client} submitLabel="Save" aiOn={aiOn} />
+        {!client.archived && (
+          <DeleteFooter action={setClientArchived.bind(null, id, true)} message={`Archive ${client.name}? You can restore it from the Clients page.`}>
+            <Archive size={15} /> Archive client
+          </DeleteFooter>
+        )}
+      </Sheet>
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <SegmentedLinks
-          label="Sections"
-          active={tab}
-          items={tabs.map(({ key, label, icon: Icon }) => ({ key, label, href: key === "overview" ? `/clients/${id}` : `/clients/${id}?tab=${key}`, icon: <Icon size={15} /> }))}
-        />
-        <ClientTabsEditor
-          clientId={id}
-          tabs={tabKeys}
-          builtins={BUILTIN_TABS.map(({ key, label, hint, tool, needs }) => ({ key, label: key === "app" && client.appName ? client.appName : label, hint, tool, needs }))}
-          pages={pages.map((p) => ({ id: p.id, title: p.title }))}
-          starters={STARTER_KEYS}
-          templates={TEMPLATE_GROUPS.flatMap((g) => g.pages.map((pg, i) => ({ key: `${g.key}:${i}`, title: String(pg.title), group: g.label })))}
+      {tab === "overview" ? (
+        <ClientOverview
+          userId={user.id}
+          client={client}
+          pages={pages}
           today={today}
+          currency={settings.moneyCurrency}
+          googleConnected={googleConnected}
+          header={<PageHeader className="!mb-0" {...header} />}
+          actionsBefore={taskButton}
+          actionsAfter={more}
+          tabs={{ view: viewTabs, edit: editTabs }}
         />
-      </div>
-
-      <Slide group={`client-tab-${id}`} index={tabs.findIndex((t) => t.key === tab)}>
-        {tab === "overview" && (
-          <div className="flex flex-col gap-6">
-            <OverviewTab userId={user.id} client={client} today={today} currency={settings.moneyCurrency} />
-          </div>
-        )}
-        {tab === "dashboard" && (
-          <DashboardAccess userId={user.id} client={client} agencyName={settings.displayName || (user.name ?? "").split(" ")[0] || user.email.split("@")[0]} />
-        )}
-        {tab === "tasks" && <TasksTab userId={user.id} client={client} today={today} />}
-        {tab === "files" && <FilesTab userId={user.id} client={client} googleConnected={googleConnected} />}
-        {openPage && <OwnTab userId={user.id} page={openPage} today={today} aiOn={aiOn} />}
-        {tab === "instagram" && <InstagramTab userId={user.id} clientId={id} sp={sp} today={today} tz={settings.timezone} />}
-        {tab === "content" && (
-          <div className="flex flex-col gap-8">
-            <ReelsTab userId={user.id} clientId={id} />
-            <CarouselsTab userId={user.id} clientId={id} />
-          </div>
-        )}
-        {tab === "app" && <AppTab userId={user.id} clientId={id} appName={client.appName} googleConnected={googleConnected} />}
-        {tab === "finance" && <FinanceView uid={user.id} clients={[client]} clientId={id} today={today} currency={settings.moneyCurrency} />}
-        {tab === "profile" && <ClientProfileForm clientId={id} initial={client.profile} />}
-      </Slide>
+      ) : (
+        <>
+          <PageHeader
+            {...header}
+            actions={
+              <>
+                {taskButton}
+                {more}
+              </>
+            }
+          />
+          <div className="mb-5">{viewTabs}</div>
+          <Slide group={`client-tab-${id}`} index={tabs.findIndex((t) => t.key === tab)}>
+            {tab === "dashboard" && (
+              <DashboardAccess userId={user.id} client={client} agencyName={settings.displayName || (user.name ?? "").split(" ")[0] || user.email.split("@")[0]} />
+            )}
+            {tab === "tasks" && <TasksTab userId={user.id} client={client} today={today} />}
+            {tab === "files" && <FilesTab userId={user.id} client={client} googleConnected={googleConnected} />}
+            {openPage && <OwnTab userId={user.id} page={openPage} today={today} aiOn={aiOn} />}
+            {tab === "instagram" && <InstagramTab userId={user.id} clientId={id} sp={sp} today={today} tz={settings.timezone} />}
+            {tab === "content" && (
+              <div className="flex flex-col gap-8">
+                <ReelsTab userId={user.id} clientId={id} />
+                <CarouselsTab userId={user.id} clientId={id} />
+              </div>
+            )}
+            {tab === "app" && <AppTab userId={user.id} clientId={id} appName={client.appName} googleConnected={googleConnected} />}
+            {tab === "finance" && <FinanceView uid={user.id} clients={[client]} clientId={id} today={today} currency={settings.moneyCurrency} />}
+            {tab === "profile" && <ClientProfileForm clientId={id} initial={client.profile} />}
+          </Slide>
+        </>
+      )}
     </>
   );
 }
 
 type ClientRow = typeof schema.clients.$inferSelect;
 
-/** One look at the client: only the tools they have, each with its key numbers and a link. */
-async function OverviewTab({ userId, client, today, currency }: { userId: number; client: ClientRow; today: string; currency: "RON" | "EUR" }) {
+const OVERVIEW_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  followers: BarChart3,
+  money: Wallet,
+  content: Clapperboard,
+  app: Smartphone,
+  tasks: ListTodo,
+  about: Info,
+  files: FolderOpen,
+  dashboard: Share2,
+};
+
+/**
+ * The Overview tab: a board of tiles for this client (their tools, tasks, files, their dashboard and your own tabs)
+ * that you arrange with Customize, which also lets you drag, hide and add tabs.
+ */
+async function ClientOverview({
+  userId,
+  client,
+  pages,
+  today,
+  currency,
+  googleConnected,
+  header,
+  actionsBefore,
+  actionsAfter,
+  tabs,
+}: {
+  userId: number;
+  client: ClientRow;
+  pages: Awaited<ReturnType<typeof clientPages>>;
+  today: string;
+  currency: "RON" | "EUR";
+  googleConnected: boolean;
+  header: React.ReactNode;
+  actionsBefore: React.ReactNode;
+  actionsAfter: React.ReactNode;
+  tabs: { view: React.ReactNode; edit: React.ReactNode };
+}) {
   const db = await getDb();
   const has = (t: string) => client.features.includes(t);
-  const [snap, reelsOpen, reelsPosted, carousels, lastUpdate, money] = await Promise.all([
-    has("instagram") ? clientSnapshots(userId).then((m) => m.get(client.id)) : undefined,
-    has("content") ? db.select({ n: count() }).from(schema.reels).where(and(eq(schema.reels.userId, userId), eq(schema.reels.clientId, client.id), ne(schema.reels.status, "posted"))).then((r) => r[0].n) : 0,
-    has("content") ? db.select({ n: count() }).from(schema.reels).where(and(eq(schema.reels.userId, userId), eq(schema.reels.clientId, client.id), eq(schema.reels.status, "posted"))).then((r) => r[0].n) : 0,
-    has("content") ? db.select({ n: count() }).from(schema.carousels).where(and(eq(schema.carousels.userId, userId), eq(schema.carousels.clientId, client.id))).then((r) => r[0].n) : 0,
-    has("app")
+  const base = `/clients/${client.id}`;
+  const catalogue = overviewCatalogue(client.features, pages);
+  const layout = normalizeLayout(await getSetting(userId, clientOverviewKey(client.id)), catalogue, overviewDefault(client.features));
+  const on = new Set(layout.computer.map((it) => it.i));
+  const want = (id: string) => on.has(id);
+  const iconOf = (id: string) => OVERVIEW_ICONS[id] ?? iconFor(pages.find((p) => `page:${p.id}` === id)?.icon ?? "list");
+
+  const [snap, reels, carouselCount, lastUpdate, money, tasks, fileRows, access, ownItems] = await Promise.all([
+    want("followers") && has("instagram") ? clientSnapshots(userId).then((m) => m.get(client.id)) : undefined,
+    want("content") && has("content")
+      ? db
+          .select({ id: schema.reels.id, title: schema.reels.title, status: schema.reels.status })
+          .from(schema.reels)
+          .where(and(eq(schema.reels.userId, userId), eq(schema.reels.clientId, client.id)))
+          .orderBy(desc(schema.reels.updatedAt))
+      : [],
+    want("content") && has("content") ? db.select({ n: count() }).from(schema.carousels).where(and(eq(schema.carousels.userId, userId), eq(schema.carousels.clientId, client.id))).then((r) => r[0].n) : 0,
+    want("app") && has("app")
       ? db.select().from(schema.appUpdates).where(and(eq(schema.appUpdates.userId, userId), eq(schema.appUpdates.clientId, client.id))).orderBy(desc(schema.appUpdates.date), desc(schema.appUpdates.id)).limit(1).then((r) => r[0])
       : undefined,
-    has("finance") ? loadFinance(userId, today, currency, client.id) : undefined,
+    want("money") && has("finance") ? loadFinance(userId, today, currency, client.id) : undefined,
+    want("tasks")
+      ? db
+          .select()
+          .from(schema.tasks)
+          .where(and(eq(schema.tasks.userId, userId), eq(schema.tasks.clientId, client.id), eq(schema.tasks.done, false)))
+          .orderBy(asc(schema.tasks.due), desc(schema.tasks.id))
+          .limit(8)
+      : [],
+    want("files")
+      ? Promise.all([
+          db.select({ title: schema.reels.title, files: schema.reels.files }).from(schema.reels).where(and(eq(schema.reels.userId, userId), eq(schema.reels.clientId, client.id))),
+          db.select({ title: schema.carousels.title, files: schema.carousels.files }).from(schema.carousels).where(and(eq(schema.carousels.userId, userId), eq(schema.carousels.clientId, client.id))),
+          db.select({ title: schema.appUpdates.title, files: schema.appUpdates.files }).from(schema.appUpdates).where(and(eq(schema.appUpdates.userId, userId), eq(schema.appUpdates.clientId, client.id))),
+        ]).then(([r, c, u]) => [...r, ...c, ...u].flatMap((x) => x.files.map((f) => ({ ...f, from: x.title }))))
+      : [],
+    want("dashboard") ? clientAccess(userId, client.id) : null,
+    Promise.all(pages.filter((p) => want(`page:${p.id}`)).map(async (p) => [p.id, await pageItems(userId, p.id)] as const)).then((e) => new Map(e)),
   ]);
-  const tile = "glass flex flex-col gap-2 rounded-[24px] p-4 transition hover:-translate-y-0.5";
-  const base = `/clients/${client.id}`;
-  if (!client.features.length) {
-    return (
-      <Empty title="No tools for this client yet">
-        Use <strong>Edit tabs</strong> to add what you do for them: Instagram, content, app work, finance, tasks, files, or tabs of your own.
-      </Empty>
+
+  const widgets: Record<string, React.ReactNode> = {};
+  const W = (id: string, href: string | undefined, openText: string | undefined, body: React.ReactNode) => {
+    const def = catalogue.find((w) => w.id === id);
+    if (!def) return;
+    widgets[id] = (
+      <Widget title={def.title} icon={iconOf(id)} href={href} openText={openText}>
+        {body}
+      </Widget>
+    );
+  };
+  const tinted = (color: string) => ({ color: `var(--${color})`, background: `color-mix(in srgb, var(--${color}) 13%, transparent)` });
+
+  W(
+    "followers",
+    `${base}?tab=instagram`,
+    "Instagram",
+    snap ? (
+      <div className="flex h-full flex-col">
+        <p className="flex items-baseline gap-2">
+          <span className="text-[30px] leading-none font-semibold tracking-[-0.03em] tabular-nums">{snap.followers === null ? "–" : fmt(snap.followers)}</span>
+          <span className="truncate text-[13px] text-label-2">@{snap.username}</span>
+        </p>
+        <p className="mt-1 text-[12px] text-label-2">{snap.reach30 === null ? "–" : fmt(snap.reach30)} reach in 30 days</p>
+        {snap.spark.length > 1 && <Sparkline values={snap.spark} className="mt-auto text-accent" />}
+      </div>
+    ) : (
+      <TileEmpty action={<Link href={`${base}?tab=instagram`} className="font-semibold text-accent">Connect</Link>}>Their Instagram isn&apos;t connected yet.</TileEmpty>
+    ),
+  );
+  if (money)
+    W(
+      "money",
+      `${base}?tab=finance`,
+      "Finance",
+      <div>
+        <p className="text-[30px] leading-none font-semibold tracking-[-0.03em] tabular-nums">{formatMoney(money.waitingTotal, currency, { compact: true })}</p>
+        <p className="mt-1.5 text-[12px] text-label-2">{money.overdue.length ? <span className="font-semibold text-red">{money.overdue.length} overdue</span> : "Nothing overdue"}</p>
+        <span className="chip mt-3" style={tinted("green")}>
+          {formatMoney(money.incomeThisMonth, currency, { compact: true })} paid this month
+        </span>
+      </div>,
+    );
+  if (want("content") && has("content")) {
+    const open = reels.filter((r) => r.status !== "posted");
+    const next = open[0];
+    W(
+      "content",
+      `${base}?tab=content`,
+      "Content",
+      next ? (
+        <div>
+          <p className="truncate text-[15px] font-semibold">{next.title}</p>
+          <div className="mt-1.5">
+            <Pill color={STATUS_COLORS[next.status]}>{statusLabel(next.status)}</Pill>
+          </div>
+          <p className="mt-2.5 text-[12px] text-label-2">
+            {open.length} reel{open.length === 1 ? "" : "s"} in progress · {reels.length - open.length} posted · {carouselCount} carousel{carouselCount === 1 ? "" : "s"}
+          </p>
+        </div>
+      ) : (
+        <TileEmpty action={<Link href={`${base}?tab=content`} className="font-semibold text-accent">Add a reel</Link>}>Nothing in progress.</TileEmpty>
+      ),
     );
   }
+  if (want("app") && has("app"))
+    W(
+      "app",
+      `${base}?tab=app`,
+      client.appName || "App",
+      lastUpdate ? (
+        <div>
+          <p className="truncate text-[15px] font-semibold">
+            {lastUpdate.version && `${lastUpdate.version} · `}
+            {lastUpdate.title}
+          </p>
+          <div className="mt-1.5">
+            <Pill color={STATUS_COLORS[lastUpdate.status]}>{statusLabel(lastUpdate.status)}</Pill>
+          </div>
+        </div>
+      ) : (
+        <TileEmpty action={<Link href={`${base}?tab=app`} className="font-semibold text-accent">Log one</Link>}>No updates logged yet.</TileEmpty>
+      ),
+    );
+  W(
+    "tasks",
+    `${base}?tab=tasks`,
+    "Tasks",
+    tasks.length ? (
+      <ul className="divide-y divide-separator">
+        {tasks.map((t) => (
+          <li key={t.id} className="flex items-center gap-3 py-2">
+            <TaskCheck id={t.id} done={t.done} label={t.title} />
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{t.title}</span>
+            <span className={clsx("shrink-0 text-[12px]", t.due && t.due < today ? "font-semibold text-red" : "text-label-2")}>
+              {t.due ? (t.due === today ? "Today" : t.due < today ? "Overdue" : new Date(`${t.due}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })) : "No date"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <TileEmpty
+        action={
+          <Sheet title="New task" trigger="Add a task" triggerClassName="cursor-pointer font-semibold text-accent">
+            <TaskForm action={createTask} clients={[{ id: client.id, name: client.name }]} defaultClientId={client.id} />
+          </Sheet>
+        }
+      >
+        No open tasks for {client.name}.
+      </TileEmpty>
+    ),
+  );
+  W("about", undefined, undefined, client.description ? <p className="text-[14px] leading-relaxed text-label-2">{client.description}</p> : <TileEmpty>No description yet. Add one with ⋯ → Edit client.</TileEmpty>);
+  W(
+    "files",
+    `${base}?tab=files`,
+    "All files",
+    fileRows.length ? (
+      <ul className="divide-y divide-separator">
+        {fileRows.slice(0, 6).map((f) => (
+          <li key={f.id}>
+            <a href={f.webViewLink || undefined} target="_blank" rel="noreferrer" className="flex items-center gap-2.5 py-2 hover:opacity-80">
+              <FileText size={15} className="shrink-0 text-label-2" />
+              <span className="min-w-0 flex-1 truncate text-[14px]">{f.name}</span>
+              <span className="max-w-[40%] shrink-0 truncate text-[12px] text-label-3">{f.from}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <TileEmpty
+        action={
+          googleConnected && client.driveFolderId ? (
+            <a href={folderUrl(client.driveFolderId)} target="_blank" rel="noreferrer" className="font-semibold text-accent">
+              Drive folder
+            </a>
+          ) : undefined
+        }
+      >
+        Files you add to their reels, carousels or updates show up here.
+      </TileEmpty>
+    ),
+  );
+  if (access)
+    W(
+      "dashboard",
+      `${base}?tab=dashboard`,
+      "Arrange",
+      access.link ? (
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-[11px]" style={tinted("green")}>
+            <Check size={17} />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-semibold">Shared with {access.link.name || access.link.email}</p>
+            <p className="truncate text-[12px] text-label-2">They see {access.link.shared.length ? access.link.shared.join(", ") : "nothing yet"}</p>
+          </div>
+        </div>
+      ) : (
+        <TileEmpty action={<Link href={`${base}?tab=dashboard`} className="font-semibold text-accent">Invite</Link>}>
+          {access.invite ? `Invite sent to ${access.invite.email}.` : `${client.name} doesn't have their dashboard yet.`}
+        </TileEmpty>
+      ),
+    );
+  const firstText = (d: Record<string, unknown>) => Object.values(d).find((v) => typeof v === "string" && v.trim()) as string | undefined;
+  for (const p of pages) {
+    const items = ownItems.get(p.id);
+    if (!items) continue;
+    W(
+      `page:${p.id}`,
+      `${base}?tab=page:${p.id}`,
+      "Open",
+      items.length ? (
+        <ul className="divide-y divide-separator">
+          {items.slice(0, 6).map((it) => (
+            <li key={it.id} className="truncate py-2 text-[14px]">
+              {firstText(it.data) ?? "Untitled"}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <TileEmpty action={<Link href={`${base}?tab=page:${p.id}`} className="font-semibold text-accent">Add something</Link>}>Nothing in it yet.</TileEmpty>
+      ),
+    );
+  }
+
+  const library: BoardWidget[] = catalogue.map(({ title, hint, group, ...def }) => {
+    const Icon = iconOf(def.id);
+    return { def: { id: def.id, size: def.size, min: def.min, max: def.max }, title, hint, group, icon: <Icon size={17} /> };
+  });
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {has("instagram") && (
-        <Link href={`${base}?tab=instagram`} className={tile}>
-          <p className="flex items-center gap-2 text-[15px] font-semibold">
-            <BarChart3 size={16} className="text-label-2" /> Instagram
-          </p>
-          {snap ? (
-            <>
-              <p className="text-[13px] text-label-2">@{snap.username}</p>
-              <p className="text-[28px] leading-none font-bold tracking-tight tabular-nums">{snap.followers === null ? "–" : fmt(snap.followers)}</p>
-              <p className="text-[12px] text-label-2">followers · {snap.reach30 === null ? "–" : fmt(snap.reach30)} reach in 30 days</p>
-              {snap.spark.length > 1 && <Sparkline values={snap.spark} className="text-accent" />}
-            </>
-          ) : (
-            <p className="text-[14px] text-label-2">Not connected yet. Open to connect their account (or see a demo).</p>
-          )}
-        </Link>
-      )}
-      {has("content") && (
-        <Link href={`${base}?tab=content`} className={tile}>
-          <p className="flex items-center gap-2 text-[15px] font-semibold">
-            <Clapperboard size={16} className="text-label-2" /> Content
-          </p>
-          <p className="text-[28px] leading-none font-bold tabular-nums">{reelsOpen}</p>
-          <p className="text-[12px] text-label-2">
-            reels in progress · {reelsPosted} posted · {carousels} carousel{carousels === 1 ? "" : "s"}
-          </p>
-        </Link>
-      )}
-      {has("app") && (
-        <Link href={`${base}?tab=app`} className={tile}>
-          <p className="flex items-center gap-2 text-[15px] font-semibold">
-            <Smartphone size={16} className="text-label-2" /> {client.appName || "App"}
-          </p>
-          {lastUpdate ? (
-            <>
-              <p className="text-[15px] font-medium">
-                {lastUpdate.version && `${lastUpdate.version} · `}
-                {lastUpdate.title}
-              </p>
-              <Pill color={STATUS_COLORS[lastUpdate.status]}>{statusLabel(lastUpdate.status)}</Pill>
-            </>
-          ) : (
-            <p className="text-[14px] text-label-2">No updates logged yet.</p>
-          )}
-        </Link>
-      )}
-      {has("finance") && money && (
-        <Link href={`${base}?tab=finance`} className={tile}>
-          <p className="flex items-center gap-2 text-[15px] font-semibold">
-            <Wallet size={16} className="text-label-2" /> Finance
-          </p>
-          <p className="text-[28px] leading-none font-bold tabular-nums">{formatMoney(money.incomeThisMonth, currency, { compact: true })}</p>
-          <p className="text-[12px] text-label-2">
-            paid this month · {formatMoney(money.waitingTotal, currency, { compact: true })} waiting{money.overdue.length ? ` (${money.overdue.length} overdue)` : ""}
-          </p>
-        </Link>
-      )}
-    </div>
+    <Board
+      widgets={widgets}
+      catalogue={library}
+      layout={layout}
+      save={saveClientOverview.bind(null, client.id)}
+      reset={resetClientOverview.bind(null, client.id)}
+      resetLabel="Reset to default"
+      header={header}
+      actionsBefore={actionsBefore}
+      actionsAfter={actionsAfter}
+      tabs={tabs}
+      emptyText={`Nothing on ${client.name}'s board yet.`}
+    />
   );
 }
 

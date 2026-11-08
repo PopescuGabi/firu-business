@@ -1,12 +1,19 @@
 import clsx from "clsx";
 import type { ComponentProps, ReactNode } from "react";
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+/**
+ * The one header every page uses: a small line on top (date, account, kind of client), the title, and the page's
+ * actions on the right (at most one blue button). `lead` sits before the title (a client's initial).
+ */
+export function PageHeader({ title, subtitle, actions, lead, className }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; lead?: ReactNode; className?: string }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-3 pt-2">
-      <div className="min-w-0">
-        {subtitle && <p className="text-[13px] font-semibold uppercase tracking-wide text-label-2">{subtitle}</p>}
-        <h1 className="truncate text-[34px] font-bold leading-tight tracking-tight">{title}</h1>
+    <header className={clsx("mb-5 flex flex-wrap items-end justify-between gap-3 pt-1", className)}>
+      <div className="flex min-w-0 items-center gap-3.5">
+        {lead}
+        <div className="min-w-0">
+          {subtitle && <p className="mb-0.5 truncate text-[13px] text-label-2">{subtitle}</p>}
+          <h1 className="truncate text-[28px] leading-tight font-semibold tracking-[-0.025em]">{title}</h1>
+        </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
@@ -26,11 +33,12 @@ export function Section({
   children: ReactNode;
   className?: string;
 }) {
+  const id = typeof title === "string" ? title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : undefined;
   return (
-    <section className={clsx("mb-8", className)}>
+    <section id={id} data-title={typeof title === "string" ? title : undefined} className={clsx("mb-8 scroll-mt-6", className)}>
       {(title || action) && (
         <div className="mb-2 flex items-center justify-between gap-2 px-4">
-          {title && <h2 className="text-[13px] font-semibold uppercase tracking-wide text-label-2">{title}</h2>}
+          {title && <h2 className="text-[15px] font-semibold">{title}</h2>}
           {action}
         </div>
       )}
@@ -79,7 +87,7 @@ type ButtonVariant = "filled" | "tinted" | "plain" | "gray" | "destructive";
 const buttonStyles: Record<ButtonVariant, string> = {
   filled: "liquid text-white", // blue glass; LiquidButton adds the fill (globals.css)
   tinted: "bg-accent-soft text-accent hover:brightness-[0.97]",
-  gray: "bg-card-solid/70 text-label shadow-[0_0_0_1px_var(--separator)] hover:bg-card-solid",
+  gray: "btn-glass", // a glass pill (globals.css)
   plain: "text-accent hover:bg-fill",
   destructive: "bg-red/12 text-red hover:bg-red/20",
 };
@@ -94,12 +102,12 @@ export function buttonClass(variant: ButtonVariant = "filled", size: "sm" | "md"
   );
 }
 
-/** Small in-page toggles (radio groups), matching the sliding ink pill of SegmentedLinks. */
-export const segmentGroupClass = "inline-flex rounded-full bg-fill";
+/** Small in-page toggles (radio groups), matching SegmentedLinks: a sunken track with a glass pane on the chosen one. */
+export const segmentGroupClass = "seg-track inline-flex rounded-full p-[3px]";
 export function segmentClass(on: boolean) {
   return clsx(
     "cursor-pointer rounded-full font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40",
-    on ? "orb-btn-on font-semibold" : "text-label-2 hover:text-label",
+    on ? "sel-pane font-semibold text-label" : "text-label-2 hover:text-label",
   );
 }
 

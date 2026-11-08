@@ -44,6 +44,9 @@ export function Board({
   header,
   notice,
   emptyText = "Nothing on this board yet.",
+  actionsBefore,
+  actionsAfter,
+  tabs,
 }: {
   /** The rendered widgets on the board (rendered on the server; a newly added one appears after a refresh). */
   widgets: Record<string, React.ReactNode>;
@@ -58,6 +61,11 @@ export function Board({
   /** Shown between the header and the widgets (warnings, a connect prompt). */
   notice?: React.ReactNode;
   emptyText?: string;
+  /** Buttons next to Customize (hidden while customizing). */
+  actionsBefore?: React.ReactNode;
+  actionsAfter?: React.ReactNode;
+  /** A tab bar under the header, with its own version for customizing (drag, hide, add tabs). */
+  tabs?: { view: React.ReactNode; edit: React.ReactNode };
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -105,10 +113,23 @@ export function Board({
   const available = catalogue.filter((w) => !ids.includes(w.def.id));
 
   return (
-    <div className={clsx("board", editing && "board-editing")}>
+    <div className={clsx("board", editing && "board-editing", editing && libraryOpen && "board-library-open")}>
       <div className="mb-5 flex items-end justify-between gap-x-3 gap-y-3 max-sm:flex-wrap">
-        <div className="min-w-0 flex-1">{header}</div>
-        {editing ? (
+        <div className={clsx("min-w-0 flex-1", (actionsBefore || actionsAfter) && "max-sm:basis-full")}>{header}</div>
+        {!editing && (
+          <div className="flex flex-wrap items-center gap-2">
+            {actionsBefore}
+            <button type="button" className={clsx(buttonClass("gray", "md"), "max-sm:!size-10 max-sm:!p-0")} onClick={() => setEditing(true)} aria-label="Customize">
+              <LayoutGrid size={15} /> <span className="max-sm:hidden">Customize</span>
+            </button>
+            {actionsAfter}
+          </div>
+        )}
+      </div>
+      {editing && (
+        <div className="board-editbar mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-full py-2 pr-2 pl-4 max-sm:rounded-[20px]">
+          <LayoutGrid size={16} className="shrink-0" />
+          <p className="min-w-0 flex-1 text-[14px] font-semibold">Customizing: drag tiles, resize them from the corner</p>
           <div className="flex flex-wrap items-center gap-2">
             {reset && (
               <button
@@ -130,19 +151,16 @@ export function Board({
               </button>
             )}
             <button type="button" className={buttonClass("gray", "sm")} onClick={() => setLibraryOpen((o) => !o)} aria-expanded={libraryOpen}>
-              <Plus size={14} /> Widgets
+              <Plus size={14} /> Add a tile
             </button>
             <button type="button" className={buttonClass("filled", "sm")} onClick={done} disabled={busy}>
               <Check size={14} /> Done
             </button>
           </div>
-        ) : (
-          <button type="button" className={clsx(buttonClass("gray", "sm"), "max-sm:!size-10 max-sm:!rounded-full max-sm:!p-0")} onClick={() => setEditing(true)} aria-label="Customize">
-            <LayoutGrid size={14} /> <span className="max-sm:hidden">Customize</span>
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
+      {tabs && <div className="mb-5">{editing ? tabs.edit : tabs.view}</div>}
       {notice}
       {editing ? (
         <Editor
@@ -157,7 +175,7 @@ export function Board({
       ) : ids.length ? (
         <StaticGrid layout={layout} widgets={widgets} />
       ) : (
-        <button type="button" onClick={() => setEditing(true)} className="glass grid min-h-40 w-full place-items-center rounded-[24px] p-6 text-[14px] text-label-2">
+        <button type="button" onClick={() => setEditing(true)} className="glass grid min-h-40 w-full place-items-center rounded-[22px] p-6 text-[14px] text-label-2">
           {emptyText} Tap Customize to add widgets.
         </button>
       )}
@@ -172,7 +190,7 @@ function StaticGrid({ layout, widgets }: { layout: BoardLayout; widgets: Record<
     <div className="board-grid">
       {layout.computer.map((it, i) => (
         <div key={it.i} className="board-cell" style={cellStyle(layout, it.i, i)}>
-          {widgets[it.i] ?? <div className="skeleton h-full rounded-[24px]" />}
+          {widgets[it.i] ?? <div className="skeleton h-full rounded-[22px]" />}
         </div>
       ))}
     </div>
@@ -183,10 +201,10 @@ function StaticGrid({ layout, widgets }: { layout: BoardLayout; widgets: Record<
 function Library({ items, onAdd, onClose }: { items: BoardWidget[]; onAdd: (id: string) => void; onClose: () => void }) {
   const groups = [...new Set(items.map((w) => w.group ?? ""))];
   return (
-    <aside className="board-library glass" aria-label="Widgets">
+    <aside className="board-library glass" aria-label="Add a tile">
       <header className="flex items-center gap-2 px-4 pt-4 pb-2">
-        <h2 className="flex-1 text-[15px] font-semibold">Widgets</h2>
-        <button type="button" onClick={onClose} aria-label="Close widgets" className="grid size-8 place-items-center rounded-full bg-fill text-label-2 hover:text-label">
+        <h2 className="flex-1 text-[15px] font-semibold">Add a tile</h2>
+        <button type="button" onClick={onClose} aria-label="Close" className="grid size-8 place-items-center rounded-full bg-fill text-label-2 hover:text-label">
           <X size={15} />
         </button>
       </header>
@@ -208,9 +226,9 @@ function Library({ items, onAdd, onClose }: { items: BoardWidget[]; onAdd: (id: 
                     libraryDrag.id = w.def.id;
                   }}
                   onDragEnd={() => (libraryDrag.id = null)}
-                  className="flex cursor-grab items-center gap-3 rounded-[14px] px-2 py-2 hover:bg-fill active:cursor-grabbing"
+                  className="mb-1.5 flex cursor-grab items-center gap-3 rounded-[14px] bg-well px-2 py-2 hover:bg-fill active:cursor-grabbing"
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">{w.icon}</span>
+                  <span className="glass grid size-9 shrink-0 place-items-center rounded-xl text-label-2">{w.icon}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-medium">{w.title}</span>
                     {w.hint && <span className="block truncate text-[12px] text-label-2">{w.hint}</span>}

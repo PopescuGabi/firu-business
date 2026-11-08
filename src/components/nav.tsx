@@ -1,11 +1,12 @@
 "use client";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { iconFor } from "./custom/icons";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
-import { BarChart3, Briefcase, CalendarDays, House, Images, LayoutGrid, Mail, Settings, Sun } from "lucide-react";
+import { BarChart3, Briefcase, CalendarDays, CornerDownLeft, House, Images, LayoutGrid, Mail, Search, Settings, Sun } from "lucide-react";
 
 // `module`: shown only when that section is turned on (lib/modules.ts); the rest are always there.
 const ALL_ITEMS = [
@@ -67,14 +68,15 @@ function useGlide(active: string | null, squash: [number, number]) {
   return { register, blob, box };
 }
 
-const RAIL_SQUASH: [number, number] = [0.84, 1.2];
+const RAIL_SQUASH: [number, number] = [0.97, 1.08];
 const DOCK_SQUASH: [number, number] = [1.12, 0.86];
 
-type Sub = { href: string; label: string; dot?: string };
+/** The signed-in person, shown at the bottom of the menu. */
+export type NavMe = { name: string; picture?: string | null };
 
 /**
- * A round rail button. Hovering it shows its name, or, when it has sub-pages, a small menu
- * joined to it by tree lines (like the reference's Activity / Traffic / Statistic).
+ * One row of the side menu: icon and name on a computer, the icon alone (name on hover) on a tablet.
+ * The gliding glass highlight is drawn behind the active row, so the row itself has no background then.
  */
 function RailLink({
   href,
@@ -83,53 +85,44 @@ function RailLink({
   glided,
   linkRef,
   onClick,
-  subs,
+  sub,
+  dot,
+  extra,
   children,
 }: {
   href: string;
   label: string;
   active: boolean;
-  glided: boolean; // the gliding highlight is drawn behind it, so no background of its own
+  glided: boolean;
   linkRef: (el: HTMLElement | null) => void;
   onClick: (href: string) => void;
-  subs?: Sub[];
-  children: React.ReactNode;
+  sub?: boolean;
+  dot?: string;
+  extra?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
-    <div ref={linkRef} className="group relative z-[1]">
+    <div ref={linkRef} className={clsx("group relative z-[1]", sub && "max-lg:hidden")}>
       <Link
         href={href}
         onClick={() => onClick(href)}
         aria-label={label}
         aria-current={active ? "page" : undefined}
         className={clsx(
-          "grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,transform] delay-75 duration-300 active:scale-90",
-          active ? "text-white" : "text-[var(--rail-icon)] hover:bg-white/10 hover:text-white",
-          active && !glided && "orb-btn-on",
+          "flex items-center rounded-[12px] font-medium transition-[background-color,color] duration-200 active:scale-[0.98]",
+          sub ? "h-8 gap-2.5 pr-2 pl-9 text-[13px]" : "h-10 gap-3 px-3 text-[14px] max-lg:mx-auto max-lg:size-10 max-lg:justify-center max-lg:px-0",
+          active ? "text-label" : "text-label-2 hover:bg-fill hover:text-label",
+          active && !glided && "sel-pane",
         )}
       >
-        {children}
+        {dot ? <span className="size-2 shrink-0 rounded-full" style={{ background: dot }} /> : children}
+        <span className={clsx("min-w-0 flex-1 truncate", !sub && "max-lg:hidden")}>{label}</span>
+        {extra && <span className="max-lg:hidden">{extra}</span>}
       </Link>
-      {subs?.length ? (
-        <div className="pointer-events-none absolute top-0 left-full z-50 pl-3 opacity-0 transition duration-200 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
-          <div className="chrome min-w-44 -translate-x-1 rounded-[18px] !bg-[var(--bg-elevated)] p-2 transition duration-200 group-hover:translate-x-0">
-            <p className="px-2 pt-1 pb-1.5 text-[12px] font-semibold text-label-2">{label}</p>
-            <ul className="tree">
-              {subs.map((s) => (
-                <li key={s.href}>
-                  <Link href={s.href} onClick={() => onClick(s.href)} className="flex items-center gap-2 rounded-[10px] px-2 py-1.5 text-[14px] text-label hover:bg-fill">
-                    {s.dot && <span className="size-2 shrink-0 rounded-full" style={{ background: s.dot }} />}
-                    <span className="truncate">{s.label}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ) : (
+      {!sub && (
         <span
           role="tooltip"
-          className="pointer-events-none absolute top-1/2 left-full z-50 ml-3 -translate-x-1 -translate-y-1/2 rounded-lg bg-ink px-2.5 py-1 text-[12px] font-semibold whitespace-nowrap text-on-ink opacity-0 shadow-apple transition duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100"
+          className="pointer-events-none absolute top-1/2 left-full z-50 ml-3 -translate-x-1 -translate-y-1/2 rounded-lg bg-ink px-2.5 py-1 text-[12px] font-semibold whitespace-nowrap text-on-ink opacity-0 shadow-apple transition duration-200 group-hover:translate-x-0 group-hover:opacity-100 lg:hidden"
         >
           {label}
         </span>
@@ -138,51 +131,177 @@ function RailLink({
   );
 }
 
-/** Floating pill rail (tablet and up): sections (clients in the Clients menu), settings. */
-export function Sidebar({ clients, modules, pages = [], shared = [] }: { clients: { id: number; name: string; color: string }[]; modules: string[]; pages?: NavPage[]; shared?: NavShared[] }) {
+/**
+ * The side menu (tablet and up): a glass panel with the sections (your clients under Clients), your own pages,
+ * search (⌘K) and your account. On a tablet it narrows to icons.
+ */
+export function Sidebar({
+  clients,
+  modules,
+  pages = [],
+  shared = [],
+  me,
+}: {
+  clients: { id: number; name: string; color: string }[];
+  modules: string[];
+  pages?: NavPage[];
+  shared?: NavShared[];
+  me: NavMe;
+}) {
   const { path: current, pending, setPending } = usePendingHref();
   const path = pending ?? current;
-  const ITEMS = itemsFor(modules, pages, shared);
-  const hrefs = [...ITEMS.map((i) => i.href), "/settings"];
+  const all = itemsFor(modules, pages, shared);
+  const main = ALL_ITEMS.filter((i) => !i.module || modules.includes(i.module));
+  const own = all.slice(main.length);
+  const clientLinks = modules.includes("clients") ? clients.slice(0, 8).map((c) => ({ href: `/clients/${c.id}`, label: c.name, dot: c.color })) : [];
+  const hrefs = [...all.map((i) => i.href), ...clientLinks.map((c) => c.href), "/settings"];
   const active = activeOf(path, hrefs);
   const { register, blob, box } = useGlide(active, RAIL_SQUASH);
-  const subsOf = (href: string): Sub[] | undefined =>
-    href === "/clients"
-        ? [...clients.map((c) => ({ href: `/clients/${c.id}`, label: c.name, dot: c.color })), { href: "/clients?new=1", label: "New client…" }]
-        : undefined;
-  const link = (href: string, label: string, children: React.ReactNode) => (
-    <RailLink
-      key={href}
-      href={href}
-      label={label}
-      active={active === href}
-      glided={Boolean(box)}
-      linkRef={register(href)}
-      onClick={(h) => setPending(h.split("?")[0] || "/")}
-      subs={subsOf(href)}
-    >
-      {children}
+  const go = (h: string) => setPending(h.split("?")[0] || "/");
+  const link = (href: string, label: string, icon?: React.ReactNode, opts: { sub?: boolean; dot?: string; extra?: React.ReactNode } = {}) => (
+    <RailLink key={href} href={href} label={label} active={active === href} glided={Boolean(box)} linkRef={register(href)} onClick={go} {...opts}>
+      {icon}
     </RailLink>
   );
+  const initial = (me.name.trim()[0] ?? "?").toUpperCase();
   return (
-    <aside className="sticky top-0 z-30 hidden h-dvh shrink-0 py-4 pl-4 md:block">
-      <div className="rail relative flex h-full w-[60px] flex-col items-center gap-1.5 rounded-full border border-white/10 bg-[var(--rail)] py-3 shadow-apple backdrop-blur-2xl">
+    <aside className="sticky top-0 z-30 hidden h-dvh shrink-0 py-3 pl-3 md:block">
+      <div className="rail chrome relative flex h-full w-[64px] flex-col gap-1 overflow-y-auto rounded-[26px] px-2 py-3 scrollbar-none lg:w-[236px]">
         <span
           ref={blob}
           aria-hidden
-          className="absolute rounded-full transition-[top,left,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
-          style={{ background: "var(--orb)", boxShadow: "var(--glow)", ...(box ? { ...box, opacity: 1 } : { opacity: 0, width: 40, height: 40 }) }}
+          className="sel-pane absolute rounded-[12px] transition-[top,left,width,height,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
+          style={box ? { ...box, opacity: 1 } : { opacity: 0, width: 40, height: 40 }}
         />
-        <Link href="/" aria-label="FIRU Business" className="mb-2 grid size-10 place-items-center">
-          <LogoMark size={24} />
+        <Link href="/" aria-label="FIRU Business" className="mb-1 flex h-10 items-center gap-2.5 px-2.5 max-lg:justify-center max-lg:px-0">
+          <LogoMark size={26} />
+          <span className="text-[15px] font-semibold tracking-[-0.01em] max-lg:hidden">FIRU Business</span>
         </Link>
-        <nav className="flex flex-col items-center gap-1.5" aria-label="Main">
-          {ITEMS.map(({ href, label, icon: Icon }) => link(href, label, <Icon size={18} strokeWidth={2} />))}
+        <CommandMenu items={[...all, ...clients.map((c) => ({ href: `/clients/${c.id}`, label: c.name, icon: Briefcase })), { href: "/settings", label: "Settings", icon: Settings }]} onGo={go} />
+        <nav className="flex flex-col gap-0.5" aria-label="Main">
+          {main.map(({ href, label, icon: Icon }) => (
+            <Fragment key={href}>
+              {link(href, label, <Icon size={18} strokeWidth={1.9} />)}
+              {href === "/clients" && clientLinks.map((c) => link(c.href, c.label, undefined, { sub: true, dot: c.dot }))}
+            </Fragment>
+          ))}
+          {own.length > 0 && <p className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-[0.04em] text-label-3 uppercase max-lg:hidden">Your pages</p>}
+          {own.map(({ href, label, icon: Icon }) => link(href, label, <Icon size={18} strokeWidth={1.9} />))}
         </nav>
-
-        <div className="mt-auto">{link("/settings", "Settings", <Settings size={18} />)}</div>
+        <div className="mt-auto pt-2">
+          <div ref={register("/settings")} className="relative z-[1]">
+            <Link
+              href="/settings"
+              onClick={() => go("/settings")}
+              aria-label="Settings and account"
+              aria-current={active === "/settings" ? "page" : undefined}
+              className={clsx(
+                "flex items-center gap-2.5 rounded-[16px] p-2 transition hover:bg-fill max-lg:mx-auto max-lg:size-11 max-lg:justify-center max-lg:p-0",
+                active === "/settings" && !box && "sel-pane",
+              )}
+            >
+              {me.picture ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={me.picture} alt="" referrerPolicy="no-referrer" className="size-8 shrink-0 rounded-[10px] object-cover" />
+              ) : (
+                <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-[13px] font-semibold text-accent">{initial}</span>
+              )}
+              <span className="min-w-0 flex-1 max-lg:hidden">
+                <span className="block truncate text-[13px] font-semibold">{me.name}</span>
+                <span className="block truncate text-[12px] text-label-2">Settings and account</span>
+              </span>
+              <Settings size={16} className="shrink-0 text-label-3 max-lg:hidden" />
+            </Link>
+          </div>
+        </div>
       </div>
     </aside>
+  );
+}
+
+type JumpItem = { href: string; label: string; icon: React.ComponentType<{ size?: number }> };
+
+/** "Search or jump to" (⌘K): type part of a page or client name and press Enter. */
+function CommandMenu({ items, onGo }: { items: JumpItem[]; onGo: (href: string) => void }) {
+  const router = useRouter();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState(0);
+  const found = items.filter((i) => i.label.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 9);
+  const open = () => {
+    setQ("");
+    setSel(0);
+    dialog.current?.showModal();
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (dialog.current?.open) dialog.current.close();
+        else open();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const go = (href: string) => {
+    dialog.current?.close();
+    onGo(href);
+    router.push(href);
+  };
+  return (
+    <>
+      <button
+        type="button"
+        onClick={open}
+        aria-label="Search or jump to"
+        className="mb-2 flex h-9 items-center gap-2 rounded-full px-3 text-[13px] text-label-3 transition hover:text-label-2 max-lg:mx-auto max-lg:size-10 max-lg:justify-center max-lg:px-0"
+        style={{ background: "var(--field-bg)", boxShadow: "var(--field-edge)" }}
+      >
+        <Search size={15} className="shrink-0" />
+        <span className="flex-1 text-left max-lg:hidden">Search or jump to</span>
+        <kbd className="rounded-[5px] px-1 font-sans text-[11px] shadow-[inset_0_0_0_1px_var(--separator)] max-lg:hidden">⌘K</kbd>
+      </button>
+      <dialog ref={dialog} className="sheet !w-[min(520px,calc(100vw-24px))] p-2" aria-label="Search or jump to" onClose={() => setQ("")}>
+        <div className="flex items-center gap-2 px-3 pt-1 pb-2">
+          <Search size={17} className="text-label-3" />
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setSel(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") (e.preventDefault(), setSel((s) => Math.min(s + 1, found.length - 1)));
+              if (e.key === "ArrowUp") (e.preventDefault(), setSel((s) => Math.max(s - 1, 0)));
+              if (e.key === "Enter" && found[sel]) (e.preventDefault(), go(found[sel].href));
+            }}
+            placeholder="Search pages and clients"
+            aria-label="Search pages and clients"
+            className="h-10 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-label-3 focus-visible:outline-none"
+          />
+          <kbd className="rounded-[5px] px-1.5 text-[11px] text-label-3 shadow-[inset_0_0_0_1px_var(--separator)]">esc</kbd>
+        </div>
+        <ul className="border-t border-separator pt-1">
+          {found.length === 0 && <li className="px-3 py-3 text-[14px] text-label-2">Nothing matches “{q}”.</li>}
+          {found.map((i, k) => (
+            <li key={i.href}>
+              <button
+                type="button"
+                onMouseEnter={() => setSel(k)}
+                onClick={() => go(i.href)}
+                className={clsx("flex w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left text-[15px]", k === sel ? "sel-pane" : "text-label-2")}
+              >
+                <i.icon size={17} />
+                <span className="flex-1 truncate text-label">{i.label}</span>
+                {k === sel && <CornerDownLeft size={14} className="text-label-3" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </dialog>
+    </>
   );
 }
 
@@ -226,7 +345,7 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
                 return (
                   <li key={href}>
                     <Link href={href} onClick={() => go(href)} aria-current={on ? "page" : undefined} className="flex items-center gap-3 rounded-[16px] px-2.5 py-2 text-[16px] font-medium hover:bg-fill">
-                      <span className={clsx("grid size-9 shrink-0 place-items-center rounded-full", on ? "orb-btn-on" : "bg-fill text-label-2")}>
+                      <span className={clsx("grid size-9 shrink-0 place-items-center rounded-full", on ? "sel-pane text-accent" : "bg-fill text-label-2")}>
                         <Icon size={18} />
                       </span>
                       {label}
@@ -258,8 +377,8 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
         <span
           ref={blob}
           aria-hidden
-          className="absolute rounded-full transition-[top,left,width,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
-          style={{ background: "var(--orb)", boxShadow: "var(--glow)", ...(box ? { ...box, opacity: 1 } : { opacity: 0 }) }}
+          className="sel-pane absolute rounded-full transition-[top,left,width,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
+          style={box ? { ...box, opacity: 1 } : { opacity: 0 }}
         />
         {items.map(({ href, label, icon: Icon }) => {
           const on = !open && active === href;
@@ -270,7 +389,7 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
               href={href}
               onClick={() => go(href)}
               aria-current={on ? "page" : undefined}
-              className={clsx(tab, on ? "text-white" : "text-label-2", on && !box && "orb-btn-on")}
+              className={clsx(tab, on ? "text-accent" : "text-label-2", on && !box && "sel-pane")}
             >
               <Icon size={20} strokeWidth={on ? 2.3 : 1.9} />
               {label}
@@ -283,7 +402,7 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
           aria-expanded={open}
           aria-controls="more-menu"
           onClick={() => setOpen((o) => !o)}
-          className={clsx(tab, "cursor-pointer", open || active === "more" ? "text-white" : "text-label-2", (open || active === "more") && !box && "orb-btn-on")}
+          className={clsx(tab, "cursor-pointer", open || active === "more" ? "text-accent" : "text-label-2", (open || active === "more") && !box && "sel-pane")}
         >
           <LayoutGrid size={20} strokeWidth={open || active === "more" ? 2.3 : 1.9} />
           More

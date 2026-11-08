@@ -37,8 +37,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {background.css && <style>{background.css}</style>}
       <ThemeSync theme={settings.theme} />
       <SoundEffects on={settings.sounds} />
-      <Sidebar clients={clients} modules={user.modules} pages={navPages} shared={navShared} />
-      <main className="min-w-0 flex-1 px-4 pt-6 pb-32 sm:px-6 md:pr-8 md:pb-12 md:pl-6">
+      <Sidebar clients={clients} modules={user.modules} pages={navPages} shared={navShared} me={{ name: user.name?.trim() || user.email.split("@")[0], picture: user.picture }} />
+      <main className="min-w-0 flex-1 px-4 pt-6 pb-32 sm:px-6 md:pr-7 md:pb-12 md:pl-5">
         <div className="mx-auto max-w-[1680px]">{children}</div>
       </main>
       <TabBar modules={user.modules} clients={clients} pages={navPages} shared={navShared} />

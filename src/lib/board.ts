@@ -11,6 +11,8 @@ export const ROW_HEIGHT = 64;
 /** Where boards are saved: Home in the person's settings, a client's own arrangement of a shared dashboard too. */
 export const HOME_BOARD_KEY = "homeBoard";
 export const sharedBoardKey = (linkId: number) => `board:link:${linkId}`;
+/** Your arrangement of one client's Overview tab. */
+export const clientOverviewKey = (clientId: number) => `board:client:${clientId}`;
 export const GAP = 16;
 
 export type Item = { i: string; x: number; y: number; w: number; h: number };

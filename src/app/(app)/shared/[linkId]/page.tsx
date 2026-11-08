@@ -40,7 +40,7 @@ export default async function SharedPage({ params, searchParams }: { params: Pro
   const base = `/shared/${link.id}`;
   const header = (
     <div className="pt-2">
-      <p className="text-[13px] font-semibold tracking-wide text-label-2 uppercase">From {link.agencyName}</p>
+      <p className="text-[13px] text-label-2">From {link.agencyName}</p>
       <h1 className="truncate text-[34px] leading-tight font-bold tracking-tight">{link.clientName}</h1>
     </div>
   );

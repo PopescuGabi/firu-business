@@ -334,7 +334,7 @@ export function InstagramToolbar({
               @{account.username}
               {account.demo && (
                 <span className="chip" data-tone="orange">
-                  DEMO DATA
+                  Demo data
                 </span>
               )}
             </p>
@@ -369,20 +369,7 @@ export function InstagramToolbar({
             href: href({ range: r.key as DashQuery["range"] }),
           }))}
         />
-        <div className="flex flex-wrap gap-1">
-          {kinds.map((t) => (
-            <Link
-              key={t.key}
-              href={href({ kind: t.key })}
-              scroll={false}
-              aria-current={query.kind === t.key ? "true" : undefined}
-              className={clsx("chip", query.kind !== t.key && "opacity-70")}
-              data-tone={query.kind === t.key ? "blue" : undefined}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </div>
+        <SegmentedLinks label="Format" active={query.kind} items={kinds.map((t) => ({ key: t.key, label: t.label, href: href({ kind: t.key }) }))} />
         {query.range === "custom" && (
           <form className="flex flex-wrap items-center gap-2" method="get">
             {/* Keeps the other filters when picking dates. */}
@@ -469,7 +456,7 @@ export function instagramWidgets({
   return {
     "ig-summary": (
       <Panel>
-        <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-label-2 uppercase">
+        <p className="mb-2 flex items-center gap-2 text-[15px] font-semibold">
           <Sparkles size={14} className="text-orange" /> In 30 seconds
         </p>
         <ul className="grid gap-1.5 text-[15px] leading-snug @xl:grid-cols-2">

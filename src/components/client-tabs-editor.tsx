@@ -30,6 +30,7 @@ export function ClientTabsEditor({
   starters,
   templates,
   today,
+  variant = "icon",
 }: {
   clientId: number;
   tabs: string[];
@@ -38,6 +39,8 @@ export function ClientTabsEditor({
   starters: string[];
   templates: { key: string; title: string; group: string }[];
   today: string;
+  /** How the button that opens it looks: a small round icon next to the tabs, or "+ Add tab" while customizing. */
+  variant?: "icon" | "add";
 }) {
   const router = useRouter();
   const [busy, start] = useTransition();
@@ -101,7 +104,16 @@ export function ClientTabsEditor({
   const hiddenPages = pages.filter((p) => !tabs.includes(`page:${p.id}`));
 
   return (
-    <Sheet title="Tabs for this client" trigger={<><SlidersHorizontal size={14} /> Edit tabs</>} triggerClassName={buttonClass("gray", "sm")}>
+    <Sheet
+      title="Tabs for this client"
+      trigger={variant === "add" ? <><Plus size={14} /> Add tab</> : <SlidersHorizontal size={15} />}
+      triggerLabel={variant === "add" ? undefined : "Edit tabs"}
+      triggerClassName={
+        variant === "add"
+          ? "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold text-accent shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--accent)_45%,transparent)] hover:bg-accent-soft"
+          : clsx(buttonClass("gray"), "!size-9 !px-0")
+      }
+    >
       {building ? (
         <div className="flex flex-col gap-4">
           <button type="button" className="self-start text-[14px] font-semibold text-accent" onClick={() => setBuilding(false)}>

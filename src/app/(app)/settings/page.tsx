@@ -15,6 +15,7 @@ import { CalendarSyncForm } from "@/components/calendar-sync-form";
 import { KeyForm } from "@/components/key-form";
 import { VercelEnvForm } from "@/components/vercel-env-form";
 import { Submit } from "@/components/submit";
+import { SettingsNav } from "@/components/settings-nav";
 import { buttonClass, Card, Field, List, Notice, PageHeader, Row, Section } from "@/components/ui";
 import { saveCalendarSettings, savePlannerSettings, saveTravel } from "@/app/actions/settings";
 import { claudeAvailable, MODELS, monthSpend, PRICES } from "@/lib/ai/claude";
@@ -92,8 +93,11 @@ export default async function SettingsPage() {
   const [hour, month] = await Promise.all([usage(new Date(Date.now() - 3600_000)), usage(new Date(Date.now() - 30 * 86400_000))]);
 
   return (
-    <div className="mx-auto max-w-[1100px]">
+    <div className="mx-auto max-w-[1180px]">
       <PageHeader title="Settings" />
+      <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+      <SettingsNav />
+      <div data-settings>
 
       <Section title="Connections">
         <List>
@@ -463,6 +467,8 @@ export default async function SettingsPage() {
           </Card>
         </Section>
       )}
+      </div>
+      </div>
     </div>
   );
 }

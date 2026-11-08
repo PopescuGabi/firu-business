@@ -5,7 +5,7 @@ const mesh = (base: string, ...blobs: [string, string][]) =>
   [...blobs.map(([at, color]) => `radial-gradient(55% 55% at ${at}, ${color}, transparent 72%)`), base].join(", ");
 
 export const BACKGROUNDS = [
-  { key: "default", label: "Soft", light: "", dark: "" }, // the built-in look in globals.css
+  { key: "default", label: "Solid", light: "", dark: "" }, // the built-in look in globals.css: one solid colour (true black in dark)
   {
     key: "aurora",
     label: "Aurora",

@@ -86,12 +86,12 @@ export function SegmentedLinks({
     return () => window.removeEventListener("resize", measure);
   }, [current]);
   return (
-    <nav aria-label={label} className={clsx("chrome relative inline-flex rounded-full p-1", className)}>
+    <nav aria-label={label} className={clsx("seg-track relative inline-flex max-w-full overflow-x-auto rounded-full p-[3px] scrollbar-none", className)}>
       {pill && (
         <span
           aria-hidden
-          className="absolute top-1 bottom-1 rounded-full transition-[left,width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          style={{ left: pill.left, width: pill.width, background: "var(--orb)", boxShadow: "var(--glow)" }}
+          className="sel-pane absolute top-[3px] bottom-[3px] rounded-full transition-[left,width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{ left: pill.left, width: pill.width }}
         />
       )}
       {items.map((it) => (
@@ -105,9 +105,9 @@ export function SegmentedLinks({
           aria-current={active === it.key ? "page" : undefined}
           onClick={() => setPending(it.key)}
           className={clsx(
-            "relative z-[1] flex h-9 items-center gap-1.5 rounded-full px-4 text-[14px] font-medium transition-colors duration-300",
-            current === it.key ? "font-semibold text-white" : "text-label-2 hover:text-label",
-            !pill && current === it.key && "orb-btn-on",
+            "relative z-[1] flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium whitespace-nowrap transition-colors duration-300",
+            current === it.key ? "font-semibold text-label" : "text-label-2 hover:text-label",
+            !pill && current === it.key && "sel-pane",
           )}
         >
           {it.icon} {it.label}

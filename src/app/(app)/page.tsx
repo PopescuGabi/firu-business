@@ -41,6 +41,7 @@ import { Sheet } from "@/components/sheet";
 import { Submit } from "@/components/submit";
 import { TaskForm } from "@/components/task-form";
 import { CountUp } from "@/components/count-up";
+import { OpenLink, Tile as SharedTile, Widget as SharedWidget } from "@/components/tile";
 import { buttonClass, Chip, Field, Pill, RouteTimeline, STATUS_COLORS, statusLabel } from "@/components/ui";
 import { resetHomeBoard, saveHomeBoard } from "@/app/actions/board";
 import { boardIds, HOME_BOARD_KEY, normalizeLayout } from "@/lib/board";
@@ -75,95 +76,35 @@ const daysSince = (d: Date) => Math.max(0, Math.floor((Date.now() - d.getTime())
 /** A widget's place in the board's entrance animation. */
 type Placed = { i: number };
 
-/**
- * A bento tile: frosted card that fades in after the ones before it and lifts on hover.
- * With `corner`, that button sits in a round notch cut out of the top-right corner.
- */
-function Tile({
-  i,
-  className,
-  surface,
-  surfaceClass,
-  corner,
-  children,
-}: Placed & { className?: string; surface?: React.CSSProperties; surfaceClass?: string; corner?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="tile relative flex min-w-0 flex-col rounded-[24px] @container" style={{ ["--i" as string]: i }}>
-      <div aria-hidden className={clsx("glass absolute inset-0 rounded-[24px]", corner && "notch", surfaceClass)} style={surface} />
-      <div className={clsx("relative flex min-h-0 flex-1 flex-col overflow-y-auto p-4", className)}>{children}</div>
-      {corner && <div className="notch-slot">{corner}</div>}
-    </section>
-  );
-}
+/** Home's tiles are the shared ones, placed by their entrance order. */
+const Tile = ({ i, className, children }: Placed & { className?: string; children: React.ReactNode }) => (
+  <SharedTile i={i} className={className}>
+    {children}
+  </SharedTile>
+);
+const Widget = (props: Placed & React.ComponentProps<typeof SharedWidget>) => <SharedWidget {...props} />;
 
-/** A tile with a title, an optional action and a round "open" button. */
-function Widget({
-  title,
-  icon: Icon,
-  href,
-  action,
-  children,
-  ...placed
-}: Placed & {
-  title: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  href?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Tile {...placed} corner={href && <RoundLink href={href} label={`Open ${title}`} />}>
-      <header className={clsx("mb-3 flex items-center gap-2", href && "pr-10")}>
-        <Icon size={16} className="text-label-2" />
-        <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</h2>
-        {action}
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-    </Tile>
-  );
-}
-
-function RoundLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      aria-label={label}
-      className="orb-btn"
-    >
-      <ArrowUpRight size={15} />
-    </Link>
-  );
-}
-
-/** Big number with a small label, like the stat cards in the reference. The accent one is mint. */
+/** A big number with its name and a short line under it; the whole tile opens the page behind it. */
 function Stat({
   label,
   value,
   sub,
   icon: Icon,
   href,
-  accent,
   ...placed
-}: Placed & { label: string; value: number; sub: React.ReactNode; icon: React.ComponentType<{ size?: number }>; href: string; accent?: boolean }) {
+}: Placed & { label: string; value: number; sub: React.ReactNode; icon: React.ComponentType<{ size?: number; className?: string }>; href: string; accent?: boolean }) {
   return (
-    <Tile
-      {...placed}
-      className={clsx("justify-between gap-3", accent && "text-white")}
-      surfaceClass={accent ? "border-transparent glow-surface" : undefined}
-      surface={accent ? { background: "var(--mint)" } : undefined}
-      corner={
-        <Link href={href} aria-label={`Open ${label}`} className={clsx("orb-btn", accent && "orb-btn-on")}>
-          <Icon size={15} />
-        </Link>
-      }
-    >
-      <Link href={href} className="absolute inset-0 rounded-[24px]" aria-label={`${label}: ${value}`} />
-      <p className={clsx("pr-10 text-[13px] font-medium", accent ? "text-white/85" : "text-label-2")}>{label}</p>
+    <Tile {...placed} className="justify-between gap-3">
+      <Link href={href} className="absolute inset-0 z-[1] rounded-[22px]" aria-label={`${label}: ${value}`} />
+      <p className="flex items-center gap-2 text-[14px] font-semibold">
+        <Icon size={16} className="shrink-0 text-label-2" />
+        <span className="truncate">{label}</span>
+      </p>
       <div>
-        <p className="text-[34px] leading-none font-bold tracking-tight">
+        <p className="text-[32px] leading-none font-semibold tracking-[-0.03em]">
           <CountUp value={value} />
         </p>
-        <p className={clsx("mt-1.5 truncate text-[12px]", accent ? "text-white/80" : "text-label-2")}>{sub}</p>
+        <p className="mt-1.5 truncate text-[12px] text-label-2">{sub}</p>
       </div>
     </Tile>
   );
@@ -477,9 +418,9 @@ export default async function HomePage() {
     <Tile {...p}>
       <header className="mb-1 flex items-center gap-2">
         <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">Busy this week</h2>
-        <RoundLink href="/calendar" label="Open calendar" />
+        <OpenLink href="/calendar" label="Open calendar" />
       </header>
-      <p className="text-[34px] leading-tight font-bold tracking-tight">
+      <p className="text-[32px] leading-tight font-semibold tracking-[-0.03em]">
         <CountUp value={busy.reduce((a, b) => a + b, 0)} minutes />
       </p>
       <p className="mb-3 text-[12px] text-label-2">Meetings, events and planned work over the next 7 days</p>
@@ -500,14 +441,14 @@ export default async function HomePage() {
 
   // The banner: where you are, what's next and when to leave, as a little route.
   const hero = (p: Placed) => (
-    <Tile {...p} className="!p-5" surface={{ background: "var(--hero)" }} surfaceClass="border-transparent">
+    <Tile {...p} className="!p-5">
       <div className="flex items-center gap-3">
         <span className="orb-well">
           <Navigation size={17} />
         </span>
         <div className="min-w-0">
           <p className="text-[12px] font-semibold text-label-2">{current ? "Now" : "Right now"}</p>
-          <p className="truncate text-[22px] leading-tight font-bold tracking-tight">
+          <p className="truncate text-[22px] leading-tight font-semibold tracking-[-0.02em]">
             <TypeIn text={current ? current.title : "Free time"} />
           </p>
         </div>
@@ -549,7 +490,7 @@ export default async function HomePage() {
   const viewsTile = (p: Placed) =>
     biz && (
       <Widget {...p} title="Views this month" icon={BarChart3} href="/clients?view=marketing">
-        <p className="text-[34px] leading-none font-bold tracking-tight">
+        <p className="text-[32px] leading-none font-semibold tracking-[-0.03em]">
           <CountUp value={biz.m.month.views} />
         </p>
         <p className="mt-1 text-[12px] text-label-2">
@@ -940,10 +881,10 @@ export default async function HomePage() {
         reset={resetHomeBoard}
         resetLabel="Reset to default"
         header={
-          <div className="flex items-end justify-between gap-3 pt-2">
+          <div className="flex items-end justify-between gap-3 pt-1">
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-label-2">{dateLabel}</p>
-              <h1 className="text-[30px] leading-tight font-bold tracking-tight sm:text-[34px]">
+              <p className="mb-0.5 text-[13px] text-label-2">{dateLabel}</p>
+              <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.025em]">
                 {greeting}
                 {settings.displayName ? `, ${settings.displayName}` : ""}
               </h1>
