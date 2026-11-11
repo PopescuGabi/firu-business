@@ -1,4 +1,4 @@
-import { APP_NAME, pickHubCalendar } from "@/lib/brand";
+import { APP_NAME, GOOGLE_NAME, pickHubCalendar } from "@/lib/brand";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { ArrowDown, ArrowUp, BarChart3, CalendarDays, FolderOpen, LogOut, Mail, Sparkles, Wand2 } from "lucide-react";
 import Link from "next/link";
@@ -370,7 +370,7 @@ export default async function SettingsPage() {
       {connected && !calendarError && (
         <Section
           title="Calendar sync"
-          footer={`Accepted plan blocks and task due dates go to your “${APP_NAME}” Google calendar, so they're on your phone. Moving, renaming or deleting them there updates the app too.`}
+          footer={`Accepted plan blocks and task due dates go to your “${GOOGLE_NAME}” Google calendar, so they're on your phone. Moving, renaming or deleting them there updates the app too.`}
         >
           <Card className="p-4">
             <CalendarSyncForm

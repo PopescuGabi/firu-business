@@ -615,3 +615,28 @@ export const fxRates = pgTable("fx_rates", {
   date: text("date").primaryKey(),
   ronPerEur: doublePrecision("ron_per_eur").notNull(),
 });
+
+// Possible clients for the Analysis tab, imported from the Business Brain's leads.csv. Outreach is always sent by hand.
+export const LEAD_STATUSES = ["new", "drafted", "sent", "replied", "meeting", "won", "lost"] as const;
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
+export const leads = pgTable(
+  "leads",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    business: text("business").notNull(),
+    niche: text("niche").notNull().default(""),
+    city: text("city").notNull().default(""),
+    channel: text("channel").notNull().default(""),
+    contact: text("contact").notNull().default(""),
+    why: text("why").notNull().default(""),
+    score: integer("score").notNull().default(0), // 1–5 fit
+    status: text("status").$type<LeadStatus>().notNull().default("new"),
+    demoUrl: text("demo_url"),
+    notes: text("notes").notNull().default(""),
+    foundOn: text("found_on"), // YYYY-MM-DD
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("leads_user_idx").on(t.userId), uniqueIndex("leads_user_business_idx").on(t.userId, t.business)],
+);

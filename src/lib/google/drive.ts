@@ -1,12 +1,12 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
-import { APP_NAME, LEGACY_APP_NAME } from "../brand";
+import { GOOGLE_NAME, LEGACY_APP_NAME } from "../brand";
 import { getDb, schema } from "../db";
 import { googleFetch } from "./oauth";
 
 const API = "https://www.googleapis.com/drive/v3";
 const FOLDER = "application/vnd.google-apps.folder";
-export const DRIVE_ROOT_NAME = APP_NAME;
+export const DRIVE_ROOT_NAME = GOOGLE_NAME;
 
 async function createFolder(uid: number, name: string, parent?: string) {
   const res = await googleFetch(uid, `${API}/files?fields=id`, {

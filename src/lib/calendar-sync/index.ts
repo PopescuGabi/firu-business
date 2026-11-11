@@ -3,7 +3,7 @@ import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
 import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
-import { APP_NAME, pickHubCalendar } from "../brand";
+import { GOOGLE_NAME, pickHubCalendar } from "../brand";
 import { getDb, schema } from "../db";
 import { getAccessToken } from "../google/oauth";
 import {
@@ -19,7 +19,7 @@ import {
 import { getSetting, getSettings, setSetting } from "../settings";
 import { buildDesired, changeFromRemote, hasMark, sameSignature, signature, type DesiredEvent, type HubChange, type Signature } from "./model";
 
-export const HUB_CALENDAR_NAME = APP_NAME;
+export const HUB_CALENDAR_NAME = GOOGLE_NAME;
 
 export type SyncResult = {
   ok: boolean;

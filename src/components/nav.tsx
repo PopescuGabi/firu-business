@@ -6,18 +6,22 @@ import clsx from "clsx";
 import { iconFor } from "./custom/icons";
 import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
-import { BarChart3, Briefcase, CalendarDays, CornerDownLeft, House, Images, LayoutGrid, Mail, Search, Settings, Sun } from "lucide-react";
+import { BarChart3, Briefcase, CalendarDays, ChartNoAxesCombined, CornerDownLeft, Globe, House, LayoutGrid, Mail, Search, Settings, Sun } from "lucide-react";
+import { APP_NAME } from "@/lib/brand";
 
 // `module`: shown only when that section is turned on (lib/modules.ts); the rest are always there.
+// The four Dashboard tabs come first; the older sections follow under "More" (nothing was removed).
 const ALL_ITEMS = [
   { href: "/", label: "Home", icon: House },
-  { href: "/today", label: "Today", icon: Sun },
+  { href: "/analysis", label: "Analysis", icon: ChartNoAxesCombined },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/portfolio", label: "Portfolio", icon: Globe, module: "portfolio" },
+  { href: "/today", label: "Today", icon: Sun },
   { href: "/email", label: "Email", icon: Mail, module: "email" },
   { href: "/clients", label: "Clients", icon: Briefcase, module: "clients" },
   { href: "/instagram", label: "Instagram", icon: BarChart3, module: "instagram" },
-  { href: "/portfolio", label: "Portfolio", icon: Images, module: "portfolio" },
 ];
+const TABS = ["/", "/analysis", "/calendar", "/portfolio"];
 /** A person's own pages (custom pages), shown after the built-in sections. */
 export type NavPage = { slug: string; title: string; icon: string };
 /** Dashboards other businesses share with this person ("From Gabi"). */
@@ -173,14 +177,17 @@ export function Sidebar({
           className="sel-pane absolute rounded-[12px] transition-[top,left,width,height,opacity] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)]"
           style={box ? { ...box, opacity: 1 } : { opacity: 0, width: 40, height: 40 }}
         />
-        <Link href="/" aria-label="FIRU Business" className="mb-1 flex h-10 items-center gap-2.5 px-2.5 max-lg:justify-center max-lg:px-0">
+        <Link href="/" aria-label={APP_NAME} className="mb-1 flex h-10 items-center gap-2.5 px-2.5 max-lg:justify-center max-lg:px-0">
           <LogoMark size={26} />
-          <span className="text-[15px] font-semibold tracking-[-0.01em] max-lg:hidden">FIRU Business</span>
+          <span className="text-[15px] font-semibold tracking-[-0.01em] max-lg:hidden">{APP_NAME}</span>
         </Link>
         <CommandMenu items={[...all, ...clients.map((c) => ({ href: `/clients/${c.id}`, label: c.name, icon: Briefcase })), { href: "/settings", label: "Settings", icon: Settings }]} onGo={go} />
         <nav className="flex flex-col gap-0.5" aria-label="Main">
-          {main.map(({ href, label, icon: Icon }) => (
+          {main.map(({ href, label, icon: Icon }, k) => (
             <Fragment key={href}>
+              {k > 0 && !TABS.includes(href) && TABS.includes(main[k - 1].href) && (
+                <p className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-[0.04em] text-label-3 uppercase max-lg:hidden">More</p>
+              )}
               {link(href, label, <Icon size={18} strokeWidth={1.9} />)}
               {href === "/clients" && clientLinks.map((c) => link(c.href, c.label, undefined, { sub: true, dot: c.dot }))}
             </Fragment>
@@ -306,7 +313,7 @@ function CommandMenu({ items, onGo }: { items: JumpItem[]; onGo: (href: string) 
 }
 
 // On a phone the dock keeps the everyday pages; everything else is in More.
-const DOCK = ["/", "/today", "/calendar", "/email"];
+const DOCK = TABS;
 
 /** Floating glass dock (phones): Home, Today, Calendar, Email, and More for the rest. */
 export function TabBar({ modules, clients, pages = [], shared = [] }: { modules: string[]; clients: { id: number; name: string; color: string }[]; pages?: NavPage[]; shared?: NavShared[] }) {

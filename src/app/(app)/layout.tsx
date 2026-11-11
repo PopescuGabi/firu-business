@@ -9,6 +9,8 @@ import { SoundEffects } from "@/components/sound-effects";
 import { getDb, schema } from "@/lib/db";
 import { listPages } from "@/lib/custom-pages-db";
 import { linksForViewer } from "@/lib/client-links";
+import { GlassProvider, GlassDebug } from "@/components/glass";
+import { Jarvis } from "@/components/jarvis";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -33,15 +35,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }));
   const navPages = pages.map(({ slug, title, icon }) => ({ slug, title, icon }));
   return (
+    <GlassProvider>
     <div className="flex min-h-dvh" data-bg={background.kind}>
       {background.css && <style>{background.css}</style>}
       <ThemeSync theme={settings.theme} />
       <SoundEffects on={settings.sounds} />
       <Sidebar clients={clients} modules={user.modules} pages={navPages} shared={navShared} me={{ name: user.name?.trim() || user.email.split("@")[0], picture: user.picture }} />
-      <main className="min-w-0 flex-1 px-4 pt-6 pb-32 sm:px-6 md:pr-7 md:pb-12 md:pl-5">
+      <main className="min-w-0 flex-1 px-4 pt-6 pb-48 sm:px-6 md:pr-7 md:pb-28 md:pl-5">
         <div className="mx-auto max-w-[1680px]">{children}</div>
       </main>
       <TabBar modules={user.modules} clients={clients} pages={navPages} shared={navShared} />
+      <Jarvis />
+      <GlassDebug />
     </div>
+    </GlassProvider>
   );
 }

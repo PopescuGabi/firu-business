@@ -16,6 +16,7 @@ import { shortUrl } from "@/lib/portfolio-types";
 import { fmtDate } from "@/lib/time";
 import { shareStats } from "@/lib/share-views";
 import { LineChart } from "@/components/charts";
+import { PortfolioSite } from "@/components/portfolio-site";
 
 export const metadata = { title: "Portfolio" };
 
@@ -60,6 +61,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
           </>
         }
       />
+      <PortfolioSite />
 
       {visits && (
         <Card className="mb-6 grid gap-5 p-4 lg:grid-cols-[2fr_1fr_1fr]">

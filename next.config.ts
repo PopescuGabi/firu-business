@@ -13,7 +13,7 @@ const csp = [
   "connect-src 'self' blob: data: https://www.googleapis.com https://www.remotion.pro",
   "media-src 'self' blob: data:", // AI video maker: preview clips, music beds and exported MP4s
   "worker-src 'self' blob:", // Remotion's in-browser renderer keeps a small blob worker alive
-  "frame-src https://drive.google.com", // public portfolio: Drive's video/PDF player
+  "frame-src https://drive.google.com https://gabi-popescu.vercel.app", // Drive's video/PDF player; the live portfolio site preview (Portfolio tab)
   "frame-ancestors 'none'",
   "form-action 'self' https://accounts.google.com",
   "base-uri 'self'",

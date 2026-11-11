@@ -5,7 +5,7 @@
  *   block:<id>                one accepted plan block
  *   task:<id>                 all-day reminder on the due date
  */
-import { APP_NAME, LEGACY_APP_NAME } from "../brand.ts";
+import { GOOGLE_NAME, LEGACY_APP_NAME } from "../brand.ts";
 import { addDays, toHHMM, weekdayOf } from "../time.ts";
 
 export type EventTime = { date?: string; dateTime?: string; timeZone?: string };
@@ -39,7 +39,7 @@ export type HubData = {
   tasks: { id: number; title: string; notes: string; due: string | null; done: boolean }[];
 };
 
-export const MARK = `Synced from ${APP_NAME}.`;
+export const MARK = `Synced from ${GOOGLE_NAME}.`; // the Google-side name, so events synced before the rename still match
 /** True for events this app wrote, including ones written under its old name. */
 export const hasMark = (description: string | null | undefined) =>
   !!description && (description.includes(MARK) || description.includes(`Synced from ${LEGACY_APP_NAME}.`));
