@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { ArrowUp, Check, Ear, EarOff, Mic, Square, Sunrise, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowUp, AudioLines, Check, Ear, EarOff, Mic, Square, Sunrise, Volume2, VolumeX, X } from "lucide-react";
 import { ASSISTANT_NAME } from "@/lib/brand";
 import { GlassSurface } from "./glass";
 
@@ -51,34 +51,69 @@ const BRIEFING = /^\s*(good morning|morning|brief me|bun[ăa] diminea[țt]a)\b/i
 /** What speech recognition tends to hear for "Jarvis". */
 const WAKE = /\b(jarvis|jarvi[sz]|jar vis|djarvis|jarviz|jervis)\b[,.!?]?\s*/i;
 
-// Voices that sound like a calm British assistant, best first (macOS, Chrome, Edge, Windows names).
-const BRITISH = ["Daniel", "Arthur", "Google UK English Male", "Microsoft Ryan", "Microsoft George", "Oliver", "Jamie", "Malcolm"];
+// Voices that sound like a calm British male assistant, best first: Edge's neural "Natural" voices, then macOS,
+// Chrome and Windows ones. The browser decides which exist, so a phone may offer none of these.
+const BRITISH = [
+  "Microsoft Ryan Online",
+  "Microsoft Thomas Online",
+  "Microsoft Oliver Online",
+  "Microsoft Alfie Online",
+  "Microsoft Elliot Online",
+  "Daniel",
+  "Google UK English Male",
+  "Arthur",
+  "Microsoft George",
+  "Microsoft Ryan",
+  "Oliver",
+  "Jamie",
+  "Malcolm",
+];
+// Known female voice names, never chosen automatically (they can still be picked by hand).
+const FEMALE = /female|kate|serena|stephanie|martha|flo\b|grandma|sandy|shelley|libby|sonia|maisie|hollie|bella|abbi|susan|hazel|ioana|emily|amy|olivia/i;
+const norm = (v: SpeechSynthesisVoice) => v.lang.replace("_", "-");
+const forLang = (voices: SpeechSynthesisVoice[], lang: Lang) => voices.filter((v) => norm(v).startsWith(lang === "en-GB" ? "en" : "ro"));
 function pickVoice(lang: Lang) {
   if (typeof speechSynthesis === "undefined") return null;
-  const voices = speechSynthesis.getVoices();
-  const norm = (v: SpeechSynthesisVoice) => v.lang.replace("_", "-");
+  const voices = forLang(speechSynthesis.getVoices(), lang);
+  const chosen = store.get(`jarvis.voice.${lang}`);
+  const own = chosen && voices.find((v) => v.name === chosen);
+  if (own) return own;
   if (lang === "en-GB") {
     for (const name of BRITISH) {
-      const v = voices.find((x) => x.name.startsWith(name) && norm(x).startsWith("en"));
+      const v = voices.find((x) => x.name.startsWith(name));
       if (v) return v;
     }
-    return voices.find((v) => norm(v) === "en-GB") ?? voices.find((v) => norm(v).startsWith("en")) ?? null;
+    const gb = voices.filter((v) => norm(v) === "en-GB");
+    return gb.find((v) => !FEMALE.test(v.name)) ?? voices.find((v) => !FEMALE.test(v.name)) ?? gb[0] ?? voices[0] ?? null;
   }
-  return voices.find((v) => norm(v).startsWith("ro")) ?? null;
+  return voices.find((v) => !FEMALE.test(v.name)) ?? voices[0] ?? null;
 }
 
 /** Speaks text in order; a new reply cancels whatever is still being read. */
 function useSpeaker(lang: Lang, muted: boolean) {
   const [speaking, setSpeaking] = useState(false);
   const [voiceName, setVoiceName] = useState<string | null>(null);
+  const [voices, setVoices] = useState<string[]>([]);
   const queue = useRef(0);
+  const refresh = useCallback(() => {
+    if (typeof speechSynthesis === "undefined") return;
+    setVoiceName(pickVoice(lang)?.name ?? null);
+    setVoices(forLang(speechSynthesis.getVoices(), lang).map((v) => v.name));
+  }, [lang]);
   useEffect(() => {
     if (typeof speechSynthesis === "undefined") return;
-    const update = () => setVoiceName(pickVoice(lang)?.name ?? null);
-    update();
-    speechSynthesis.addEventListener("voiceschanged", update);
-    return () => speechSynthesis.removeEventListener("voiceschanged", update);
-  }, [lang]);
+    refresh();
+    speechSynthesis.addEventListener("voiceschanged", refresh);
+    return () => speechSynthesis.removeEventListener("voiceschanged", refresh);
+  }, [refresh]);
+  /** Pin a voice for this language on this device ("" goes back to the automatic choice). */
+  const chooseVoice = useCallback(
+    (name: string) => {
+      store.set(`jarvis.voice.${lang}`, name);
+      refresh();
+    },
+    [lang, refresh],
+  );
   const say = useCallback(
     (text: string) => {
       if (muted || typeof speechSynthesis === "undefined" || !text.trim()) return;
@@ -104,7 +139,7 @@ function useSpeaker(lang: Lang, muted: boolean) {
     queue.current = 0;
     setSpeaking(false);
   }, []);
-  return { say, stop, speaking, voiceName };
+  return { say, stop, speaking, voiceName, voices, chooseVoice };
 }
 
 export function Jarvis() {
@@ -125,7 +160,8 @@ export function Jarvis() {
   const wakeRec = useRef<Recognition | null>(null);
   const abort = useRef<AbortController | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const { say, stop: stopSpeaking, speaking, voiceName } = useSpeaker(lang, muted);
+  const { say, stop: stopSpeaking, speaking, voiceName, voices, chooseVoice } = useSpeaker(lang, muted);
+  const [voiceMenu, setVoiceMenu] = useState(false);
 
   useEffect(() => {
     setCanListen(Boolean(recognitionCtor()));
@@ -408,6 +444,39 @@ export function Jarvis() {
           {error}
         </p>
       )}
+      {voiceMenu && (
+        <GlassSurface as="div" radius={22} contrast="high" className="pointer-events-auto flex w-full max-w-[640px] flex-wrap items-center gap-2 p-3 text-[14px]">
+          <label htmlFor="jarvis-voice" className="font-medium">
+            {ASSISTANT_NAME}&apos;s voice on this device
+          </label>
+          <select
+            id="jarvis-voice"
+            value={voiceName ?? ""}
+            onChange={(e) => chooseVoice(e.target.value)}
+            className="h-9 min-w-0 flex-1 rounded-full border-0 bg-fill px-3 text-[14px]"
+          >
+            {voices.length === 0 && <option value="">No {lang === "en-GB" ? "English" : "Romanian"} voices on this device</option>}
+            {voices.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => say(lang === "en-GB" ? "Good evening, sir. All systems are ready when you are." : "Bună seara. Totul este pregătit când sunteți gata.")}
+            className="rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-white"
+          >
+            Test
+          </button>
+          <button type="button" aria-label="Close voice settings" onClick={() => setVoiceMenu(false)} className="grid size-8 place-items-center rounded-full text-label-2 hover:bg-fill">
+            <X size={14} aria-hidden />
+          </button>
+          <p className="w-full text-[12px] text-label-2">
+            Voices come from your browser and device. For the most natural British male voices, use Microsoft Edge (Ryan or Thomas “Natural”) or Daniel on a Mac.
+          </p>
+        </GlassSurface>
+      )}
       {offerBriefing && !open && (
         <GlassSurface as="div" shape="capsule" contrast="high" className="pointer-events-auto flex items-center gap-1 py-1 pr-1 pl-4 text-[14px]">
           <span>Good morning. Shall I brief you on the day?</span>
@@ -481,6 +550,16 @@ export function Jarvis() {
         )}
         <button type="button" onClick={toggleLang} aria-label={`Language: ${lang === "ro-RO" ? "Romanian" : "English"}. Switch`} className="h-8 shrink-0 rounded-full px-2 text-[12px] font-semibold text-label-2 hover:bg-fill">
           {lang === "ro-RO" ? "RO" : "EN"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setVoiceMenu((v) => !v)}
+          aria-expanded={voiceMenu}
+          aria-label="Choose Jarvis's voice"
+          title={voiceName ? `Voice: ${voiceName}` : "Choose a voice"}
+          className="grid size-8 shrink-0 place-items-center rounded-full text-label-2 hover:bg-fill"
+        >
+          <AudioLines size={16} aria-hidden />
         </button>
         <button type="button" onClick={toggleMute} aria-pressed={muted} aria-label={muted ? "Turn spoken replies on" : "Turn spoken replies off"} className="grid size-8 shrink-0 place-items-center rounded-full text-label-2 hover:bg-fill max-sm:hidden">
           {muted ? <VolumeX size={16} aria-hidden /> : <Volume2 size={16} aria-hidden />}
