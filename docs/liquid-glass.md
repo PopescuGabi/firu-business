@@ -96,3 +96,27 @@ Not tested: Safari, Firefox, real iOS or Android devices, screen readers, and fr
 - **Microphone.** The site's `Permissions-Policy` used to block the microphone entirely (`microphone=()`), which broke voice input in production. It is now `microphone=(self)`.
 - **Schedule control.** Jarvis runs on Claude Opus and can list, add, move, rename and delete Google Calendar events; plan, accept or clear today's blocks; add, complete, reschedule and edit tasks; and update leads. It deletes only when clearly asked.
 
+## Redesign of 2026-11-12: the lens that actually bends
+
+- **What was wrong.** The first version looked like plain frosted panels. Two causes: the backdrop was a soft blur with nothing to bend, and the lens filter was silently not applied. Chromium only honours an SVG `url()` filter in `backdrop-filter` when it comes first in the chain; after `blur()` it is dropped.
+- **Fix.** One SVG filter now does everything in order: frost (`feGaussianBlur`), bend (`feDisplacementMap`), saturate (`feColorMatrix`). The rim is a fixed physical width (about 30 px) instead of a share of the surface, and pulls the backdrop up to about 55 px. Verified with a striped test backdrop: lines visibly curve at every glass edge.
+- **Backdrop.** Silk is now folded satin with hard creases (`lib/backgrounds.ts`), so there are edges for the glass to bend.
+- **One material everywhere.** `Card`, Home tiles, the sidebar, the phone dock, the Jarvis bar and Settings' section list are all `GlassSurface`. The older `.glass` / `.chrome` classes take the same look through tokens in `globals.css`.
+- **Phones.** Only bars marked `lens="always"` (dock, Jarvis bar) bend the backdrop; cards are frosted, to keep scrolling smooth.
+- **Mobile Settings.** The More menu used to open underneath the Jarvis bar, which covered its last item (Settings). It now opens above it, with Settings first.
+- **Logo.** A violet glass tile with a silk fold and a "D" whose centre dot is the Jarvis orb (`components/logo.tsx`, `app/icon.svg`, `app/apple-icon.tsx`).
+
+## On-device voice and hearing (no account, no key)
+
+Jarvis picks the best engine available: ElevenLabs if a key is saved in Settings, otherwise open models running in the browser, otherwise the browser's own voice.
+
+- **Voice:** Kokoro (82M parameters, Apache 2.0), British voice "George" by default; four other voices in the Jarvis voice panel. English only: Romanian replies use the browser's Romanian voice.
+- **Hearing:** Whisper (MIT). The mic records the request, stops after a pause, and transcribes it on the device. The language follows the EN/RO switch on the bar.
+- **Where it runs:** a Web Worker (`src/lib/speech-local/`). Recordings and text never leave the device. Model files come from Hugging Face once and are cached by the browser; the WebAssembly runtime is served by the site itself (`public/ort`, copied by `scripts/copy-ort.mjs` before `dev` and `build`).
+- **Which build a device gets** (`planFor` in `client.ts`):
+  - Computer with WebGPU: full-precision voice and Whisper small, about 910 MB once. Measured on an Apple-silicon Mac in Chromium: a 4.8 s sentence is ready in 0.85 s, and a request is transcribed in 0.8 s ("Add shawarma with Andrei tomorrow at one o'clock…" came back right).
+  - Phone, or no WebGPU: 8-bit voice and Whisper base on the CPU, about 170 MB once, offered rather than downloaded automatically. On that build the voice took 1.6× real time on the Mac and Whisper base heard "shawarma" as "Shaoalma". If speech takes over 1.25× real time to make, Jarvis says so and uses the browser voice.
+  - The half-precision voice build is not used: it is fast but garbled on WebGPU.
+- **Policy changes:** `script-src` gains `'wasm-unsafe-eval'` (WebAssembly only) and `connect-src` gains huggingface.co / hf.co for the model files.
+- **Not tested:** recording from a real microphone (the test browser has none; transcription was tested on audio made by the voice model), real phones, Safari and Firefox.
+

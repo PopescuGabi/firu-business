@@ -5,12 +5,15 @@ const isDev = process.env.NODE_ENV !== "production";
 // Strict CSP: only this site, Google APIs (direct Drive uploads) and Google images.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // 'wasm-unsafe-eval' lets WebAssembly compile (not JavaScript eval): Jarvis's on-device voice and hearing
+  // run as WebAssembly served from this site (/ort).
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com https://*.cdninstagram.com https://*.fbcdn.net",
   "font-src 'self' data:",
   // blob: lets the AI video maker read picked clips; remotion.pro receives the free-licence render count (no content).
-  "connect-src 'self' blob: data: https://www.googleapis.com https://www.remotion.pro",
+  // huggingface.co / hf.co: the open speech model files (Kokoro, Whisper), downloaded once and cached by the browser.
+  "connect-src 'self' blob: data: https://www.googleapis.com https://www.remotion.pro https://huggingface.co https://*.huggingface.co https://*.hf.co",
   "media-src 'self' blob: data:", // AI video maker: preview clips, music beds and exported MP4s
   "worker-src 'self' blob:", // Remotion's in-browser renderer keeps a small blob worker alive
   "frame-src https://drive.google.com https://gabi-popescu.vercel.app", // Drive's video/PDF player; the live portfolio site preview (Portfolio tab)

@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { GlassSurface } from "./glass/engine";
 import type { ComponentProps, ReactNode } from "react";
 
 /**
@@ -48,8 +49,9 @@ export function Section({
   );
 }
 
+/** A panel of Liquid Glass (bends the backdrop at its rim on desktop Chromium; frosted elsewhere). */
 export function Card({ className, ...props }: ComponentProps<"div">) {
-  return <div className={clsx("glass overflow-hidden rounded-[24px]", className)} {...props} />;
+  return <GlassSurface as="div" radius={24} contrast="high" className={clsx("overflow-hidden", className)} {...props} />;
 }
 
 /** Columns a bento tile takes: phone (of 2), tablet (of 6), laptop and desktop (of 12); rows likewise. */

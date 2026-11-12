@@ -8,6 +8,7 @@ import { LogoMark } from "./logo";
 import { usePendingHref } from "./motion";
 import { BarChart3, Briefcase, CalendarDays, ChartNoAxesCombined, CornerDownLeft, Globe, House, LayoutGrid, Mail, Search, Settings, Sun } from "lucide-react";
 import { APP_NAME } from "@/lib/brand";
+import { GlassSurface } from "./glass/engine";
 
 // `module`: shown only when that section is turned on (lib/modules.ts); the rest are always there.
 // The four Dashboard tabs come first; the older sections follow under "More" (nothing was removed).
@@ -170,7 +171,7 @@ export function Sidebar({
   const initial = (me.name.trim()[0] ?? "?").toUpperCase();
   return (
     <aside className="sticky top-0 z-30 hidden h-dvh shrink-0 py-3 pl-3 md:block">
-      <div className="rail chrome relative flex h-full w-[64px] flex-col gap-1 overflow-y-auto rounded-[26px] px-2 py-3 scrollbar-none lg:w-[236px]">
+      <GlassSurface as="div" radius={26} contrast="high" className="rail relative flex h-full w-[64px] flex-col gap-1 overflow-y-auto px-2 py-3 scrollbar-none lg:w-[236px]">
         <span
           ref={blob}
           aria-hidden
@@ -221,7 +222,7 @@ export function Sidebar({
             </Link>
           </div>
         </div>
-      </div>
+      </GlassSurface>
     </aside>
   );
 }
@@ -322,7 +323,8 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
   const [open, setOpen] = useState(false);
   const all = itemsFor(modules, pages, shared);
   const items = all.filter((i) => DOCK.includes(i.href));
-  const more = [...all.filter((i) => !DOCK.includes(i.href)), { href: "/settings", label: "Settings", icon: Settings }];
+  // Settings comes first so it is never out of reach on a phone.
+  const more = [{ href: "/settings", label: "Settings", icon: Settings }, ...all.filter((i) => !DOCK.includes(i.href))];
   const inMore = more.some((i) => isActive(path, i.href));
   const active = activeOf(path, items.map((i) => i.href)) ?? (inMore ? "more" : null);
   const { register, blob, box } = useGlide(open ? "more" : active, DOCK_SQUASH);
@@ -341,10 +343,10 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
     <>
       {open && (
         <>
-          <button type="button" aria-label="Close menu" className="fixed inset-0 z-30 cursor-default bg-black/10 md:hidden" onClick={() => setOpen(false)} />
+          <button type="button" aria-label="Close menu" className="fixed inset-0 z-[45] cursor-default bg-black/25 md:hidden" onClick={() => setOpen(false)} />
           <div
             id="more-menu"
-            className="more-sheet chrome fixed inset-x-3 bottom-[calc(max(12px,env(safe-area-inset-bottom))+76px)] z-40 max-h-[60dvh] overflow-y-auto rounded-[26px] !bg-[var(--bg-elevated)] p-2 md:hidden"
+            className="more-sheet chrome fixed inset-x-3 bottom-[calc(max(12px,env(safe-area-inset-bottom))+76px)] z-50 max-h-[60dvh] overflow-y-auto rounded-[26px] !bg-[var(--bg-elevated)] p-2 md:hidden"
           >
             <ul className="flex flex-col">
               {more.map(({ href, label, icon: Icon }) => {
@@ -378,9 +380,10 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
       )}
       <nav
         aria-label="Main"
-        className="chrome fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 grid gap-0.5 rounded-full p-1.5 md:hidden"
-        style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}
+        className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-40 md:hidden"
       >
+        {/* The phone dock: lens glass on every device (lens="always"). */}
+        <GlassSurface as="div" shape="capsule" contrast="high" lens="always" className="grid gap-0.5 p-1.5" style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}>
         <span
           ref={blob}
           aria-hidden
@@ -414,6 +417,7 @@ export function TabBar({ modules, clients, pages = [], shared = [] }: { modules:
           <LayoutGrid size={20} strokeWidth={open || active === "more" ? 2.3 : 1.9} />
           More
         </button>
+      </GlassSurface>
       </nav>
     </>
   );

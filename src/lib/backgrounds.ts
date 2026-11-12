@@ -6,33 +6,59 @@ const mesh = (base: string, ...blobs: [string, string][]) =>
 
 
 /**
- * Silk: flowing violet ribbons, drawn as an SVG so the glass in front has real shapes to bend
- * (refraction over a flat gradient would be invisible). Painted once on the fixed backdrop.
+ * Silk: folded violet satin, drawn as an SVG. Each fold is a band with its own light-to-shadow gradient and
+ * a hard crease against the next one, so the glass in front has real edges to bend (over a soft gradient,
+ * refraction is invisible). Deterministic, painted once on the fixed backdrop.
  */
 function silk(dark: boolean) {
-  const base = dark ? ["#05040a", "#0c0718"] : ["#efeafc", "#f7f4ff"];
+  // Shadow, body, sheen and highlight of the cloth.
   const c = dark
-    ? ["#2a0f6e", "#6a35f0", "#b48cff", "#3b1596", "#8a5cff"]
-    : ["#c9b6ff", "#8f63ff", "#efe6ff", "#a988ff", "#d8c8ff"];
-  const ribbon = (d: string, w: number, g: string, o: number, blur: number) =>
-    `<path d='${d}' fill='none' stroke='url(%23${g})' stroke-width='${w}' stroke-linecap='round' opacity='${o}' filter='url(%23b${blur})'/>`;
-  const grad = (id: string, a: string, b: string, m: string) =>
-    `<linearGradient id='${id}' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${a}'/><stop offset='.5' stop-color='${m}'/><stop offset='1' stop-color='${b}'/></linearGradient>`;
+    ? { deep: "#07040f", shade: "#1b0b47", body: "#4a22c4", sheen: "#8156ff", light: "#a98bff" }
+    : { deep: "#3b1a9e", shade: "#5a2fe0", body: "#8a63ff", sheen: "#b9a0ff", light: "#f3ecff" };
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const W = 2600;
+  const defs: string[] = [];
+  const bands: string[] = [];
+  // Fold edges: wavy lines across a rotated frame; band k lies between edge k and edge k + 1.
+  const edge = (y: number, a: number, ph: number) => {
+    const p = (x: number) => `${x} ${Math.round(y + a * Math.sin(x / 520 + ph))}`;
+    const pts = [-400, 100, 600, 1100, 1600, 2100, W].map(p);
+    return pts;
+  };
+  let y = -260;
+  let k = 0;
+  let prev = edge(y, 40, 0.4);
+  while (y < 1900) {
+    const h = 46 + rnd() * rnd() * 330;
+    y += h;
+    const next = edge(y, 30 + rnd() * 60, rnd() * 6.28);
+    const id = `f${k}`;
+    // Where the light catches this fold, and how bright it gets.
+    const peak = 0.25 + rnd() * 0.5;
+    const bright = rnd();
+    const top = bright > 0.72 ? c.light : bright > 0.35 ? c.sheen : c.body;
+    const mid = bright > 0.72 ? c.sheen : bright > 0.35 ? c.body : c.shade;
+    defs.push(
+      `<linearGradient id='${id}' gradientUnits='userSpaceOnUse' x1='0' y1='${Math.round(y - h)}' x2='0' y2='${Math.round(y)}'>` +
+        // A soft shoulder on one side and a hard crease on the other, like real cloth.
+        `<stop offset='0' stop-color='${mid}'/>` +
+        `<stop offset='${peak.toFixed(2)}' stop-color='${top}'/><stop offset='${Math.min(0.97, peak + 0.22).toFixed(2)}' stop-color='${mid}'/>` +
+        `<stop offset='1' stop-color='${k % 3 === 0 ? c.deep : c.shade}'/></linearGradient>`,
+    );
+    bands.push(`<path fill='url(#${id})' d='M${prev.join(" L")} L${[...next].reverse().join(" L")}Z'/>`);
+    prev = next;
+    k++;
+  }
   const svg =
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 1000' preserveAspectRatio='xMidYMid slice'>` +
-    `<defs><linearGradient id='bg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${base[0]}'/><stop offset='1' stop-color='${base[1]}'/></linearGradient>` +
-    grad("g1", c[0], c[3], c[1]) + grad("g2", c[3], c[0], c[2]) + grad("g3", c[0], c[1], c[4]) +
-    `<filter id='b8'><feGaussianBlur stdDeviation='8'/></filter><filter id='b24'><feGaussianBlur stdDeviation='24'/></filter><filter id='b60'><feGaussianBlur stdDeviation='60'/></filter></defs>` +
-    `<rect width='1600' height='1000' fill='url(%23bg)'/>` +
-    ribbon("M-200 1150 C 300 700, 700 500, 1800 -150", 420, "g1", dark ? 0.9 : 0.75, 60) +
-    ribbon("M200 1200 C 600 760, 1000 520, 1900 120", 190, "g2", 0.95, 24) +
-    ribbon("M-100 900 C 400 600, 900 260, 1500 -200", 120, "g3", 0.85, 24) +
-    ribbon("M520 1150 C 860 820, 1180 640, 1850 420", 70, "g2", 0.9, 8) +
-    ribbon("M-150 640 C 260 420, 620 200, 1100 -150", 40, "g3", 0.7, 8) +
-    ribbon("M760 1150 C 1040 900, 1320 780, 1800 700", 24, "g2", 0.8, 8) +
-    `</svg>`;
-  const url = `url("data:image/svg+xml,${svg.replace(/</g, "%3C").replace(/>/g, "%3E").replace(/"/g, "%22").replace(/#(?=[0-9a-f])/gi, "%23")}") center / cover no-repeat`;
-  return `${url}, ${base[0]}`;
+    `<defs>${defs.join("")}<filter id='s' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='2.2'/></filter>` +
+    `<radialGradient id='v' cx='.5' cy='.45' r='.8'><stop offset='.45' stop-color='${c.deep}' stop-opacity='0'/><stop offset='1' stop-color='${c.deep}' stop-opacity='${dark ? 0.75 : 0.35}'/></radialGradient></defs>` +
+    `<rect width='1600' height='1000' fill='${c.deep}'/>` +
+    `<g filter='url(#s)' transform='translate(-420 760) rotate(-34) scale(1.05)'>${bands.join("")}</g>` +
+    `<rect width='1600' height='1000' fill='url(#v)'/></svg>`;
+  const url = `url("data:image/svg+xml,${svg.replace(/%/g, "%25").replace(/</g, "%3C").replace(/>/g, "%3E").replace(/"/g, "%22").replace(/#/g, "%23")}") center / cover no-repeat`;
+  return `${url}, ${c.deep}`;
 }
 
 export const BACKGROUNDS = [

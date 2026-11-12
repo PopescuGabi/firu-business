@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
+import { GlassSurface } from "./glass/engine";
 
 /** Settings' section list on a computer: jumps to a section and follows along as you scroll. */
 export function SettingsNav() {
   const [items, setItems] = useState<{ id: string; label: string }[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
   useEffect(() => {
-    const sections = [...document.querySelectorAll<HTMLElement>("[data-settings] section[id][data-title]")];
+    // Only the page on screen: the router keeps a hidden copy of pages you visited, which must not be listed too.
+    const sections = [...document.querySelectorAll<HTMLElement>("[data-settings] section[id][data-title]")].filter((el) => el.offsetParent !== null);
     setItems(sections.map((el) => ({ id: el.id, label: el.dataset.title! })));
     const seen = new Map<string, boolean>();
     const io = new IntersectionObserver(
@@ -23,7 +25,7 @@ export function SettingsNav() {
   }, []);
   return (
     <nav aria-label="Settings sections" className="sticky top-6 hidden self-start lg:block">
-      <ul className="flex flex-col gap-0.5">
+      <GlassSurface as="ul" radius={18} contrast="high" className="flex flex-col gap-0.5 p-1.5">
         {items.map((it) => (
           <li key={it.id}>
             <a
@@ -35,7 +37,7 @@ export function SettingsNav() {
             </a>
           </li>
         ))}
-      </ul>
+      </GlassSurface>
     </nav>
   );
 }

@@ -7,3 +7,6 @@ node_modules
 next-env.d.ts
 *.tsbuildinfo
 .DS_Store
+
+# ONNX runtime copied from node_modules by scripts/copy-ort.mjs
+/public/ort

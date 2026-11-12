@@ -57,17 +57,17 @@ type ModeValues = Pick<GlassTheme, "optics" | "lighting" | "motion">;
 
 export const GLASS_MODES: Record<GlassMode, ModeValues> = {
   subtle: {
-    optics: { refractionStrength: 0.08, blurRadius: 16, surfaceThickness: 0.32, edgeDistortion: 0.15, chromaticAberration: 0, transparency: 0.74, saturation: 1.08 },
+    optics: { refractionStrength: 0.32, blurRadius: 12, surfaceThickness: 0.38, edgeDistortion: 0.2, chromaticAberration: 0, transparency: 0.56, saturation: 1.2 },
     lighting: { highlightIntensity: 0.22, edgeBrightness: 0.2, shadowStrength: 0.12, dynamicLighting: false },
     motion: { springStiffness: 300, springDamping: 30, hoverScale: 1.008, pressScale: 0.985, morphDuration: 0.3 },
   },
   balanced: {
-    optics: { refractionStrength: 0.18, blurRadius: 18, surfaceThickness: 0.45, edgeDistortion: 0.25, chromaticAberration: 0, transparency: 0.66, saturation: 1.15 },
+    optics: { refractionStrength: 0.62, blurRadius: 6, surfaceThickness: 0.52, edgeDistortion: 0.15, chromaticAberration: 0, transparency: 0.4, saturation: 1.4 },
     lighting: { highlightIntensity: 0.35, edgeBrightness: 0.28, shadowStrength: 0.18, dynamicLighting: true },
     motion: { springStiffness: 260, springDamping: 26, hoverScale: 1.015, pressScale: 0.98, morphDuration: 0.35 },
   },
   expressive: {
-    optics: { refractionStrength: 0.3, blurRadius: 14, surfaceThickness: 0.6, edgeDistortion: 0.4, chromaticAberration: 0, transparency: 0.54, saturation: 1.25 },
+    optics: { refractionStrength: 0.9, blurRadius: 3, surfaceThickness: 0.62, edgeDistortion: 0.1, chromaticAberration: 1.5, transparency: 0.26, saturation: 1.55 },
     lighting: { highlightIntensity: 0.5, edgeBrightness: 0.38, shadowStrength: 0.22, dynamicLighting: true },
     motion: { springStiffness: 220, springDamping: 20, hoverScale: 1.025, pressScale: 0.97, morphDuration: 0.45 },
   },

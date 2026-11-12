@@ -54,6 +54,8 @@ type GlassContextValue = {
   tier: GlassTier;
   reasons: string[];
   mode: GlassMode;
+  /** Phones and touch devices: only surfaces marked lens="always" (bars, docks) bend the backdrop. */
+  lite: boolean;
   setMode: (m: GlassMode) => void;
   forceTier: (t: GlassTier | null) => void;
 };
@@ -63,6 +65,7 @@ const GlassContext = createContext<GlassContextValue>({
   tier: 2,
   reasons: ["no provider"],
   mode: liquidGlassTheme.mode,
+  lite: false,
   setMode: () => {},
   forceTier: () => {},
 });
@@ -74,6 +77,14 @@ export function GlassProvider({ mode: initialMode = liquidGlassTheme.mode, child
   // The server and the first client render agree on Tier 2 (CSS only); the real tier follows.
   const [report, setReport] = useState<TierReport>({ tier: 2, reasons: ["starting"] });
   const [forced, setForced] = useState<GlassTier | null>(null);
+  const [lite, setLite] = useState(false);
+  useEffect(() => {
+    const q = window.matchMedia("(max-width: 767px), (pointer: coarse)");
+    const update = () => setLite(q.matches);
+    update();
+    q.addEventListener("change", update);
+    return () => q.removeEventListener("change", update);
+  }, []);
   const theme = useMemo(() => resolveGlass(liquidGlassTheme, mode), [mode]);
 
   useEffect(() => {
@@ -108,8 +119,8 @@ export function GlassProvider({ mode: initialMode = liquidGlassTheme.mode, child
   }, [tier, theme]);
 
   const value = useMemo(
-    () => ({ theme, tier, reasons: forced ? [`forced to Tier ${forced}`] : report.reasons, mode, setMode, forceTier: setForced }),
-    [theme, tier, report.reasons, forced, mode],
+    () => ({ theme, tier, reasons: forced ? [`forced to Tier ${forced}`] : report.reasons, mode, lite, setMode, forceTier: setForced }),
+    [theme, tier, report.reasons, forced, mode, lite],
   );
   return <GlassContext.Provider value={value}>{children}</GlassContext.Provider>;
 }
@@ -129,6 +140,8 @@ type OwnProps = {
   /** Hover lift, press squeeze and a highlight that follows the pointer. */
   interactive?: boolean;
   tint?: GlassTint;
+  /** "always": bends the backdrop on phones too (use for the few bars that define the look). */
+  lens?: "auto" | "always";
   /** "high" lays a denser tint under text that must stay readable over busy backdrops. */
   contrast?: "auto" | "high";
   className?: string;
@@ -144,7 +157,7 @@ function setRef<V>(ref: Ref<V> | undefined, value: V) {
 }
 
 export function GlassSurface<T extends ElementType = "div">(props: GlassSurfaceProps<T>) {
-  const { as, mode, overrides, shape = "rounded", radius = 24, interactive = false, tint = "clear", contrast = "auto", className, style, children, ...rest } = props;
+  const { as, mode, overrides, shape = "rounded", radius = 24, interactive = false, tint = "clear", contrast = "auto", lens = "auto", className, style, children, ...rest } = props;
   const forwardedRef = (rest as { ref?: Ref<HTMLElement> }).ref;
   delete (rest as { ref?: unknown }).ref;
   const Tag: ElementType = as ?? "div";
@@ -155,7 +168,7 @@ export function GlassSurface<T extends ElementType = "div">(props: GlassSurfaceP
   const fid = "lg" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const el = useRef<HTMLElement | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const refract = ctx.tier === 1 && g.optics.refractionStrength > 0;
+  const refract = ctx.tier === 1 && g.optics.refractionStrength > 0 && (!ctx.lite || lens === "always");
 
   useEffect(() => {
     stats.surfaces++;
@@ -197,7 +210,8 @@ export function GlassSurface<T extends ElementType = "div">(props: GlassSurfaceP
   }, [refract, size.w, size.h, r, g.optics]);
 
   const small = typeof window !== "undefined" && ctx.theme.performance.mobileOptimization && window.innerWidth < 600;
-  const maxPull = Math.min(40, g.optics.refractionStrength * (Math.min(size.w, size.h) / 2)) * (small ? 0.8 : 1);
+  // How far the rim pulls the backdrop, in px: the same on every surface, capped for small ones.
+  const maxPull = Math.min(g.optics.refractionStrength * 90, Math.min(size.w, size.h) / 3) * (small ? 0.8 : 1);
   const scale = Math.round(maxPull * 2);
   const ca = small ? 0 : g.optics.chromaticAberration;
 
@@ -232,7 +246,9 @@ export function GlassSurface<T extends ElementType = "div">(props: GlassSurfaceP
     "--lg-radius": shape === "rounded" ? `${radius}px` : "9999px",
   } as CSSProperties;
   if (map) {
-    const f = `url(#${fid}) blur(${g.optics.blurRadius}px) saturate(${g.optics.saturation})`;
+    // One SVG filter does everything, in order: frost, bend, saturate. (Chromium drops a url() filter
+    // that follows blur() in the chain, and bending before a CSS blur would smear the lens edge away.)
+    const f = `url(#${fid})`;
     vars.backdropFilter = f;
   }
 
@@ -256,20 +272,25 @@ export function GlassSurface<T extends ElementType = "div">(props: GlassSurfaceP
       {map && (
         <svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute", pointerEvents: "none" }}>
           <filter id={fid} x="0" y="0" width={size.w} height={size.h} filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation={g.optics.blurRadius * 0.6} result="frost" />
             <feImage href={map} x="0" y="0" width={size.w} height={size.h} preserveAspectRatio="none" result="map" />
             {ca > 0 ? (
               <>
-                <feDisplacementMap in="SourceGraphic" in2="map" scale={scale + ca * 2} xChannelSelector="R" yChannelSelector="G" result="dr" />
+                <feDisplacementMap in="frost" in2="map" scale={scale + ca * 2} xChannelSelector="R" yChannelSelector="G" result="dr" />
                 <feColorMatrix in="dr" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r" />
-                <feDisplacementMap in="SourceGraphic" in2="map" scale={scale} xChannelSelector="R" yChannelSelector="G" result="dg" />
+                <feDisplacementMap in="frost" in2="map" scale={scale} xChannelSelector="R" yChannelSelector="G" result="dg" />
                 <feColorMatrix in="dg" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g" />
-                <feDisplacementMap in="SourceGraphic" in2="map" scale={Math.max(0, scale - ca * 2)} xChannelSelector="R" yChannelSelector="G" result="db" />
+                <feDisplacementMap in="frost" in2="map" scale={Math.max(0, scale - ca * 2)} xChannelSelector="R" yChannelSelector="G" result="db" />
                 <feColorMatrix in="db" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b" />
                 <feBlend in="r" in2="g" mode="screen" result="rg" />
-                <feBlend in="rg" in2="b" mode="screen" />
+                <feBlend in="rg" in2="b" mode="screen" result="bent" />
+                <feColorMatrix in="bent" type="saturate" values={String(g.optics.saturation)} />
               </>
             ) : (
-              <feDisplacementMap in="SourceGraphic" in2="map" scale={scale} xChannelSelector="R" yChannelSelector="G" />
+              <>
+                <feDisplacementMap in="frost" in2="map" scale={scale} xChannelSelector="R" yChannelSelector="G" result="bent" />
+                <feColorMatrix in="bent" type="saturate" values={String(g.optics.saturation)} />
+              </>
             )}
           </filter>
         </svg>

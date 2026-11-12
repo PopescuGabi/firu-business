@@ -15,23 +15,29 @@
   isolation: isolate;
   border-radius: var(--lg-radius, 24px);
   color: var(--label);
-  background-color: color-mix(in srgb, var(--lg-base) calc(max(var(--lg-tint, 0.66), var(--lg-tint-min, 0)) * 100%), transparent);
-  -webkit-backdrop-filter: blur(var(--lg-blur, 18px)) saturate(var(--lg-sat, 1.15));
-  backdrop-filter: blur(var(--lg-blur, 18px)) saturate(var(--lg-sat, 1.15));
+  background-color: color-mix(in srgb, var(--lg-base) calc(max(var(--lg-tint, 0.4), var(--lg-tint-min, 0)) * 100%), transparent);
+  -webkit-backdrop-filter: blur(var(--lg-blur, 7px)) saturate(var(--lg-sat, 1.4));
+  backdrop-filter: blur(var(--lg-blur, 7px)) saturate(var(--lg-sat, 1.4));
+  /* Light on a slab of glass: a bright lip along the top, a faint catch-light underneath, a soft glow
+     just inside the edge, then the shadow it casts. */
   box-shadow:
-    0 1px 1px rgb(20 30 70 / calc(var(--lg-shadow, 0.18) * 0.35)),
-    0 16px 40px -14px rgb(20 30 70 / calc(var(--lg-shadow, 0.18) * 1.7));
+    inset 0 1.5px 0.5px -0.5px rgb(255 255 255 / calc(var(--lg-edge, 0.28) * var(--lg-hi-mul) * 2.6)),
+    inset 0 -1px 0.5px -0.5px rgb(255 255 255 / calc(var(--lg-edge, 0.28) * var(--lg-hi-mul) * 0.9)),
+    inset 0 0 16px rgb(255 255 255 / calc(var(--lg-hi, 0.35) * var(--lg-hi-mul) * 0.2)),
+    0 1px 2px rgb(16 8 48 / calc(var(--lg-shadow, 0.18) * 0.6)),
+    0 18px 44px -16px rgb(16 8 48 / calc(var(--lg-shadow, 0.18) * 2.6));
   transition:
     transform var(--lg-spring-ms, 420ms) var(--lg-spring, cubic-bezier(0.2, 0.8, 0.2, 1)),
     box-shadow 0.3s ease,
     background-color 0.3s ease;
 }
 :root[data-theme="dark"] .lg {
-  --lg-base: #1d1d22;
-  --lg-hi-mul: 0.42;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.4),
-    0 18px 44px -14px rgb(0 0 0 / calc(var(--lg-shadow, 0.18) * 3.5));
+  --lg-base: #120e1e;
+  --lg-hi-mul: 0.62;
+}
+/* Dark glass needs a little more body than light glass to hold white text. */
+:root[data-theme="dark"] .lg:not([data-tint]) {
+  --lg-tint-min: 0.5;
 }
 
 /* Context-aware scheme: a region can declare the brightness of its own backdrop with
@@ -53,8 +59,9 @@
   --lg-hi-mul: 1;
 }
 :root [data-glass-scheme="dark"] .lg:not([data-tint]) {
-  --lg-base: #1d1d22;
-  --lg-hi-mul: 0.42;
+  --lg-base: #120e1e;
+  --lg-hi-mul: 0.62;
+  --lg-tint-min: 0.5;
 }
 
 /* Specular sheen: a soft reflection from a light above-left, following the pointer when interactive. */
@@ -95,13 +102,13 @@
 
 /* Adaptive contrast: busier backdrops (a photo background) or text-heavy panels get a denser tint. */
 /* (GlassSurface sets --lg-tint inline, so these raise a separate floor instead of overriding it.) */
-[data-bg="photo"] .lg,
-.lg[data-contrast="high"] {
-  --lg-tint-min: 0.8;
+[data-bg="photo"] .lg:not([data-tint]),
+.lg[data-contrast="high"]:not([data-tint]) {
+  --lg-tint-min: 0.58;
 }
-:root[data-theme="dark"] .lg[data-contrast="high"],
-:root [data-glass-scheme="dark"] .lg[data-contrast="high"] {
-  --lg-tint-min: 0.86;
+:root[data-theme="dark"] .lg[data-contrast="high"]:not([data-tint]),
+:root [data-glass-scheme="dark"] .lg[data-contrast="high"]:not([data-tint]) {
+  --lg-tint-min: 0.66;
 }
 
 /* Tints that carry the brand colour. Text on them is white at AA contrast. */
@@ -489,12 +496,3 @@ dialog.lg-modal::backdrop {
   .jarvis-bar.is-active, .jarvis-mic[aria-pressed="true"], .jarvis-panel { animation: none; }
 }
 
-/* Silk backdrop: clearer glass (a translucent base, so the tint stays light even at high contrast).
-   Kept at (0,3,0) so a region's own data-glass-scheme still wins. */
-[data-bg="silk"] .lg:not([data-tint]) {
-  --lg-base: rgb(255 255 255 / 0.6);
-}
-:where([data-theme="dark"]) [data-bg="silk"] .lg:not([data-tint]) {
-  --lg-base: rgb(22 18 34 / 0.62);
-  --lg-hi-mul: 0.6;
-}

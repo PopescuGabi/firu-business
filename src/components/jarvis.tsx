@@ -2,11 +2,12 @@
 // Jarvis: the assistant bar on every Dashboard page. Speak (browser speech recognition), type, or say "Jarvis"
 // with the wake word on. Claude answers through /api/ai/jarvis, can act (plan the day, add tasks, update leads),
 // and the reply is read aloud in a British voice, sentence by sentence as it streams in.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { ArrowUp, AudioLines, Check, Ear, EarOff, Mic, Square, Sunrise, Volume2, VolumeX, X } from "lucide-react";
 import { ASSISTANT_NAME } from "@/lib/brand";
+import { LOCAL_VOICES, localSpeech, planFor } from "@/lib/speech-local/client";
 import { GlassSurface } from "./glass";
 
 type Msg = { role: "user" | "assistant"; content: string; actions?: string[] };
@@ -45,6 +46,7 @@ const store = {
   },
 };
 const todayKey = () => new Date().toLocaleDateString("en-CA");
+const isPhone = () => window.matchMedia("(max-width: 767px), (pointer: coarse)").matches;
 
 /** "Good morning" (or "Bună dimineața") starts the briefing. */
 const BRIEFING = /^\s*(good morning|morning|brief me|bun[ăa] diminea[țt]a)\b/i;
@@ -93,10 +95,16 @@ function pickVoice(lang: Lang) {
 const ROMANIAN = /[ăâîșțşţ]|\b(și|este|pentru|sunt|aveți|aveti|mâine|astăzi|azi|bună|vă|vreți|domnule)\b/i;
 
 /**
- * Speaks text in order; a new reply cancels whatever is still being read. With ElevenLabs (`premium`), each
- * sentence is fetched as natural speech while the previous one plays; otherwise the browser's voice reads it.
+ * Who speaks: "eleven" = ElevenLabs through the server (needs a key); "local" = the Kokoro neural voice running
+ * on this device (free, English); "browser" = the system's built-in voice (the robotic fallback).
  */
-function useSpeaker(lang: Lang, muted: boolean, premium: boolean, onFail: (m: string) => void) {
+type Engine = "eleven" | "local" | "browser";
+
+/**
+ * Speaks text in order; a new reply cancels whatever is still being read. With a neural engine each sentence
+ * is prepared as natural speech while the previous one plays; otherwise the browser's voice reads it.
+ */
+function useSpeaker(lang: Lang, muted: boolean, engine: Engine, localVoice: string, onFail: (m: string) => void) {
   const [speaking, setSpeaking] = useState(false);
   const chain = useRef<Promise<void>>(Promise.resolve());
   const gen = useRef(0);
@@ -144,27 +152,50 @@ function useSpeaker(lang: Lang, muted: boolean, premium: boolean, onFail: (m: st
     },
     [lang, muted],
   );
-  const premiumSay = useCallback(
+  /** The browser voice, as a promise that settles when the sentence has been read. */
+  const browserSpeak = useCallback(
+    (text: string) =>
+      new Promise<void>((done) => {
+        if (typeof speechSynthesis === "undefined") return done();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = lang;
+        const voice = pickVoice(lang);
+        if (voice) u.voice = voice;
+        u.rate = lang === "en-GB" ? 0.98 : 1.02;
+        u.pitch = lang === "en-GB" ? 0.9 : 1;
+        u.onend = u.onerror = () => done();
+        speechSynthesis.speak(u);
+      }),
+    [lang],
+  );
+  const neuralSay = useCallback(
     (text: string) => {
       if (muted || !text.trim()) return;
       const g = gen.current;
-      const textLang = ROMANIAN.test(text) || lang === "ro-RO" ? "ro" : "en";
-      // Start fetching now so the audio is ready when the previous sentence ends.
-      const clip = fetch("/api/speech/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, lang: textLang }),
-      }).then(async (r) => {
-        if (r.ok) return r.blob();
-        const j = await r.json().catch(() => null);
-        throw new Error(j?.error ?? `Voice unavailable (${r.status}).`);
-      });
-      clip.catch(() => {}); // handled in the chain below
+      const romanian = ROMANIAN.test(text) || lang === "ro-RO";
+      // The on-device voice speaks English only; Romanian sentences go to the browser's Romanian voice.
+      const useBrowser = failed.current || (engine === "local" && romanian);
+      // Start preparing now so the audio is ready when the previous sentence ends.
+      const clip: Promise<Blob> | null = useBrowser
+        ? null
+        : engine === "local"
+          ? localSpeech.speak(text, localVoice)
+          : fetch("/api/speech/tts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text, lang: romanian ? "ro" : "en" }),
+            }).then(async (r) => {
+              if (r.ok) return r.blob();
+              const j = await r.json().catch(() => null);
+              throw new Error(j?.error ?? `Voice unavailable (${r.status}).`);
+            });
+      clip?.catch(() => {}); // handled in the chain below
       queue.current++;
       setSpeaking(true);
       chain.current = chain.current
         .then(async () => {
           if (g !== gen.current) return;
+          if (!clip) return browserSpeak(text);
           try {
             const blob = await clip;
             if (g !== gen.current) return;
@@ -176,10 +207,16 @@ function useSpeaker(lang: Lang, muted: boolean, premium: boolean, onFail: (m: st
               a.play().catch(() => done());
             });
             URL.revokeObjectURL(url);
+            // A device that needs longer to make speech than to play it can't keep a conversation going.
+            const speed = engine === "local" ? localSpeech.get().speed : null;
+            if (speed && speed > 1.25 && !failed.current) {
+              failed.current = true;
+              onFail("This device is too slow for the natural voice, so the browser voice is used here.");
+            }
           } catch (e) {
             if (!failed.current) onFail(`${(e as Error).message} Using the browser voice for now.`);
             failed.current = true;
-            browserSay(text);
+            if (g === gen.current) await browserSpeak(text);
           }
         })
         .finally(() => {
@@ -188,9 +225,9 @@ function useSpeaker(lang: Lang, muted: boolean, premium: boolean, onFail: (m: st
           if (queue.current === 0) setSpeaking(false);
         });
     },
-    [browserSay, lang, muted, onFail],
+    [browserSpeak, engine, lang, localVoice, muted, onFail],
   );
-  const say = premium ? premiumSay : browserSay;
+  const say = engine === "browser" ? browserSay : neuralSay;
   const stop = useCallback(() => {
     gen.current++;
     chain.current = Promise.resolve();
@@ -279,20 +316,55 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
   const [transcribing, setTranscribing] = useState(false);
   const recHandle = useRef<{ stop?: () => void }>({});
   const [canRecord, setCanRecord] = useState(false);
-  const { say, stop: stopSpeaking, speaking, voiceName, voices, chooseVoice } = useSpeaker(lang, muted, premium, setError);
+  // On-device speech (free, no key): on by default on computers; phones are asked first (a 170 MB download).
+  const local = useSyncExternalStore(localSpeech.subscribe, localSpeech.get, localSpeech.get);
+  const [localOn, setLocalOn] = useState<boolean | null>(null);
+  const [localVoice, setLocalVoice] = useState<string>(LOCAL_VOICES[0].id);
+  const [offerLocal, setOfferLocal] = useState(false);
+  const [localMb, setLocalMb] = useState(170);
+  const engine: Engine = premium ? "eleven" : localOn && local.tts === "ready" ? "local" : "browser";
+  const { say, stop: stopSpeaking, speaking, voiceName, voices, chooseVoice } = useSpeaker(lang, muted, engine, localVoice, setError);
   const [voiceMenu, setVoiceMenu] = useState(false);
 
   useEffect(() => {
-    const recordable = premium && typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
-    setCanRecord(recordable);
-    setCanListen(recordable || Boolean(recognitionCtor()));
+    const recorder = typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
+    setCanRecord(premium && recorder);
+    setCanListen(recorder || Boolean(recognitionCtor()));
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __speech?: unknown }).__speech = localSpeech;
+    const v = store.get("jarvis.localVoice");
+    if (v && LOCAL_VOICES.some((x) => x.id === v)) setLocalVoice(v);
+    if (!premium && localSpeech.supported()) {
+      const saved = store.get("jarvis.local");
+      const phone = isPhone();
+      void planFor(phone).then((plan) => setLocalMb(plan.megabytes));
+      const saver = Boolean((navigator as unknown as { connection?: { saveData?: boolean } }).connection?.saveData);
+      if (saved === "1") setLocalOn(true);
+      else if (saved === "0") setLocalOn(false);
+      else if (phone || saver) setOfferLocal(true);
+      else setLocalOn(true);
+    }
     const l = store.get("jarvis.lang");
     if (l === "en-GB" || l === "ro-RO") setLang(l);
     setMuted(store.get("jarvis.muted") === "1");
     setWakeOn(store.get("jarvis.wake") === "1");
     // Once a day, before mid-afternoon, Jarvis offers the briefing (a click is needed before a page may speak).
     if (store.get("jarvis.briefed") !== todayKey() && new Date().getHours() < 15) setOfferBriefing(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read once on mount
   }, []);
+
+  // Fetch the on-device models a moment after the page settles (once; the browser caches them).
+  useEffect(() => {
+    if (!localOn || premium) return;
+    const t = setTimeout(async () => {
+      const plan = await planFor(isPhone());
+      setLocalMb(plan.megabytes);
+      localSpeech.loadVoice(plan.voice);
+      localSpeech.loadHearing(plan.hearing);
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [localOn, premium]);
+  // Recorded requests work as soon as there is something accurate to transcribe them with.
+  const recordReady = canRecord || (Boolean(localOn) && local.stt === "ready" && typeof MediaRecorder !== "undefined");
 
   // ⌘J / Ctrl+J focuses Jarvis from anywhere.
   useEffect(() => {
@@ -409,14 +481,23 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
         return;
       }
       setTranscribing(true);
-      const form = new FormData();
-      form.append("audio", blob, blob.type.includes("mp4") ? "request.m4a" : "request.webm");
-      const res = await fetch("/api/speech/stt", { method: "POST", body: form });
-      const j = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      let text: string;
+      if (premium) {
+        const form = new FormData();
+        form.append("audio", blob, blob.type.includes("mp4") ? "request.m4a" : "request.webm");
+        const res = await fetch("/api/speech/stt", { method: "POST", body: form });
+        const j = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+        if (!res.ok) throw new Error(j.error ?? `Couldn't transcribe (${res.status}).`);
+        text = j.text ?? "";
+      } else {
+        // Whisper on this device; the recording never leaves it.
+        text = await localSpeech.transcribe(blob, lang === "ro-RO" ? "romanian" : "english");
+      }
       setTranscribing(false);
-      if (!res.ok) throw new Error(j.error ?? `Couldn't transcribe (${res.status}).`);
       setInput("");
-      if (j.text?.trim()) void ask(j.text);
+      // Whisper writes "[BLANK_AUDIO]" or "(music)" for noise; that isn't a request.
+      text = text.replace(/[\[(][^\])]*[\])]/g, "").trim();
+      if (text) void ask(text);
     } catch (e) {
       setListening(false);
       setTranscribing(false);
@@ -424,10 +505,10 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
       const name = (e as Error).name;
       setError(name === "NotAllowedError" ? "Microphone access is blocked. Allow it in the browser's site settings." : (e as Error).message);
     }
-  }, [ask, listening, stopSpeaking]);
+  }, [ask, lang, listening, premium, stopSpeaking]);
 
   const listen = useCallback(() => {
-    if (canRecord) {
+    if (recordReady) {
       void listenRecorded();
       return;
     }
@@ -463,14 +544,16 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
     rec.current = r;
     setListening(true);
     r.start();
-  }, [ask, canRecord, lang, listenRecorded, listening, stopSpeaking]);
+  }, [ask, recordReady, lang, listenRecorded, listening, stopSpeaking]);
 
   // Wake word: while on, the tab listens for "Jarvis" and treats what follows as the request. It pauses while
   // Jarvis listens, thinks or speaks (so it doesn't hear itself) and whenever the tab is hidden.
   const askRef = useRef(ask);
   const listenRef = useRef(listen);
   const sayRef = useRef(say);
+  const recordReadyRef = useRef(recordReady);
   useEffect(() => {
+    recordReadyRef.current = recordReady;
     askRef.current = ask;
     listenRef.current = listen;
     sayRef.current = say;
@@ -496,7 +579,7 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
           stopped = true;
           r?.abort();
           // With ElevenLabs the request itself is recorded and transcribed properly, so start recording now.
-          if (canRecord) setTimeout(() => listenRef.current(), 150);
+          if (recordReadyRef.current) setTimeout(() => listenRef.current(), 150);
           else if (rest.split(/\s+/).length >= 2) void askRef.current(rest);
           else {
             sayRef.current(lang === "en-GB" ? "Yes, sir?" : "Da?");
@@ -533,7 +616,7 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
       r?.abort();
       wakeRec.current = null;
     };
-  }, [wakeOn, busy, listening, speaking, transcribing, lang, canRecord]);
+  }, [wakeOn, busy, listening, speaking, transcribing, lang]);
 
   const stopAll = () => {
     abort.current?.abort();
@@ -573,7 +656,12 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
           <div className="flex items-center justify-between px-4 pt-3">
             <p className="text-[13px] font-semibold text-label-2">
               {ASSISTANT_NAME}
-              {(premium || voiceName) && <span className="font-normal text-label-3"> · voice: {premium ? "ElevenLabs" : voiceName}</span>}
+              {(engine !== "browser" || voiceName) && (
+                <span className="font-normal text-label-3">
+                  {" "}
+                  · voice: {engine === "eleven" ? "ElevenLabs" : engine === "local" ? `${LOCAL_VOICES.find((v) => v.id === localVoice)?.label ?? "George"}, on this device` : voiceName}
+                </span>
+              )}
             </p>
             <button type="button" onClick={() => setOpen(false)} aria-label="Hide conversation" className="grid size-7 place-items-center rounded-full text-label-2 hover:bg-fill">
               <X size={15} aria-hidden />
@@ -610,8 +698,53 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
       )}
       {voiceMenu && (
         <GlassSurface as="div" radius={22} contrast="high" className="pointer-events-auto flex w-full max-w-[640px] flex-wrap items-center gap-2 p-3 text-[14px]">
+          {!premium && localSpeech.supported() && (
+            <div className="flex w-full flex-wrap items-center gap-2 border-b border-separator pb-2.5">
+              <span className="font-medium">Natural voice and hearing</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(localOn)}
+                onClick={() => {
+                  const next = !localOn;
+                  setLocalOn(next);
+                  setOfferLocal(false);
+                  store.set("jarvis.local", next ? "1" : "0");
+                }}
+                className={clsx("h-7 rounded-full px-3 text-[13px] font-semibold", localOn ? "bg-accent text-white" : "bg-fill text-label-2")}
+              >
+                {localOn ? "On" : "Off"}
+              </button>
+              {localOn && (
+                <select
+                  aria-label="Natural voice"
+                  value={localVoice}
+                  onChange={(e) => {
+                    setLocalVoice(e.target.value);
+                    store.set("jarvis.localVoice", e.target.value);
+                  }}
+                  className="h-8 rounded-full border-0 bg-fill px-3 text-[13px]"
+                >
+                  {LOCAL_VOICES.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="w-full text-[12px] text-label-2">
+                {!localOn
+                  ? `Runs on this device with open models: a human-sounding British voice and accurate transcription, free, no account. About ${localMb} MB to download once.`
+                  : local.tts === "failed" || local.stt === "failed"
+                    ? `Couldn't load (${local.error ?? "unknown error"}). Using the browser voice.`
+                    : local.tts === "ready" && local.stt === "ready"
+                      ? "Ready. Speech is made and transcribed on this device; nothing is sent anywhere. Romanian replies still use the browser's Romanian voice."
+                      : `Downloading once (about ${localMb} MB): voice ${Math.round(local.ttsProgress * 100)}%, hearing ${Math.round(local.sttProgress * 100)}%.`}
+              </p>
+            </div>
+          )}
           <label htmlFor="jarvis-voice" className="font-medium">
-            {ASSISTANT_NAME}&apos;s voice on this device
+            {premium || engine === "local" ? "Fallback browser voice" : `${ASSISTANT_NAME}'s voice on this device`}
           </label>
           <select
             id="jarvis-voice"
@@ -637,9 +770,40 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
             <X size={14} aria-hidden />
           </button>
           <p className="w-full text-[12px] text-label-2">
-            {premium ? "Jarvis speaks with ElevenLabs (change the voice in Settings → Jarvis voice); this browser voice is only the fallback. " : ""}
-            Voices come from your browser and device. For the most natural British male voices, use Microsoft Edge (Ryan or Thomas “Natural”) or Daniel on a Mac.
+            {premium ? "Jarvis speaks with ElevenLabs (change the voice in Settings → Jarvis voice); this browser voice is only the fallback." : "Browser voices come from your device and sound robotic; they are used only when the natural voice isn't available."}
           </p>
+        </GlassSurface>
+      )}
+      {localOn && !premium && (local.tts === "loading" || local.stt === "loading") && (
+        <p role="status" className="pointer-events-auto rounded-full bg-[var(--card-solid)] px-3 py-1.5 text-[12px] text-label-2 shadow-apple">
+          Getting {ASSISTANT_NAME}&apos;s natural voice ready… {Math.round(((local.ttsProgress + local.sttProgress) / 2) * 100)}%
+        </p>
+      )}
+      {offerLocal && !open && (
+        <GlassSurface as="div" radius={22} contrast="high" lens="always" className="pointer-events-auto flex max-w-[640px] items-center gap-2 py-1.5 pr-1.5 pl-4 text-[13px]">
+          <span>Give {ASSISTANT_NAME} a natural voice on this phone? One {localMb} MB download; Wi-Fi recommended.</span>
+          <button
+            type="button"
+            onClick={() => {
+              setLocalOn(true);
+              setOfferLocal(false);
+              store.set("jarvis.local", "1");
+            }}
+            className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-white"
+          >
+            Turn on
+          </button>
+          <button
+            type="button"
+            aria-label="Not now"
+            onClick={() => {
+              setOfferLocal(false);
+              store.set("jarvis.local", "0");
+            }}
+            className="grid size-8 shrink-0 place-items-center rounded-full text-label-2 hover:bg-fill"
+          >
+            <X size={14} aria-hidden />
+          </button>
         </GlassSurface>
       )}
       {offerBriefing && !open && (
@@ -665,6 +829,7 @@ export function Jarvis({ premium = false }: { premium?: boolean }) {
         as="form"
         shape="capsule"
         contrast="high"
+        lens="always"
         className={clsx("jarvis-bar pointer-events-auto flex w-full max-w-[640px] items-center gap-1 p-1.5", active && "is-active")}
         onSubmit={(e: React.FormEvent) => {
           e.preventDefault();

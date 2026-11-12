@@ -1,8 +1,8 @@
 // Refraction maps for the SVG filter used in Tier 1.
 //
 // What this is: a displacement map that tells feDisplacementMap how far to pull each backdrop pixel.
-// The surface is modelled as a slab whose rim curves down like a squircle; the bend follows the
-// rim's slope, so it is strongest at the edge and zero in the flat centre, where text sits.
+// The surface is modelled as a slab with a rounded rim of fixed width; the bend is strongest at the
+// edge and zero in the flat centre, where text sits.
 // What this is not: physically accurate optics. There is no ray tracing, thickness-dependent index
 // or real caustics; it is a geometry-aware approximation that reads as curved glass.
 
@@ -21,13 +21,13 @@ function sdRoundRect(px: number, py: number, hx: number, hy: number, r: number) 
   return Math.hypot(ox, oy) + Math.min(Math.max(qx, qy), 0) - r;
 }
 
-/** Slope of a squircle rim at depth t (0 = edge, 1 = where the rim meets the flat top). */
-function rimSlope(t: number, sharpness: number) {
-  // Height profile h(t) = (1 - (1 - t)^n)^(1/n); larger n = harder lip at the edge.
-  const n = 2 + sharpness * 4;
-  const e = 1e-3;
-  const h = (u: number) => Math.pow(1 - Math.pow(1 - Math.min(Math.max(u, 0), 1), n), 1 / n);
-  return (h(t + e) - h(t - e)) / (2 * e);
+/**
+ * How hard the rim bends at depth t (0 = the very edge, 1 = where the rim meets the flat top).
+ * Strongest at the edge and easing to nothing, with `sharpness` tightening the bend toward the edge.
+ */
+function rimBend(t: number, sharpness: number) {
+  const u = 1 - Math.min(Math.max(t, 0), 1);
+  return Math.pow(u, 1.6 + sharpness * 3);
 }
 
 /** A PNG data URL: red = horizontal pull, green = vertical pull, 128 = none. Cached per shape. */
@@ -51,10 +51,9 @@ export function refractionMap(shape: MapShape, optics: MapOptics): string | null
   const img = ctx.createImageData(w, h);
   const hx = w / 2;
   const hy = h / 2;
-  const bezel = Math.max(2, Math.min(hx, hy) * optics.surfaceThickness);
-  // Normalise so the steepest slope maps to a full-strength pull.
-  let peak = 0;
-  for (let i = 0; i <= 50; i++) peak = Math.max(peak, rimSlope(i / 50, optics.edgeDistortion));
+  // The rim is a fixed physical width (about 14-34 px on screen), not a share of the surface, so a big
+  // card and a small button read as the same thickness of glass.
+  const bezel = Math.max(2, Math.min(optics.surfaceThickness * 56, Math.min(width, height) / 2.4) * scale);
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -68,7 +67,7 @@ export function refractionMap(shape: MapShape, optics: MapOptics): string | null
         const gx = sdRoundRect(px + 0.5, py, hx, hy, r) - sdRoundRect(px - 0.5, py, hx, hy, r);
         const gy = sdRoundRect(px, py + 0.5, hx, hy, r) - sdRoundRect(px, py - 0.5, hx, hy, r);
         const len = Math.hypot(gx, gy) || 1;
-        const mag = rimSlope(d / bezel, optics.edgeDistortion) / peak;
+        const mag = rimBend(d / bezel, optics.edgeDistortion);
         // A convex rim magnifies: each pixel shows backdrop from closer to the centre.
         dx = (-gx / len) * mag;
         dy = (-gy / len) * mag;
