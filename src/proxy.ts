@@ -64,5 +64,6 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|manifest.webmanifest|google[0-9a-f]+\\.html).*)"],
+  // ort/: the open-source ONNX runtime the on-device speech worker loads (a static library file, nothing private).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|manifest.webmanifest|ort/|google[0-9a-f]+\\.html).*)"],
 };
