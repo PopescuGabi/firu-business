@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { assertWithinLimit, claude, describeAiError, modelFor, recordUsage } from "@/lib/ai/claude";
 import { JARVIS_TOOLS, jarvisContext, jarvisSystem, runJarvisTool, todaySchedule } from "@/lib/ai/jarvis";
+import { getSettings } from "@/lib/settings";
 
 export const maxDuration = 120;
 
@@ -15,7 +16,7 @@ const body = z.object({
   briefing: z.boolean().default(false),
 });
 
-const MAX_ROUNDS = 4;
+const MAX_ROUNDS = 6;
 
 export async function POST(req: Request) {
   const { user, denied } = await apiUser();
@@ -57,8 +58,9 @@ export async function POST(req: Request) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
       let changed = false;
       try {
-        // Sonnet: quick enough to talk to, sharp enough for business questions.
-        const ai = modelFor("analysis");
+        // Opus: the strongest model, so Jarvis understands loose spoken requests and plans well; low effort keeps it quick.
+        const ai = modelFor("content");
+        const tz = (await getSettings(user.id)).timezone;
         const convo: { role: "user" | "assistant"; content: unknown }[] = messages.map((m) => ({ role: m.role, content: m.content }));
         for (let round = 0; round < MAX_ROUNDS; round++) {
           const s = client.beta.messages.stream({
@@ -84,7 +86,7 @@ export async function POST(req: Request) {
           const results = [];
           for (const u of uses) {
             if (u.type !== "tool_use") continue;
-            const out = await runJarvisTool(user.id, u.name, (u.input ?? {}) as Record<string, unknown>, planDay).catch((e: Error) => ({
+            const out = await runJarvisTool(u.name, (u.input ?? {}) as Record<string, unknown>, { uid: user.id, tz, planDay }).catch((e: Error) => ({
               result: `Failed: ${e.message}`,
               action: undefined,
             }));

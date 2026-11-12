@@ -13,6 +13,8 @@ import { AddressList, MapsKeyForm } from "@/components/maps-settings";
 import { SectionsForm } from "@/components/sections-form";
 import { CalendarSyncForm } from "@/components/calendar-sync-form";
 import { KeyForm } from "@/components/key-form";
+import { SpeechForm } from "@/components/speech-form";
+import { DEFAULT_VOICE_ID, speechKey } from "@/lib/speech";
 import { VercelEnvForm } from "@/components/vercel-env-form";
 import { Submit } from "@/components/submit";
 import { SettingsNav } from "@/components/settings-nav";
@@ -33,7 +35,7 @@ import { DRIVE_ROOT_NAME, folderUrl } from "@/lib/google/drive";
 import { GMAIL_SCOPES, getGoogleAccount, GOOGLE_SCOPES, hasScope } from "@/lib/google/oauth";
 import { aiAllowanceUsd, listMembers } from "@/lib/users";
 import { canEditLocalEnv, LOCAL_KEYS, type LocalKey } from "@/lib/local-env";
-import { getSettings } from "@/lib/settings";
+import { getSetting, getSettings } from "@/lib/settings";
 
 export const metadata = { title: "Settings" };
 
@@ -224,6 +226,14 @@ export default async function SettingsPage() {
           <BackgroundPicker current={settings.background} theme={settings.theme} sounds={settings.sounds} photoUrl={photo ? `/api/background?v=${photo}` : null} />
         </Card>
       </Section>
+
+      {owner && (
+        <Section title="Jarvis voice" footer="ElevenLabs gives Jarvis a natural human voice and accurate hearing in Romanian and English. Billed to your ElevenLabs plan; a Starter or Creator plan covers daily use.">
+          <Card className="p-4">
+            <SpeechForm isSet={Boolean(await speechKey())} voice={(await getSetting<string>(user.id, "jarvisVoiceId")) ?? ""} defaultVoice={DEFAULT_VOICE_ID} />
+          </Card>
+        </Section>
+      )}
 
       {owner && (
         <Section title="Anthropic key" footer="One key for the whole hub: members use Claude on it within their monthly allowance (Members below).">

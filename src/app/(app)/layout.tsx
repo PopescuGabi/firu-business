@@ -11,13 +11,14 @@ import { listPages } from "@/lib/custom-pages-db";
 import { linksForViewer } from "@/lib/client-links";
 import { GlassProvider, GlassDebug } from "@/components/glass";
 import { Jarvis } from "@/components/jarvis";
+import { speechKey } from "@/lib/speech";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // First sign-in: choose sections before anything else.
   if (!user.onboarded) redirect("/onboarding");
   const db = await getDb();
-  const [clients, background, settings, pages, links] = await Promise.all([
+  const [clients, background, settings, pages, links, voiceKey] = await Promise.all([
     db
       .select({ id: schema.clients.id, name: schema.clients.name, color: schema.clients.color })
       .from(schema.clients)
@@ -27,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getSettings(user.id),
     listPages(user.id),
     linksForViewer(user.id),
+    speechKey(),
   ]);
   // "From Gabi" for each business that shares a dashboard with this person (client name added when one agency shares several).
   const navShared = links.map((l) => ({
@@ -45,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mx-auto max-w-[1680px]">{children}</div>
       </main>
       <TabBar modules={user.modules} clients={clients} pages={navPages} shared={navShared} />
-      <Jarvis />
+      <Jarvis premium={Boolean(voiceKey)} />
       <GlassDebug />
     </div>
     </GlassProvider>

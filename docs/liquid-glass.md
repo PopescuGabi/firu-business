@@ -86,3 +86,13 @@ Not tested: Safari, Firefox, real iOS or Android devices, screen readers, and fr
   - **Wake word.** Off by default; turned on with the ear button. While it's on, the tab listens for "Jarvis" and takes what follows as the request. It pauses while Jarvis speaks and whenever the tab is hidden. Browser speech recognition sends audio to the browser maker's speech service (Google in Chrome), so leave it off when you don't need it.
   - Replies come from Claude Sonnet through `/api/ai/jarvis`, using the owner's stored key with the usual hourly limit and usage log. Mail is read as sender and subject only. The conversation stays in the browser tab.
 - **Not built yet:** a studio-quality voice (it would need a paid speech service such as ElevenLabs), creating calendar events by voice, and listening when the Dashboard tab isn't open.
+
+## Jarvis's voice and hearing (ElevenLabs)
+
+- **Why.** Browser voices sound robotic, and browser speech recognition mishears names and food ("shawarma" → "shower"), especially in Romanian or mixed speech. ElevenLabs ranks at the top of current blind listening tests and supports Romanian in both directions.
+- **Voice out.** `/api/speech/tts` uses `eleven_v4_turbo` (expressive, real-time, Romanian and English) with the voice "George" (`JBFqnCBsd6RMkjVDRZzb`, warm British male) unless another voice ID is set. Each sentence is fetched while the previous one plays.
+- **Hearing.** With a key, the mic button records your request. Recording stops by itself after about 1.3 s of silence, and the audio goes to `/api/speech/stt` (Scribe v3, language detected automatically). The wake word still uses the browser to spot "Jarvis", then records the request properly.
+- **Setup.** Settings → Jarvis voice → paste the ElevenLabs API key (owner only, stored encrypted). Without a key, everything falls back to the browser. If the key fails, Jarvis says so once and uses the browser voice.
+- **Microphone.** The site's `Permissions-Policy` used to block the microphone entirely (`microphone=()`), which broke voice input in production. It is now `microphone=(self)`.
+- **Schedule control.** Jarvis runs on Claude Opus and can list, add, move, rename and delete Google Calendar events; plan, accept or clear today's blocks; add, complete, reschedule and edit tasks; and update leads. It deletes only when clearly asked.
+

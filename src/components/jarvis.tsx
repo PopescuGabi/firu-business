@@ -89,9 +89,19 @@ function pickVoice(lang: Lang) {
   return voices.find((v) => !FEMALE.test(v.name)) ?? voices[0] ?? null;
 }
 
-/** Speaks text in order; a new reply cancels whatever is still being read. */
-function useSpeaker(lang: Lang, muted: boolean) {
+/** Romanian if the sentence looks Romanian, else the bar's language (replies follow the language he spoke). */
+const ROMANIAN = /[ăâîșțşţ]|\b(și|este|pentru|sunt|aveți|aveti|mâine|astăzi|azi|bună|vă|vreți|domnule)\b/i;
+
+/**
+ * Speaks text in order; a new reply cancels whatever is still being read. With ElevenLabs (`premium`), each
+ * sentence is fetched as natural speech while the previous one plays; otherwise the browser's voice reads it.
+ */
+function useSpeaker(lang: Lang, muted: boolean, premium: boolean, onFail: (m: string) => void) {
   const [speaking, setSpeaking] = useState(false);
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const gen = useRef(0);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const failed = useRef(false);
   const [voiceName, setVoiceName] = useState<string | null>(null);
   const [voices, setVoices] = useState<string[]>([]);
   const queue = useRef(0);
@@ -114,7 +124,7 @@ function useSpeaker(lang: Lang, muted: boolean) {
     },
     [lang, refresh],
   );
-  const say = useCallback(
+  const browserSay = useCallback(
     (text: string) => {
       if (muted || typeof speechSynthesis === "undefined" || !text.trim()) return;
       const u = new SpeechSynthesisUtterance(text);
@@ -134,7 +144,58 @@ function useSpeaker(lang: Lang, muted: boolean) {
     },
     [lang, muted],
   );
+  const premiumSay = useCallback(
+    (text: string) => {
+      if (muted || !text.trim()) return;
+      const g = gen.current;
+      const textLang = ROMANIAN.test(text) || lang === "ro-RO" ? "ro" : "en";
+      // Start fetching now so the audio is ready when the previous sentence ends.
+      const clip = fetch("/api/speech/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, lang: textLang }),
+      }).then(async (r) => {
+        if (r.ok) return r.blob();
+        const j = await r.json().catch(() => null);
+        throw new Error(j?.error ?? `Voice unavailable (${r.status}).`);
+      });
+      clip.catch(() => {}); // handled in the chain below
+      queue.current++;
+      setSpeaking(true);
+      chain.current = chain.current
+        .then(async () => {
+          if (g !== gen.current) return;
+          try {
+            const blob = await clip;
+            if (g !== gen.current) return;
+            const url = URL.createObjectURL(blob);
+            const a = new Audio(url);
+            audio.current = a;
+            await new Promise<void>((done) => {
+              a.onended = a.onerror = () => done();
+              a.play().catch(() => done());
+            });
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            if (!failed.current) onFail(`${(e as Error).message} Using the browser voice for now.`);
+            failed.current = true;
+            browserSay(text);
+          }
+        })
+        .finally(() => {
+          if (g !== gen.current) return;
+          queue.current = Math.max(0, queue.current - 1);
+          if (queue.current === 0) setSpeaking(false);
+        });
+    },
+    [browserSay, lang, muted, onFail],
+  );
+  const say = premium ? premiumSay : browserSay;
   const stop = useCallback(() => {
+    gen.current++;
+    chain.current = Promise.resolve();
+    audio.current?.pause();
+    audio.current = null;
     if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
     queue.current = 0;
     setSpeaking(false);
@@ -142,7 +203,62 @@ function useSpeaker(lang: Lang, muted: boolean) {
   return { say, stop, speaking, voiceName, voices, chooseVoice };
 }
 
-export function Jarvis() {
+/**
+ * Records one spoken request: starts on the mic button (or after "Jarvis"), stops by itself after about
+ * 1.3 s of silence once you've spoken, after 4 s if you never start, or at 30 s.
+ */
+async function recordRequest(handle: { stop?: () => void }, onSpeech: () => void): Promise<Blob | null> {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"].find((t) => MediaRecorder.isTypeSupported(t));
+  const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+  const chunks: Blob[] = [];
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  const ctx = new AudioContext();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const buf = new Float32Array(analyser.fftSize);
+  const started = performance.now();
+  let spokeAt = 0;
+  let quietSince = 0;
+  let cancelled = false;
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearInterval(timer);
+      if (recorder.state !== "inactive") recorder.stop();
+    };
+    handle.stop = finish;
+    recorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      void ctx.close();
+      resolve(cancelled || !spokeAt ? null : new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+    };
+    const timer = setInterval(() => {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += v * v;
+      const level = Math.sqrt(sum / buf.length);
+      const now = performance.now();
+      if (level > 0.025) {
+        if (!spokeAt) onSpeech();
+        spokeAt = now;
+        quietSince = 0;
+      } else if (spokeAt) {
+        quietSince ||= now;
+        if (now - quietSince > 1300) finish();
+      }
+      if (!spokeAt && now - started > 4000) {
+        cancelled = true;
+        finish();
+      }
+      if (now - started > 30_000) finish();
+    }, 80);
+    recorder.start(250);
+  });
+}
+
+/** `premium`: an ElevenLabs key is set, so Jarvis speaks with a natural voice and transcribes recorded requests. */
+export function Jarvis({ premium = false }: { premium?: boolean }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -160,11 +276,16 @@ export function Jarvis() {
   const wakeRec = useRef<Recognition | null>(null);
   const abort = useRef<AbortController | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const { say, stop: stopSpeaking, speaking, voiceName, voices, chooseVoice } = useSpeaker(lang, muted);
+  const [transcribing, setTranscribing] = useState(false);
+  const recHandle = useRef<{ stop?: () => void }>({});
+  const [canRecord, setCanRecord] = useState(false);
+  const { say, stop: stopSpeaking, speaking, voiceName, voices, chooseVoice } = useSpeaker(lang, muted, premium, setError);
   const [voiceMenu, setVoiceMenu] = useState(false);
 
   useEffect(() => {
-    setCanListen(Boolean(recognitionCtor()));
+    const recordable = premium && typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
+    setCanRecord(recordable);
+    setCanListen(recordable || Boolean(recognitionCtor()));
     const l = store.get("jarvis.lang");
     if (l === "en-GB" || l === "ro-RO") setLang(l);
     setMuted(store.get("jarvis.muted") === "1");
@@ -268,7 +389,48 @@ export function Jarvis() {
     [busy, messages, router, say, stopSpeaking],
   );
 
+  // With ElevenLabs: record the request and transcribe it with Scribe (accurate, any language, names and food
+  // included). Without: the browser's recogniser.
+  const listenRecorded = useCallback(async () => {
+    if (listening) {
+      recHandle.current.stop?.();
+      return;
+    }
+    wakeRec.current?.abort();
+    stopSpeaking();
+    setError(null);
+    setListening(true);
+    setInput("");
+    try {
+      const blob = await recordRequest(recHandle.current, () => setInput("…"));
+      setListening(false);
+      if (!blob) {
+        setInput("");
+        return;
+      }
+      setTranscribing(true);
+      const form = new FormData();
+      form.append("audio", blob, blob.type.includes("mp4") ? "request.m4a" : "request.webm");
+      const res = await fetch("/api/speech/stt", { method: "POST", body: form });
+      const j = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      setTranscribing(false);
+      if (!res.ok) throw new Error(j.error ?? `Couldn't transcribe (${res.status}).`);
+      setInput("");
+      if (j.text?.trim()) void ask(j.text);
+    } catch (e) {
+      setListening(false);
+      setTranscribing(false);
+      setInput("");
+      const name = (e as Error).name;
+      setError(name === "NotAllowedError" ? "Microphone access is blocked. Allow it in the browser's site settings." : (e as Error).message);
+    }
+  }, [ask, listening, stopSpeaking]);
+
   const listen = useCallback(() => {
+    if (canRecord) {
+      void listenRecorded();
+      return;
+    }
     const Ctor = recognitionCtor();
     if (!Ctor) return;
     if (listening) {
@@ -301,7 +463,7 @@ export function Jarvis() {
     rec.current = r;
     setListening(true);
     r.start();
-  }, [ask, lang, listening, stopSpeaking]);
+  }, [ask, canRecord, lang, listenRecorded, listening, stopSpeaking]);
 
   // Wake word: while on, the tab listens for "Jarvis" and treats what follows as the request. It pauses while
   // Jarvis listens, thinks or speaks (so it doesn't hear itself) and whenever the tab is hidden.
@@ -315,7 +477,7 @@ export function Jarvis() {
   }, [ask, listen, say]);
   useEffect(() => {
     const Ctor = recognitionCtor();
-    if (!wakeOn || !Ctor || busy || listening || speaking) return;
+    if (!wakeOn || !Ctor || busy || listening || speaking || transcribing) return;
     let stopped = false;
     let r: Recognition | null = null;
     const start = () => {
@@ -333,7 +495,9 @@ export function Jarvis() {
           const rest = said.slice((m.index ?? 0) + m[0].length).trim();
           stopped = true;
           r?.abort();
-          if (rest.split(/\s+/).length >= 2) void askRef.current(rest);
+          // With ElevenLabs the request itself is recorded and transcribed properly, so start recording now.
+          if (canRecord) setTimeout(() => listenRef.current(), 150);
+          else if (rest.split(/\s+/).length >= 2) void askRef.current(rest);
           else {
             sayRef.current(lang === "en-GB" ? "Yes, sir?" : "Da?");
             setTimeout(() => listenRef.current(), 700);
@@ -369,7 +533,7 @@ export function Jarvis() {
       r?.abort();
       wakeRec.current = null;
     };
-  }, [wakeOn, busy, listening, speaking, lang]);
+  }, [wakeOn, busy, listening, speaking, transcribing, lang, canRecord]);
 
   const stopAll = () => {
     abort.current?.abort();
@@ -394,7 +558,7 @@ export function Jarvis() {
   };
   const brief = () => void ask(lang === "en-GB" ? "Good morning, Jarvis." : "Bună dimineața, Jarvis.", { briefing: true });
 
-  const active = busy || listening || speaking;
+  const active = busy || listening || speaking || transcribing;
   return (
     <div className="jarvis pointer-events-none fixed inset-x-3 bottom-[calc(max(12px,env(safe-area-inset-bottom))+80px)] z-40 flex flex-col items-center gap-2 md:bottom-5 md:left-[calc(64px+24px)] lg:left-[calc(236px+24px)]">
       {open && messages.length > 0 && (
@@ -409,7 +573,7 @@ export function Jarvis() {
           <div className="flex items-center justify-between px-4 pt-3">
             <p className="text-[13px] font-semibold text-label-2">
               {ASSISTANT_NAME}
-              {voiceName && <span className="font-normal text-label-3"> · voice: {voiceName}</span>}
+              {(premium || voiceName) && <span className="font-normal text-label-3"> · voice: {premium ? "ElevenLabs" : voiceName}</span>}
             </p>
             <button type="button" onClick={() => setOpen(false)} aria-label="Hide conversation" className="grid size-7 place-items-center rounded-full text-label-2 hover:bg-fill">
               <X size={15} aria-hidden />
@@ -473,6 +637,7 @@ export function Jarvis() {
             <X size={14} aria-hidden />
           </button>
           <p className="w-full text-[12px] text-label-2">
+            {premium ? "Jarvis speaks with ElevenLabs (change the voice in Settings → Jarvis voice); this browser voice is only the fallback. " : ""}
             Voices come from your browser and device. For the most natural British male voices, use Microsoft Edge (Ryan or Thomas “Natural”) or Daniel on a Mac.
           </p>
         </GlassSurface>
@@ -526,7 +691,7 @@ export function Jarvis() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onFocus={() => messages.length && setOpen(true)}
-          placeholder={listening ? "Listening…" : wakeOn ? `Say “${ASSISTANT_NAME}…” or type` : `Ask ${ASSISTANT_NAME} anything`}
+          placeholder={transcribing ? "Understanding…" : listening ? "Listening…" : wakeOn ? `Say “${ASSISTANT_NAME}…” or type` : `Ask ${ASSISTANT_NAME} anything`}
           autoComplete="off"
           className="h-10 min-w-0 flex-1 bg-transparent px-1 text-[15px] outline-none placeholder:text-label-3"
         />
