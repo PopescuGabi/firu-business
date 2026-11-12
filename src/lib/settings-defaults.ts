@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS = {
   // Minutes from one place to another ("from>to"), e.g. home > a client's office. Set yours in Settings → Travel times.
   travel: {} as Record<string, number>,
   // App background: a built-in (lib/backgrounds.ts) or "photo" (your upload).
-  background: "default",
+  background: "silk",
   // Light, dark, or "auto" (follows the device).
   theme: "auto" as "auto" | "light" | "dark",
   // Little interface sounds (taps, toggles, a chime when something is saved).

@@ -884,7 +884,7 @@ export default async function HomePage() {
           <div className="flex items-end justify-between gap-3 pt-1">
             <div className="min-w-0">
               <p className="mb-0.5 text-[13px] text-label-2">{dateLabel}</p>
-              <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.025em]">
+              <h1 className="text-[38px] leading-[1.05] font-semibold tracking-[-0.025em]">
                 {greeting}
                 {settings.displayName ? `, ${settings.displayName}` : ""}
               </h1>

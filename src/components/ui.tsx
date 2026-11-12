@@ -12,7 +12,7 @@ export function PageHeader({ title, subtitle, actions, lead, className }: { titl
         {lead}
         <div className="min-w-0">
           {subtitle && <p className="mb-0.5 truncate text-[13px] text-label-2">{subtitle}</p>}
-          <h1 className="truncate text-[28px] leading-tight font-semibold tracking-[-0.025em]">{title}</h1>
+          <h1 className="truncate text-[38px] leading-[1.05] font-semibold tracking-[-0.025em]">{title}</h1>
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

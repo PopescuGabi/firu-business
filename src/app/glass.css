@@ -488,3 +488,13 @@ dialog.lg-modal::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .jarvis-bar.is-active, .jarvis-mic[aria-pressed="true"], .jarvis-panel { animation: none; }
 }
+
+/* Silk backdrop: clearer glass (a translucent base, so the tint stays light even at high contrast).
+   Kept at (0,3,0) so a region's own data-glass-scheme still wins. */
+[data-bg="silk"] .lg:not([data-tint]) {
+  --lg-base: rgb(255 255 255 / 0.6);
+}
+:where([data-theme="dark"]) [data-bg="silk"] .lg:not([data-tint]) {
+  --lg-base: rgb(22 18 34 / 0.62);
+  --lg-hi-mul: 0.6;
+}

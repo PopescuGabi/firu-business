@@ -1,13 +1,15 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { ArrowUpRight } from "lucide-react";
+import { GlassSurface } from "./glass";
 
-/** A board tile: a liquid glass pane that fades in after the ones before it (`i`) and lifts a little on hover. */
+/** A board tile: a refracting liquid glass pane that fades in after the ones before it (`i`) and lifts a little on hover. */
 export function Tile({ i = 0, className, children }: { i?: number; className?: string; children: React.ReactNode }) {
   return (
-    <section className="tile glass relative flex min-w-0 flex-col rounded-[22px] @container" style={{ ["--i" as string]: i }}>
+    // Refracting Liquid Glass (Tier 1 in Chromium; frosted elsewhere): the backdrop bends at the edges.
+    <GlassSurface as="section" radius={26} contrast="high" className="tile relative flex min-w-0 flex-col @container" style={{ ["--i" as string]: i }}>
       <div className={clsx("relative flex min-h-0 flex-1 flex-col overflow-y-auto p-4", className)}>{children}</div>
-    </section>
+    </GlassSurface>
   );
 }
 

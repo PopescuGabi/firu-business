@@ -46,8 +46,8 @@
   --rail: rgba(255, 255, 255, 0.55);
   --rail-icon: rgba(30, 34, 44, 0.6);
   --rail-active: #2f6bff;
-  --accent: #2f6bff;
-  --accent-soft: rgba(47, 107, 255, 0.11);
+  --accent: #6a3df5; /* violet, from the Silk look; white text on it is 5.8 : 1 */
+  --accent-soft: rgba(106, 61, 245, 0.12);
   /* The blue accent: progress, the primary button, focus. */
   --glow-color: #2f6bff;
   --orb: linear-gradient(180deg, #5b8cff 0%, #2f6bff 60%, #2a5ff0 100%);
@@ -102,8 +102,8 @@
   --rail: rgba(255, 255, 255, 0.04);
   --rail-icon: rgba(232, 234, 242, 0.6);
   --rail-active: #4c86ff;
-  --accent: #4c86ff;
-  --accent-soft: rgba(76, 134, 255, 0.16);
+  --accent: #9d7cff;
+  --accent-soft: rgba(157, 124, 255, 0.18);
   --glow-color: #4c86ff;
   --orb: linear-gradient(180deg, #6a98ff 0%, #3a74ff 60%, #2f63ea 100%);
   --glow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 18px rgba(76, 134, 255, 0.35);
@@ -1263,4 +1263,38 @@ button {
   from {
     transform: scaleX(0);
   }
+}
+
+/* ---------- Silk: clear glass over violet ribbons (Settings → Background → Silk, the default) ----------
+   Unlike the solid look, the backdrop has shapes, so cards frost and bend what is behind them. */
+[data-bg="silk"] {
+  --card: rgba(255, 255, 255, 0.42);
+  --chrome: rgba(255, 255, 255, 0.46);
+  --glass-border: rgba(255, 255, 255, 0.55);
+}
+[data-theme="dark"] [data-bg="silk"] {
+  --card: rgba(26, 22, 38, 0.34);
+  --chrome: rgba(16, 13, 26, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.14);
+}
+[data-bg="silk"] .glass {
+  backdrop-filter: blur(16px) saturate(150%);
+  border-radius: max(22px, 1em);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px var(--glass-border),
+    0 20px 50px -24px rgba(20, 8, 60, 0.55);
+  border-color: transparent;
+}
+[data-theme="dark"] [data-bg="silk"] .glass {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px var(--glass-border),
+    0 24px 60px -24px rgba(0, 0, 0, 0.8);
+}
+/* Display serif for page titles and the Home greeting. */
+main h1 {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
